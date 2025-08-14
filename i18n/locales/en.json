@@ -1,0 +1,384 @@
+
+{
+  "app": {
+    "title": "HVAC Calculator",
+    "language": "Language",
+    "unitSystem": "Unit System",
+    "siUnits": "SI Units",
+    "imperialUnits": "Imperial Units",
+    "systemAirflow": "System Airflow",
+    "acInletConditions": "Air Conditioner Inlet Conditions",
+    "acOutletConditions": "Air Conditioner Outlet Conditions",
+    "addEquipment": "Add Equipment",
+    "deleteAllEquipment": "Delete All Equipment",
+    "summary": "Summary",
+    "configuration": "Configuration",
+    "noEquipmentAdded": "No equipment added.",
+    "pressureLoss": "Pressure Loss",
+    "totalPressureLoss": "Total Pressure Loss:",
+    "psychrometricChart": "Psychrometric Chart"
+  },
+  "equipment": {
+    "pressureLoss": "Pressure Loss",
+    "inletAir": "Inlet Air",
+    "outletAir": "Outlet Air",
+    "up": "Up",
+    "down": "Down",
+    "useACInlet": "Use AC Inlet",
+    "useUpstreamOutlet": "Use Upstream Outlet",
+    "useDownstreamInlet": "Use Downstream Inlet",
+    "useACOutlet": "Use AC Outlet",
+    "delete": "Delete",
+    "conditions": "Conditions",
+    "results": "Calculation Results",
+    "warnings": {
+      "burner": "Outlet temperature should be higher than inlet.",
+      "cooling_coil": "Outlet temperature should be lower than inlet.",
+      "heating_coil": "Outlet temperature should be higher than inlet."
+    }
+  },
+  "equipmentNames": {
+    "filter": "Filter",
+    "burner": "Burner",
+    "cooling_coil": "Cooling Coil",
+    "heating_coil": "Heating Coil",
+    "eliminator": "Eliminator",
+    "spray_washer": "Spray Washer",
+    "fan": "Fan",
+    "damper": "Damper",
+    "custom": "Custom Equipment"
+  },
+  "conditions": {
+    "width": "Width",
+    "height": "Height",
+    "thickness": "Thickness",
+    "sheets": "Sheets",
+    "shf": "SHF (Sensible Heat Factor)",
+    "chilledWaterInletTemp": "Chilled Water Inlet Temp",
+    "chilledWaterOutletTemp": "Chilled Water Outlet Temp",
+    "heatExchangeEfficiency": "Heat Exchange Efficiency",
+    "hotWaterInletTemp": "Hot Water Inlet Temp",
+    "hotWaterOutletTemp": "Hot Water Outlet Temp",
+    "eliminatorType": "Eliminator Type",
+    "eliminator_3_fold": "3-Fold",
+    "eliminator_6_fold": "6-Fold",
+    "humidificationEfficiency": "Humidification Efficiency",
+    "waterToAirRatio": "Water-to-Air Ratio (L/G)",
+    "motorOutput": "Motor Output",
+    "motorEfficiency": "Motor Efficiency",
+    "lossCoefficientK": "Loss Coefficient (K)"
+  },
+  "results": {
+    "faceVelocity": "Face Velocity",
+    "treatedAirflowPerSheet": "Airflow/Sheet",
+    "heatLoad_kcal": "Heat Load",
+    "airSideHeatLoad_kcal": "Air-Side Heat Load",
+    "coldWaterSideHeatLoad_kcal": "Water-Side Heat Load",
+    "chilledWaterFlow_L_min": "Chilled Water Flow",
+    "dehumidification_L_min": "Dehumidification",
+    "hotWaterSideHeatLoad_kcal": "Water-Side Heat Load",
+    "hotWaterFlow_L_min": "Hot Water Flow",
+    "humidification_L_min": "Humidification",
+    "sprayAmount_L_min": "Spray Amount",
+    "heatGeneration_kcal": "Heat Generation",
+    "tempRise_deltaT_celsius": "Temp Rise ⊿T",
+    "airVelocity_m_s": "Air Velocity",
+    "pressureLoss_Pa": "Pressure Loss"
+  },
+  "airProperties": {
+    "temperature": "Temperature",
+    "rh": "Relative Humidity",
+    "abs_humidity": "Absolute Humidity",
+    "enthalpy": "Enthalpy"
+  },
+  "units": {
+    "si": {
+        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
+        "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
+        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
+        "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³"
+    },
+    "imperial": {
+        "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
+        "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
+        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
+        "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³"
+    }
+  },
+  "chart": {
+    "xAxisLabel": "Dry Bulb Temperature",
+    "yAxisLabel": "Absolute Humidity",
+    "acInlet": "AC Inlet",
+    "acOutlet": "AC Outlet",
+    "inlet": "Inlet",
+    "outlet": "Outlet"
+  },
+  "fab": {
+    "title": "Navigation",
+    "summary": "To Summary",
+    "chart": "To Chart",
+    "acInlet": "To AC Inlet"
+  },
+  "tooltips": {
+    "airProperties": {
+      "absHumidityFromTRh": {
+        "title": "Absolute Humidity (from T, RH)",
+        "si": {
+          "formula": [
+            "P_v = P_sat(t) * (rh / 100)",
+            "x = 1000 * (0.622 * P_v) / (P_atm - P_v)"
+          ],
+          "legend": {
+            "x": "Abs. Humidity (g/kg)", "t": "Temp (°C)", "rh": "Rel. Humidity (%)",
+            "P_sat": "Sat. Vapor Pressure (Pa)", "P_v": "Vapor Pressure (Pa)", "P_atm": "Atm. Pressure (101325 Pa)"
+          }
+        },
+        "imperial": {
+          "formula": [
+            "t_c = (t_f - 32) * 5/9",
+            "P_v = P_sat(t_c) * (rh/100)",
+            "x = 7000 * (0.622*P_v) / (P_atm - P_v)"
+          ],
+          "legend": {
+            "x": "Abs. Humidity (gr/lb)", "t_f": "Temp (°F)", "rh": "Rel. Humidity (%)",
+            "P_sat": "Sat. Vapor Pressure (Pa)", "P_v": "Vapor Pressure (Pa)", "P_atm": "Atm. Pressure (101325 Pa)"
+          }
+        }
+      },
+      "enthalpyFromTX": {
+        "title": "Enthalpy (from T, x)",
+        "si": {
+          "formula": "h = 1.006*t + (x/1000)*(2501 + 1.86*t)",
+          "legend": { "h": "Enthalpy (kJ/kg)", "t": "Temp (°C)", "x": "Abs. Humidity (g/kg)" }
+        },
+        "imperial": {
+          "formula": "h = 0.24*t + (x/7000)*(1061 + 0.444*t)",
+          "legend": { "h": "Enthalpy (BTU/lb)", "t": "Temp (°F)", "x": "Abs. Humidity (gr/lb)" }
+        }
+      },
+      "rhFromTX": {
+        "title": "Relative Humidity (from T, x)",
+        "si": {
+          "formula": [
+            "P_v = (P_atm * (x/1000)) / (0.622 + (x/1000))",
+            "rh = (P_v / P_sat(t)) * 100"
+          ],
+          "legend": {
+            "rh": "Rel. Humidity (%)", "t": "Temp (°C)", "x": "Abs. Humidity (g/kg)",
+            "P_v": "Vapor Pressure (Pa)", "P_sat": "Sat. Vapor Pressure (Pa)"
+          }
+        },
+        "imperial": {
+          "formula": [
+            "t_c = (t_f - 32) * 5/9",
+            "P_v = (P_atm*(x/7000))/(0.622+(x/7000))",
+            "rh = (P_v / P_sat(t_c)) * 100"
+          ],
+          "legend": {
+            "rh": "Rel. Humidity (%)", "t_f": "Temp (°F)", "x": "Abs. Humidity (gr/lb)",
+            "P_v": "Vapor Pressure (Pa)", "P_sat": "Sat. Vapor Pressure (Pa)"
+          }
+        }
+      },
+      "absHumidityFromTH": {
+        "title": "Absolute Humidity (from T, h)",
+        "si": {
+          "formula": "x = 1000*(h - 1.006*t) / (2501 + 1.86*t)",
+          "legend": { "x": "Abs. Humidity (g/kg)", "h": "Enthalpy (kJ/kg)", "t": "Temp (°C)" }
+        },
+        "imperial": {
+          "formula": "x = 7000*(h - 0.24*t) / (1061 + 0.444*t)",
+          "legend": { "x": "Abs. Humidity (gr/lb)", "h": "Enthalpy (BTU/lb)", "t": "Temp (°F)" }
+        }
+      },
+      "constantAbsHumidity": {
+        "title": "Absolute Humidity (Sensible Process)",
+        "si": {
+          "formula": "x_out = x_in",
+          "legend": { "x_out": "Outlet Abs. Hum. (g/kg)", "x_in": "Inlet Abs. Hum. (g/kg)" }
+        },
+        "imperial": {
+          "formula": "x_out = x_in",
+          "legend": { "x_out": "Outlet Abs. Hum. (gr/lb)", "x_in": "Inlet Abs. Hum. (gr/lb)" }
+        }
+      }
+    },
+    "filter": {
+      "faceVelocity": {
+        "title": "Face Velocity",
+        "si": {
+          "formula": "v = (q / 60) / a_total",
+          "legend": { "v": "Velocity (m/s)", "q": "Airflow (m³/min)", "a_total": "Total Area (m²)" }
+        },
+        "imperial": {
+          "formula": "v = q / a_total",
+          "legend": { "v": "Velocity (fpm)", "q": "Airflow (CFM)", "a_total": "Total Area (ft²)" }
+        }
+      },
+      "airflowPerSheet": {
+        "title": "Airflow per Sheet",
+        "si": {
+          "formula": "q_sheet = q / n",
+          "legend": { "q_sheet": "Airflow/Sheet (m³/min)", "q": "Total Airflow (m³/min)", "n": "Num. of Sheets" }
+        },
+        "imperial": {
+          "formula": "q_sheet = q / n",
+          "legend": { "q_sheet": "Airflow/Sheet (CFM)", "q": "Total Airflow (CFM)", "n": "Num. of Sheets" }
+        }
+      }
+    },
+    "burner": {
+      "heatLoad": {
+        "title": "Heat Load",
+        "si": {
+          "formula": "Q_kW = G*1.02*(t_out-t_in)/SHF",
+          "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "Δt": "Temp Rise (°C)", "SHF": "Sensible Heat Factor" }
+        },
+        "imperial": {
+          "formula": "Q_BTUh = 1.08 * q * Δt / SHF",
+          "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "Δt": "Temp Rise (°F)", "SHF": "Sensible Heat Factor" }
+        }
+      }
+    },
+    "coil": {
+      "airSideHeatLoad": {
+        "title": "Air-Side Heat Load",
+        "si": {
+          "formula": "Q_kW = G * |h_in - h_out|",
+          "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "h_in": "Inlet Enthalpy (kJ/kg)", "h_out": "Outlet Enthalpy (kJ/kg)" }
+        },
+        "imperial": {
+          "formula": "Q_BTUh = 4.5 * q * |h_in - h_out|",
+          "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
+        }
+      },
+      "waterSideHeatLoad": {
+        "title": "Water-Side Heat Load",
+        "si": {
+          "formula": "Q_water = Q_air / (η / 100)",
+          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Efficiency (%)" }
+        },
+        "imperial": {
+          "formula": "Q_water = Q_air / (η / 100)",
+          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Efficiency (%)" }
+        }
+      },
+      "waterFlow": {
+        "title": "Water Flow",
+        "si": {
+          "formula": "L = (Q_kW * 60) / (4.186 * Δt_w)",
+          "legend": { "L": "Flow (L/min)", "Q_kW": "Load (kW)", "Δt_w": "Water Temp Diff (°C)" }
+        },
+        "imperial": {
+          "formula": "GPM = Q_BTUh / (500 * Δt_w)",
+          "legend": { "GPM": "Flow (GPM)", "Q_BTUh": "Load (BTU/h)", "Δt_w": "Water Temp Diff (°F)" }
+        }
+      },
+      "dehumidification": {
+        "title": "Dehumidification",
+        "si": {
+          "formula": "D = (G * |x_in - x_out| / 1000) * 60",
+          "legend": { "D": "Rate (L/min)", "G": "Mass Flow (kg/s)", "x": "Abs. Hum. (g/kg)" }
+        },
+        "imperial": {
+          "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
+          "legend": { "D_gpm": "Rate (GPM)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+        }
+      }
+    },
+    "spray_washer": {
+      "humidification": {
+        "title": "Humidification",
+        "si": {
+          "formula": "M = (G * (x_out - x_in) / 1000) * 60",
+          "legend": { "M": "Rate (L/min)", "G": "Mass Flow (kg/s)", "x": "Abs. Hum. (g/kg)" }
+        },
+        "imperial": {
+          "formula": "M_gpm = (q*4.5*(x_out-x_in))/(7000*8.34)",
+          "legend": { "M_gpm": "Rate (GPM)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+        }
+      },
+      "sprayAmount": {
+        "title": "Spray Amount",
+        "si": {
+          "formula": "S = G * (L/G) * 60",
+          "legend": { "S": "Amount (L/min)", "G": "Mass Flow (kg/s)", "L/G": "Water-Air Ratio" }
+        },
+        "imperial": {
+          "formula": "S_gpm = (q * ρ * (L/G)) / 8.34",
+          "legend": { "S_gpm": "Amount (GPM)", "q": "Airflow (CFM)", "ρ": "Air Density (~0.075 lb/ft³)", "L/G": "Water-Air Ratio" }
+        }
+      },
+      "humidificationEfficiency": {
+        "title": "Humidification Efficiency",
+        "si": {
+          "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
+          "legend": { "η": "Efficiency (%)", "x": "Abs. Hum. (g/kg)", "x_sat": "Sat. Abs. Hum. (g/kg)" }
+        },
+        "imperial": {
+          "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
+          "legend": { "η": "Efficiency (%)", "x": "Abs. Hum. (gr/lb)", "x_sat": "Sat. Abs. Hum. (gr/lb)" }
+        }
+      }
+    },
+    "fan": {
+      "heatGeneration": {
+        "title": "Heat Generation",
+        "si": {
+          "formula": "Q_kW = P_kW * (1 - η/100)",
+          "legend": { "Q": "Heat (kW)", "P": "Motor Power (kW)", "η": "Efficiency (%)" }
+        },
+        "imperial": {
+          "formula": "Q_BTUh = P_HP * 2545 * (1 - η/100)",
+          "legend": { "Q": "Heat (BTU/h)", "P": "Motor Power (HP)", "η": "Efficiency (%)" }
+        }
+      },
+      "tempRise": {
+        "title": "Temperature Rise",
+        "si": {
+          "formula": "Δt = Q_kW / (G * 1.02)",
+          "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)" }
+        },
+        "imperial": {
+          "formula": "Δt = Q_BTUh / (1.08 * q)",
+          "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
+        }
+      },
+      "outletTemp": {
+        "title": "Outlet Temperature",
+        "si": {
+          "formula": "t_out = t_in + Δt",
+          "legend": { "t_out": "Outlet Temp (°C)", "t_in": "Inlet Temp (°C)", "Δt": "Temp Rise (°C)" }
+        },
+        "imperial": {
+          "formula": "t_out = t_in + Δt",
+          "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
+        }
+      }
+    },
+    "damper": {
+      "airVelocity": {
+        "title": "Air Velocity",
+        "si": {
+          "formula": "v = (q / 60) / A",
+          "legend": { "v": "Velocity (m/s)", "q": "Airflow (m³/min)", "A": "Area (m²)" }
+        },
+        "imperial": {
+          "formula": "v = q / A",
+          "legend": { "v": "Velocity (fpm)", "q": "Airflow (CFM)", "A": "Area (ft²)" }
+        }
+      },
+      "pressureLoss": {
+        "title": "Pressure Loss",
+        "si": {
+          "formula": "ΔP = K * 0.5 * ρ * v²",
+          "legend": { "ΔP": "Pressure Loss (Pa)", "K": "K-factor", "ρ": "Density (kg/m³)", "v": "Velocity (m/s)" }
+        },
+        "imperial": {
+          "formula": "ΔP = K * (v / 4005)²",
+          "legend": { "ΔP": "Pressure Loss (in.w.g.)", "K": "K-factor", "v": "Velocity (fpm)" }
+        }
+      }
+    }
+  }
+}

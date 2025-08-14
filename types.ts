@@ -1,0 +1,151 @@
+
+export enum UnitSystem {
+    SI = 'si',
+    IMPERIAL = 'imperial',
+}
+
+export enum EquipmentType {
+    FILTER = 'filter',
+    BURNER = 'burner',
+    COOLING_COIL = 'cooling_coil',
+    HEATING_COIL = 'heating_coil',
+    ELIMINATOR = 'eliminator',
+    SPRAY_WASHER = 'spray_washer',
+    FAN = 'fan',
+    DAMPER = 'damper',
+    CUSTOM = 'custom',
+}
+
+export interface AirProperties {
+    temp: number | null;
+    rh: number | null;
+    absHumidity: number | null;
+    enthalpy: number | null;
+    density: number | null;
+}
+
+// Base interfaces for conditions and results
+interface BaseConditions {}
+interface BaseResults {}
+
+// Specific condition interfaces
+export interface FilterConditions extends BaseConditions {
+    width?: number;
+    height?: number;
+    thickness?: number;
+    sheets?: number;
+}
+
+export interface BurnerConditions extends BaseConditions {
+    shf?: number;
+}
+
+export interface CoolingCoilConditions extends BaseConditions {
+    chilledWaterInletTemp?: number;
+    chilledWaterOutletTemp?: number;
+    heatExchangeEfficiency?: number;
+}
+
+export interface HeatingCoilConditions extends BaseConditions {
+    hotWaterInletTemp?: number;
+    hotWaterOutletTemp?: number;
+    heatExchangeEfficiency?: number;
+}
+
+export interface EliminatorConditions extends BaseConditions {
+    eliminatorType?: string;
+}
+
+export interface SprayWasherConditions extends BaseConditions {
+    waterToAirRatio?: number;
+}
+
+export interface FanConditions extends BaseConditions {
+    motorOutput?: number;
+    motorEfficiency?: number;
+}
+
+export interface DamperConditions extends BaseConditions {
+    width?: number;
+    height?: number;
+    lossCoefficientK?: number;
+}
+
+export interface CustomConditions extends BaseConditions {}
+
+export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | EliminatorConditions | SprayWasherConditions | FanConditions | DamperConditions | CustomConditions;
+
+// Specific result interfaces
+export interface FilterResults extends BaseResults {
+    faceVelocity?: number;
+    treatedAirflowPerSheet?: number;
+}
+
+export interface BurnerResults extends BaseResults {
+    heatLoad_kcal?: number;
+    heatLoad_W?: number;
+}
+
+export interface CoolingCoilResults extends BaseResults {
+    airSideHeatLoad_kcal?: number;
+    coldWaterSideHeatLoad_kcal?: number;
+    chilledWaterFlow_L_min?: number;
+    dehumidification_L_min?: number;
+}
+
+export interface HeatingCoilResults extends BaseResults {
+    airSideHeatLoad_kcal?: number;
+    hotWaterSideHeatLoad_kcal?: number;
+    hotWaterFlow_L_min?: number;
+}
+
+export interface EliminatorResults extends BaseResults {
+    pressureLoss?: number;
+}
+
+export interface SprayWasherResults extends BaseResults {
+    humidification_L_min?: number;
+    sprayAmount_L_min?: number;
+    humidificationEfficiency?: number;
+}
+
+export interface FanResults extends BaseResults {
+    heatGeneration_kcal?: number;
+    tempRise_deltaT_celsius?: number;
+}
+
+export interface DamperResults extends BaseResults {
+    airVelocity_m_s?: number;
+    pressureLoss_Pa?: number;
+}
+
+export interface CustomResults extends BaseResults {
+    pressureLoss?: number;
+}
+
+export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | EliminatorResults | SprayWasherResults | FanResults | DamperResults | CustomResults;
+
+// Main Equipment interface
+export interface Equipment {
+    id: number;
+    type: EquipmentType;
+    name: string;
+    pressureLoss: number | null;
+    inletAir: AirProperties;
+    outletAir: AirProperties;
+    conditions: EquipmentConditions;
+    results: EquipmentResults;
+    color: string;
+    inletIsLocked?: boolean;
+}
+
+export type UnitType = 
+    | 'airflow' | 'temperature' | 'length' | 'pressure' | 'heat_load' | 'water_flow'
+    | 'abs_humidity' | 'enthalpy' | 'motor_power' | 'velocity' | 'airflow_per_sheet'
+    | 'rh' | 'sheets' | 'shf' | 'efficiency' | 'k_value' | 'water_to_air_ratio'
+    | 'area' | 'density';
+
+export interface ChartPoint {
+    temp: number;
+    absHumidity: number;
+}

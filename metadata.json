@@ -1,0 +1,6 @@
+{
+  "name": "HVAC Air Conditioner Calculator",
+  "description": "A comprehensive web application for performing psychrometric calculations for various air conditioning equipment configurations. Users can add, configure, and reorder components like filters, coils, fans, and burners, and visualize the air property changes on a dynamic psychrometric chart. The app supports both SI and Imperial units.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
