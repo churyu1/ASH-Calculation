@@ -49,6 +49,7 @@ export const enMessages = {
     "heating_coil": "Heating Coil",
     "eliminator": "Eliminator",
     "spray_washer": "Spray Washer",
+    "steam_humidifier": "Steam Humidifier",
     "fan": "Fan",
     "damper": "Damper",
     "custom": "Custom Equipment"
@@ -69,6 +70,7 @@ export const enMessages = {
     "eliminator_6_fold": "6-Fold",
     "humidificationEfficiency": "Humidification Efficiency",
     "waterToAirRatio": "Water-to-Air Ratio (L/G)",
+    "steamGaugePressure": "Steam Gauge Pressure",
     "motorOutput": "Motor Output",
     "motorEfficiency": "Motor Efficiency",
     "lossCoefficientK": "Loss Coefficient (K)"
@@ -85,6 +87,10 @@ export const enMessages = {
     "hotWaterFlow_L_min": "Hot Water Flow",
     "humidification_L_min": "Humidification",
     "sprayAmount_L_min": "Spray Amount",
+    "requiredSteamAmount": "Required Steam Amount",
+    "steamAbsolutePressure": "Steam Absolute Pressure",
+    "steamTemperature": "Steam Temperature",
+    "steamEnthalpy": "Steam Enthalpy",
     "heatGeneration_kcal": "Heat Generation",
     "tempRise_deltaT_celsius": "Temp Rise ⊿T",
     "airVelocity_m_s": "Air Velocity",
@@ -101,13 +107,15 @@ export const enMessages = {
         "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
-        "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³"
+        "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
+        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
-        "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³"
+        "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
+        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
     }
   },
   "chart": {
@@ -324,6 +332,55 @@ export const enMessages = {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
           "legend": { "η": "Efficiency (%)", "x": "Abs. Hum. (gr/lb)", "x_sat": "Sat. Abs. Hum. (gr/lb)" }
         }
+      },
+      "outletTemp": {
+        "title": "Outlet Temperature (from RH)",
+        "si": {
+          "formula": "Calculated to match RH_out at constant enthalpy (h_in).",
+          "legend": {
+            "t_out": "Outlet Temp (°C)",
+            "h_in": "Inlet Enthalpy (kJ/kg)",
+            "RH_out": "Target Outlet RH (%)"
+          }
+        },
+        "imperial": {
+          "formula": "Calculated to match RH_out at constant enthalpy (h_in).",
+          "legend": {
+            "t_out": "Outlet Temp (°F)",
+            "h_in": "Inlet Enthalpy (BTU/lb)",
+            "RH_out": "Target Outlet RH (%)"
+          }
+        }
+      }
+    },
+    "steam_humidifier": {
+      "outletTemp": {
+        "title": "Outlet Temperature (from RH)",
+        "si": {
+          "formula": "Calculated to satisfy h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam",
+          "legend": {
+            "t_out": "Outlet Temp (°C)", "h_in": "Inlet Enthalpy (kJ/kg)", "x_in": "Inlet Abs. Hum. (g/kg)",
+            "h_steam": "Steam Enthalpy (kJ/kg)", "RH_out": "Target Outlet RH (%)"
+          }
+        },
+        "imperial": {
+          "formula": "Calculated to satisfy enthalpy balance for the target RH_out.",
+          "legend": {
+            "t_out": "Outlet Temp (°F)", "h_in": "Inlet Enthalpy (BTU/lb)", "x_in": "Inlet Abs. Hum. (gr/lb)",
+            "h_steam": "Steam Enthalpy (BTU/lb)", "RH_out": "Target Outlet RH (%)"
+          }
+        }
+      },
+      "requiredSteam": {
+        "title": "Required Steam Amount",
+        "si": {
+          "formula": "M = G * (x_out - x_in) / 1000 * 3600",
+          "legend": { "M": "Rate (kg/h)", "G": "Mass Flow (kg/s)", "x": "Abs. Hum. (g/kg)" }
+        },
+        "imperial": {
+          "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
+          "legend": { "M_lbh": "Rate (lb/h)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+        }
       }
     },
     "fan": {
@@ -434,6 +491,7 @@ const jaMessages = {
     "heating_coil": "温水コイル",
     "eliminator": "エリミネーター",
     "spray_washer": "スプレーワッシャー",
+    "steam_humidifier": "蒸気加湿器",
     "fan": "ファン",
     "damper": "ダンパー",
     "custom": "カスタム機器"
@@ -454,6 +512,7 @@ const jaMessages = {
     "eliminator_6_fold": "6折",
     "humidificationEfficiency": "加湿効率",
     "waterToAirRatio": "水空気比 (L/G)",
+    "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
     "motorEfficiency": "モーター効率",
     "lossCoefficientK": "損失係数(K値)"
@@ -470,6 +529,10 @@ const jaMessages = {
     "hotWaterFlow_L_min": "温水量",
     "humidification_L_min": "加湿量",
     "sprayAmount_L_min": "噴霧量",
+    "requiredSteamAmount": "必要蒸気量",
+    "steamAbsolutePressure": "蒸気絶対圧",
+    "steamTemperature": "蒸気温度",
+    "steamEnthalpy": "蒸気エンタルピー",
     "heatGeneration_kcal": "発熱量",
     "tempRise_deltaT_celsius": "温度上昇⊿T",
     "airVelocity_m_s": "風速",
@@ -486,13 +549,15 @@ const jaMessages = {
         "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
-        "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³"
+        "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
+        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
-        "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³"
+        "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
+        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
     }
   },
   "chart": {
@@ -708,6 +773,55 @@ const jaMessages = {
         "imperial": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
           "legend": { "η": "効率 (%)", "x": "絶対湿度 (gr/lb)", "x_sat": "飽和絶対湿度 (gr/lb)" }
+        }
+      },
+      "outletTemp": {
+        "title": "出口温度 (相対湿度から)",
+        "si": {
+          "formula": "入口エンタルピーを維持し、目標の出口相対湿度になるように計算されます。",
+          "legend": {
+            "t_out": "出口温度 (°C)",
+            "h_in": "入口エンタルピー (kJ/kg)",
+            "RH_out": "目標出口相対湿度 (%)"
+          }
+        },
+        "imperial": {
+          "formula": "入口エンタルピーを維持し、目標の出口相対湿度になるように計算されます。",
+          "legend": {
+            "t_out": "出口温度 (°F)",
+            "h_in": "入口エンタルピー (BTU/lb)",
+            "RH_out": "目標出口相対湿度 (%)"
+          }
+        }
+      }
+    },
+    "steam_humidifier": {
+      "outletTemp": {
+        "title": "出口温度 (相対湿度から)",
+        "si": {
+          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam を満たすように計算されます。",
+          "legend": {
+            "t_out": "出口温度 (°C)", "h_in": "入口エンタルピー (kJ/kg)", "x_in": "入口絶対湿度 (g/kg)",
+            "h_steam": "蒸気エンタルピー (kJ/kg)", "RH_out": "目標出口相対湿度 (%)"
+          }
+        },
+        "imperial": {
+          "formula": "目標の出口相対湿度になるようエンタルピーバランスから計算されます。",
+          "legend": {
+            "t_out": "出口温度 (°F)", "h_in": "入口エンタルピー (BTU/lb)", "x_in": "入口絶対湿度 (gr/lb)",
+            "h_steam": "蒸気エンタルピー (BTU/lb)", "RH_out": "目標出口相対湿度 (%)"
+          }
+        }
+      },
+      "requiredSteam": {
+        "title": "必要蒸気量",
+        "si": {
+          "formula": "M = G * (x_out - x_in) / 1000 * 3600",
+          "legend": { "M": "蒸気量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+        },
+        "imperial": {
+          "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
+          "legend": { "M_lbh": "蒸気量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       }
     },

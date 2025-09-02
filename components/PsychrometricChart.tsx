@@ -5,6 +5,7 @@ import { Equipment, AirProperties, UnitSystem, ChartPoint } from '../types';
 import { convertValue, getPrecisionForUnitType } from '../utils/conversions';
 import { calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy } from '../services/psychrometrics';
 import { useLanguage } from '../i18n';
+import { EQUIPMENT_HEX_COLORS } from '../constants';
 
 interface PsychrometricChartProps {
     airConditionsData: Equipment[];
@@ -102,10 +103,17 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
         // FIX: Use 'axisLeft' directly instead of 'd3.axisLeft'
         svg.append("g").attr("class", "grid y-grid").call(axisLeft(yScale).ticks(6).tickSize(-width).tickFormat(() => "")).selectAll("line").style("stroke", "#e2e8f0");
 
-        svg.append("defs").append("marker")
-            .attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
-            .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse")
-            .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#2563eb");
+        const defs = svg.append("defs");
+        const defaultColor = '#2563eb';
+
+        airConditionsData.forEach(eq => {
+            const color = EQUIPMENT_HEX_COLORS[eq.type] || defaultColor;
+            defs.append("marker")
+                .attr("id", `arrow-${eq.id}`)
+                .attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
+                .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse")
+                .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", color);
+        });
 
         const rhLines = [20, 40, 60, 80, 100];
         rhLines.forEach(rh => {
@@ -177,11 +185,12 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             
             const [inletTempSI, inletAbsHumiditySI] = [eq.inletAir.temp, eq.inletAir.absHumidity];
             const [outletTempSI, outletAbsHumiditySI] = [eq.outletAir.temp, eq.outletAir.absHumidity];
+            const color = EQUIPMENT_HEX_COLORS[eq.type] || defaultColor;
 
             svg.append("circle").attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 5).attr("fill", "#16a34a").attr("stroke", "#1f2937");
             svg.append("circle").attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 5).attr("fill", "#dc2626").attr("stroke", "#1f2937");
             svg.append("line").attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-               .attr("stroke", "#2563eb").attr("stroke-width", 2).attr("marker-end", "url(#arrow)");
+               .attr("stroke", color).attr("stroke-width", 2).attr("marker-end", `url(#arrow-${eq.id})`);
             svg.append("text").attr("x", xScale(inletTempSI) + 8).attr("y", yScale(inletAbsHumiditySI) - 8).text(`${eq.name} ${t('chart.inlet')}`).attr("font-size", "10px").attr("fill", "#16a34a");
             svg.append("text").attr("x", xScale(outletTempSI) + 8).attr("y", yScale(outletAbsHumiditySI) + 12).text(`${eq.name} ${t('chart.outlet')}`).attr("font-size", "10px").attr("fill", "#dc2626");
         });

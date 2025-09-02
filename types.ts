@@ -1,4 +1,5 @@
 
+
 export enum UnitSystem {
     SI = 'si',
     IMPERIAL = 'imperial',
@@ -11,6 +12,7 @@ export enum EquipmentType {
     HEATING_COIL = 'heating_coil',
     ELIMINATOR = 'eliminator',
     SPRAY_WASHER = 'spray_washer',
+    STEAM_HUMIDIFIER = 'steam_humidifier',
     FAN = 'fan',
     DAMPER = 'damper',
     CUSTOM = 'custom',
@@ -60,6 +62,10 @@ export interface SprayWasherConditions extends BaseConditions {
     waterToAirRatio?: number;
 }
 
+export interface SteamHumidifierConditions extends BaseConditions {
+    steamGaugePressure?: number;
+}
+
 export interface FanConditions extends BaseConditions {
     motorOutput?: number;
     motorEfficiency?: number;
@@ -73,7 +79,7 @@ export interface DamperConditions extends BaseConditions {
 
 export interface CustomConditions extends BaseConditions {}
 
-export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | EliminatorConditions | SprayWasherConditions | FanConditions | DamperConditions | CustomConditions;
+export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | EliminatorConditions | SprayWasherConditions | SteamHumidifierConditions | FanConditions | DamperConditions | CustomConditions;
 
 // Specific result interfaces
 export interface FilterResults extends BaseResults {
@@ -109,6 +115,13 @@ export interface SprayWasherResults extends BaseResults {
     humidificationEfficiency?: number;
 }
 
+export interface SteamHumidifierResults extends BaseResults {
+    steamAbsolutePressure?: number;
+    steamTemperature?: number;
+    steamEnthalpy?: number;
+    requiredSteamAmount?: number;
+}
+
 export interface FanResults extends BaseResults {
     heatGeneration_kcal?: number;
     tempRise_deltaT_celsius?: number;
@@ -123,7 +136,7 @@ export interface CustomResults extends BaseResults {
     pressureLoss?: number;
 }
 
-export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | EliminatorResults | SprayWasherResults | FanResults | DamperResults | CustomResults;
+export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | EliminatorResults | SprayWasherResults | SteamHumidifierResults | FanResults | DamperResults | CustomResults;
 
 // Main Equipment interface
 export interface Equipment {
@@ -143,7 +156,7 @@ export type UnitType =
     | 'airflow' | 'temperature' | 'length' | 'pressure' | 'heat_load' | 'water_flow'
     | 'abs_humidity' | 'enthalpy' | 'motor_power' | 'velocity' | 'airflow_per_sheet'
     | 'rh' | 'sheets' | 'shf' | 'efficiency' | 'k_value' | 'water_to_air_ratio'
-    | 'area' | 'density';
+    | 'area' | 'density' | 'steam_pressure' | 'steam_enthalpy' | 'steam_flow';
 
 export interface ChartPoint {
     temp: number;

@@ -1,4 +1,3 @@
-
 import { EquipmentType } from './types';
 
 export const EQUIPMENT_COLORS: Record<EquipmentType, string> = {
@@ -8,9 +7,23 @@ export const EQUIPMENT_COLORS: Record<EquipmentType, string> = {
     [EquipmentType.HEATING_COIL]: 'border-red-500',
     [EquipmentType.ELIMINATOR]: 'border-teal-400',
     [EquipmentType.SPRAY_WASHER]: 'border-cyan-400',
+    [EquipmentType.STEAM_HUMIDIFIER]: 'border-rose-500',
     [EquipmentType.FAN]: 'border-purple-500',
     [EquipmentType.DAMPER]: 'border-orange-500',
     [EquipmentType.CUSTOM]: 'border-indigo-500',
+};
+
+export const EQUIPMENT_HEX_COLORS: Record<EquipmentType, string> = {
+    [EquipmentType.FILTER]: '#94a3b8',
+    [EquipmentType.BURNER]: '#f59e0b',
+    [EquipmentType.COOLING_COIL]: '#0ea5e9',
+    [EquipmentType.HEATING_COIL]: '#ef4444',
+    [EquipmentType.ELIMINATOR]: '#2dd4bf',
+    [EquipmentType.SPRAY_WASHER]: '#22d3ee',
+    [EquipmentType.STEAM_HUMIDIFIER]: '#f43f5e',
+    [EquipmentType.FAN]: '#a855f7',
+    [EquipmentType.DAMPER]: '#f97316',
+    [EquipmentType.CUSTOM]: '#6366f1',
 };
 
 export const MOTOR_OUTPUT_OPTIONS: number[] = [

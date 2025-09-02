@@ -1,10 +1,11 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
     Equipment, UnitSystem, EquipmentType, AirProperties, 
     CoolingCoilConditions, HeatingCoilConditions, FanConditions, 
     DamperConditions, FilterConditions, BurnerConditions, 
-    EliminatorConditions, SprayWasherConditions, CustomConditions 
+    EliminatorConditions, SprayWasherConditions, SteamHumidifierConditions, CustomConditions 
 } from './types';
 import { EQUIPMENT_COLORS } from './constants';
 import { calculateAirProperties, calculatePsat } from './services/psychrometrics';
@@ -20,45 +21,52 @@ import { convertValue } from './utils/conversions';
 
 // Function to generate the initial equipment list
 const getInitialEquipment = (): Equipment[] => {
-    const initialList: Equipment[] = [];
-    let id = 0;
-    // The initial inlet air for the whole system
-    let currentInletAir: AirProperties = calculateAirProperties(0, 50);
+    // Define initial setups. Inlet properties are for components that break the chain.
+    const equipmentSetups = [
+        { type: EquipmentType.FILTER },
+        { type: EquipmentType.BURNER },
+        { type: EquipmentType.COOLING_COIL,       inlet: { temp: 25,   rh: 80 } },
+        { type: EquipmentType.HEATING_COIL,       inlet: { temp: 15,   rh: 60 } },
+        { type: EquipmentType.ELIMINATOR },
+        { type: EquipmentType.SPRAY_WASHER,     inlet: { temp: 55.2, rh: 4.58 } },
+        { type: EquipmentType.STEAM_HUMIDIFIER, inlet: { temp: 30,   rh: 30 } },
+        { type: EquipmentType.FAN,                inlet: { temp: 25,   rh: 60 } },
+        { type: EquipmentType.DAMPER },
+    ];
 
-    const typesToAdd = Object.values(EquipmentType).filter(t => t !== EquipmentType.CUSTOM);
+    const acInletAir = calculateAirProperties(0, 50);
 
-    for (const type of typesToAdd) {
-        const defaultName = get(enMessages, `equipmentNames.${type}`) || type;
+    const result = equipmentSetups.reduce<{ list: Equipment[], lastOutlet: AirProperties }>((acc, setup, index) => {
+        const { type, inlet: specificInletConfig } = setup;
         
-        let inletIsLocked = false;
-        if (type === EquipmentType.COOLING_COIL) {
-            currentInletAir = calculateAirProperties(25, 80);
-            inletIsLocked = true;
-        } else if (type === EquipmentType.FAN) {
-            currentInletAir = calculateAirProperties(25, 60);
-            inletIsLocked = true;
-        }
+        const inletAir = specificInletConfig 
+            ? calculateAirProperties(specificInletConfig.temp, specificInletConfig.rh) 
+            : acc.lastOutlet;
+        
+        const inletIsLocked = !!specificInletConfig;
+        
+        const defaultName = get(enMessages, `equipmentNames.${type}`) || type;
 
         let newEquipment: Equipment = {
-            id: id,
+            id: index,
             type,
             name: defaultName,
             pressureLoss: 50,
-            inletAir: { ...currentInletAir },
-            outletAir: { ...currentInletAir }, // Default outlet to inlet, will be overridden
+            inletAir: { ...inletAir },
+            outletAir: { ...inletAir }, // Default outlet to inlet, will be overridden
             conditions: {},
             results: {},
             color: EQUIPMENT_COLORS[type],
             inletIsLocked: inletIsLocked,
         };
 
-        // Apply type-specific defaults, similar to addEquipment
+        // Apply type-specific defaults for conditions and initial outlet values
         switch (type) {
             case EquipmentType.FILTER:
                 (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 };
                 break;
             case EquipmentType.BURNER:
-                newEquipment.outletAir = calculateAirProperties(40, 20);
+                newEquipment.outletAir = calculateAirProperties(55.2, null, newEquipment.inletAir.absHumidity);
                 (newEquipment.conditions as BurnerConditions) = { shf: 0.9 };
                 break;
             case EquipmentType.COOLING_COIL:
@@ -66,16 +74,20 @@ const getInitialEquipment = (): Equipment[] => {
                 (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, heatExchangeEfficiency: 85 };
                 break;
             case EquipmentType.HEATING_COIL:
-                newEquipment.outletAir = calculateAirProperties(40, 30);
+                newEquipment.outletAir = calculateAirProperties(30, null, newEquipment.inletAir.absHumidity);
                 (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, heatExchangeEfficiency: 85 };
                 break;
             case EquipmentType.ELIMINATOR:
                 (newEquipment.conditions as EliminatorConditions) = { eliminatorType: '3-fold' };
                 break;
             case EquipmentType.SPRAY_WASHER:
-                 newEquipment.outletAir = calculateAirProperties(30, 95);
+                 newEquipment.outletAir = calculateAirProperties(25, 70);
                  (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 };
                  break;
+            case EquipmentType.STEAM_HUMIDIFIER:
+                newEquipment.outletAir = { temp: null, rh: 60, absHumidity: null, enthalpy: null, density: null };
+                (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100 };
+                break;
             case EquipmentType.FAN:
                 (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };
                 break;
@@ -83,17 +95,18 @@ const getInitialEquipment = (): Equipment[] => {
                 newEquipment.pressureLoss = 0;
                 (newEquipment.conditions as DamperConditions) = { width: 500, height: 500, lossCoefficientK: 1.0 };
                 break;
-            case EquipmentType.CUSTOM: // Should not happen due to filter, but as a fallback
+            case EquipmentType.CUSTOM:
                 (newEquipment.conditions as CustomConditions) = {};
                 break;
         }
 
-        initialList.push(newEquipment);
-        // The inlet for the *next* component is the outlet of this one
-        currentInletAir = newEquipment.outletAir;
-        id++;
-    }
-    return initialList;
+        acc.list.push(newEquipment);
+        acc.lastOutlet = newEquipment.outletAir;
+        
+        return acc;
+    }, { list: [], lastOutlet: acInletAir });
+
+    return result.list;
 };
 
 const App: React.FC = () => {
@@ -128,7 +141,7 @@ const App: React.FC = () => {
                 (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 };
                 break;
             case EquipmentType.BURNER:
-                newEquipment.outletAir = calculateAirProperties(40, 20);
+                newEquipment.outletAir = calculateAirProperties(55.2, null, defaultInlet.absHumidity);
                 (newEquipment.conditions as BurnerConditions) = { shf: 0.9 };
                 break;
             case EquipmentType.COOLING_COIL:
@@ -143,9 +156,13 @@ const App: React.FC = () => {
                 (newEquipment.conditions as EliminatorConditions) = { eliminatorType: '3-fold' };
                 break;
             case EquipmentType.SPRAY_WASHER:
-                 newEquipment.outletAir = calculateAirProperties(30, 95);
+                 newEquipment.outletAir = calculateAirProperties(25, 70);
                  (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 };
                  break;
+            case EquipmentType.STEAM_HUMIDIFIER:
+                newEquipment.outletAir = { temp: null, rh: 60, absHumidity: null, enthalpy: null, density: null };
+                (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100 };
+                break;
             case EquipmentType.FAN:
                 (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };
                 break;
@@ -246,9 +263,9 @@ const App: React.FC = () => {
                 ];
                 if (calculatedOutletTypes.includes(currentEq.type)) {
                     updatedEq.outletAir = { ...sourceAir };
-                } else if (currentEq.type === EquipmentType.SPRAY_WASHER) {
-                    // For spray washer, keep outlet temp as is, but reset other props for recalc
-                    updatedEq.outletAir = { temp: currentEq.outletAir.temp, rh: null, absHumidity: null, enthalpy: null, density: null };
+                } else if (currentEq.type === EquipmentType.SPRAY_WASHER || currentEq.type === EquipmentType.STEAM_HUMIDIFIER) {
+                    // For spray washer and steam humidifier, keep outlet RH as is, but reset other props for recalc
+                    updatedEq.outletAir = { temp: null, rh: currentEq.outletAir.rh, absHumidity: null, enthalpy: null, density: null };
                 }
                 
                 newList[targetEqIndex] = updatedEq;
@@ -259,26 +276,34 @@ const App: React.FC = () => {
 
     const reflectDownstreamConditions = useCallback((id: number, currentIndex: number) => {
         setEquipmentList(prevList => {
-            let newOutletTemp: number | null = null;
+            let sourceAir: AirProperties | null = null;
     
             if (currentIndex === prevList.length - 1) {
                 // Last item, use AC outlet conditions
-                if (acOutletAir && acOutletAir.temp !== null) {
-                    newOutletTemp = acOutletAir.temp;
-                }
+                sourceAir = acOutletAir;
             } else {
                 // Not the last item, use next equipment's inlet
                 const nextEq = prevList[currentIndex + 1];
-                if (nextEq && nextEq.inletAir && nextEq.inletAir.temp !== null) {
-                    newOutletTemp = nextEq.inletAir.temp;
+                if (nextEq && nextEq.inletAir) {
+                    sourceAir = nextEq.inletAir;
                 }
             }
             
-            if (newOutletTemp === null) return prevList;
+            if (sourceAir === null) return prevList;
     
             return prevList.map(eq => {
                 if (eq.id === id) {
-                    return { ...eq, outletAir: { ...eq.outletAir, temp: newOutletTemp } };
+                    let newOutletAir = { ...eq.outletAir };
+                    if (eq.type === EquipmentType.SPRAY_WASHER || eq.type === EquipmentType.STEAM_HUMIDIFIER) {
+                        if (sourceAir.rh !== null) {
+                            newOutletAir.rh = sourceAir.rh;
+                        }
+                    } else {
+                        if (sourceAir.temp !== null) {
+                            newOutletAir.temp = sourceAir.temp;
+                        }
+                    }
+                    return { ...eq, outletAir: newOutletAir };
                 }
                 return eq;
             });

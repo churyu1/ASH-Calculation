@@ -9,6 +9,56 @@ export const PSYCH_CONSTANTS = {
     GAS_CONSTANT_WATER_VAPOR: 461.5,
 };
 
+// Data points for saturated steam (Pressure in kPa, Temp in °C, Enthalpy of vapor in kJ/kg)
+const STEAM_TABLE: [number, number, number][] = [
+    [101.325, 100, 2676.1], // Atmospheric pressure
+    [150, 111.4, 2693.6],
+    [200, 120.2, 2706.7],
+    [300, 133.5, 2725.3],
+    [400, 143.6, 2738.6],
+    [500, 151.8, 2748.7],
+    [600, 158.8, 2756.8],
+    [800, 170.4, 2769.1],
+    [1000, 179.9, 2778.1]
+];
+
+export const calculateSteamProperties = (gaugePressure_kPa: number): { temp: number, enthalpy: number, absPressure: number } => {
+    const absPressure_kPa = gaugePressure_kPa + PSYCH_CONSTANTS.ATM_PRESSURE_PA / 1000;
+    
+    if (absPressure_kPa <= STEAM_TABLE[0][0]) {
+        return { temp: STEAM_TABLE[0][1], enthalpy: STEAM_TABLE[0][2], absPressure: absPressure_kPa };
+    }
+    if (absPressure_kPa >= STEAM_TABLE[STEAM_TABLE.length - 1][0]) {
+        return { temp: STEAM_TABLE[STEAM_TABLE.length - 1][1], enthalpy: STEAM_TABLE[STEAM_TABLE.length - 1][2], absPressure: absPressure_kPa };
+    }
+
+    let lowerBound: [number, number, number] | null = null;
+    let upperBound: [number, number, number] | null = null;
+    
+    for (let i = 0; i < STEAM_TABLE.length - 1; i++) {
+        if (absPressure_kPa >= STEAM_TABLE[i][0] && absPressure_kPa < STEAM_TABLE[i + 1][0]) {
+            lowerBound = STEAM_TABLE[i];
+            upperBound = STEAM_TABLE[i + 1];
+            break;
+        }
+    }
+
+    if (!lowerBound || !upperBound) {
+        // Fallback, should not be reached due to checks above
+        return { temp: 100, enthalpy: 2676.1, absPressure: absPressure_kPa };
+    }
+    
+    const [p1, t1, h1] = lowerBound;
+    const [p2, t2, h2] = upperBound;
+    
+    const ratio = (absPressure_kPa - p1) / (p2 - p1);
+    
+    const interpolatedTemp = t1 + ratio * (t2 - t1);
+    const interpolatedEnthalpy = h1 + ratio * (h2 - h1);
+    
+    return { temp: interpolatedTemp, enthalpy: interpolatedEnthalpy, absPressure: absPressure_kPa };
+};
+
 export const calculatePsat = (T_celsius: number): number => {
     return 610.78 * Math.exp((17.27 * T_celsius) / (T_celsius + 237.3));
 };

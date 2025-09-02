@@ -5,11 +5,12 @@ import {
     Equipment, UnitSystem, EquipmentType, AirProperties, 
     CoolingCoilConditions, HeatingCoilConditions, BurnerConditions, FanConditions, 
     DamperConditions, FilterConditions, SprayWasherConditions, EliminatorConditions,
+    SteamHumidifierConditions, SteamHumidifierResults,
     CoolingCoilResults, HeatingCoilResults, BurnerResults, FanResults, DamperResults, 
     FilterResults, SprayWasherResults, CustomResults, EliminatorResults, EquipmentConditions,
     SprayWasherResults as SprayWasherResultsType
 } from '../types';
-import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS, calculateDewPoint } from '../services/psychrometrics';
+import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS, calculateDewPoint, calculateRelativeHumidity, calculateSteamProperties } from '../services/psychrometrics';
 import { MOTOR_OUTPUT_OPTIONS } from '../constants';
 import { useLanguage } from '../i18n';
 import NumberInputWithControls from './NumberInputWithControls';
@@ -157,31 +158,100 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                }
                 case EquipmentType.SPRAY_WASHER: {
                     const { waterToAirRatio = 1.5 } = conditions as SprayWasherConditions;
-                    const userOutletTemp = outletAir.temp;
+                    const userOutletRh = outletAir.rh;
 
-                    if (userOutletTemp !== null && inletEnthalpy !== null && inletAbsHum !== null) {
-                        const outletEnthalpy = inletEnthalpy; // Constant enthalpy process
-                        const outletAbsHum = calculateAbsoluteHumidityFromEnthalpy(userOutletTemp, outletEnthalpy);
-                        
-                        newOutletAir = calculateAirProperties(userOutletTemp, null, outletAbsHum);
+                    if (userOutletRh !== null && !isNaN(userOutletRh)) {
+                        let outletTempGuess = inletTemp;
 
-                        const { finalWSat } = sprayWasherCalculatedValues;
-                        let humidificationEfficiency = 0;
-                        const potentialHumidification = finalWSat - inletAbsHum;
-                        if (potentialHumidification > 0.001) { // Avoid division by zero or near-zero
-                            const actualHumidification = outletAbsHum - inletAbsHum;
-                            humidificationEfficiency = (actualHumidification / potentialHumidification) * 100;
-                            humidificationEfficiency = Math.max(0, Math.min(100, humidificationEfficiency)); // Clamp between 0 and 100
+                        for (let i = 0; i < 20; i++) {
+                            const outletAbsHumGuess = calculateAbsoluteHumidityFromEnthalpy(outletTempGuess, inletEnthalpy);
+                            if (outletAbsHumGuess < 0) {
+                                outletTempGuess += 0.5;
+                                continue;
+                            }
+                            const outletRhGuess = calculateRelativeHumidity(outletTempGuess, outletAbsHumGuess);
+                            const error = userOutletRh - outletRhGuess;
+                            if (Math.abs(error) < 0.01) break;
+                            outletTempGuess -= error * 0.1;
                         }
+
+                        const finalOutletTemp = outletTempGuess;
+                        const finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalOutletTemp, inletEnthalpy);
                         
-                        const humidification_L_min = (massFlowRateDA_kg_s * (newOutletAir.absHumidity ?? 0 - inletAbsHum) / 1000) * 60;
-                        const sprayAmount_L_min = massFlowRateDA_kg_s * waterToAirRatio * 60;
+                        const calculatedOutletProps = calculateAirProperties(finalOutletTemp, null, finalAbsHumidity);
+                        // Overwrite the RH with the user's original input to prevent the UI from jumping due to calculation precision.
+                        newOutletAir = {
+                            ...calculatedOutletProps,
+                            rh: userOutletRh,
+                        };
+
+                        if (newOutletAir.absHumidity !== null) {
+                            const { finalWSat } = sprayWasherCalculatedValues;
+                            let humidificationEfficiency = 0;
+                            const potentialHumidification = finalWSat - inletAbsHum;
+                            if (potentialHumidification > 0.001) {
+                                const actualHumidification = newOutletAir.absHumidity - inletAbsHum;
+                                humidificationEfficiency = (actualHumidification / potentialHumidification) * 100;
+                                humidificationEfficiency = Math.max(0, Math.min(100, humidificationEfficiency));
+                            }
+                            
+                            const humidification_L_min = (massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000) * 60;
+                            const sprayAmount_L_min = massFlowRateDA_kg_s * waterToAirRatio * 60;
+                            
+                            newResults = { 
+                                humidification_L_min: Math.max(0, humidification_L_min), 
+                                sprayAmount_L_min,
+                                humidificationEfficiency
+                            } as SprayWasherResultsType;
+                        }
+                    }
+                    break;
+                }
+                 case EquipmentType.STEAM_HUMIDIFIER: {
+                    const { steamGaugePressure = 100 } = conditions as SteamHumidifierConditions;
+                    const userOutletRh = outletAir.rh;
+
+                    const steamProps = calculateSteamProperties(steamGaugePressure);
+                    const h_steam_kJ_kg = steamProps.enthalpy;
+
+                    const steamAbsPressure_kPa = steamProps.absPressure;
+                    const steamTemperature_C = steamProps.temp;
+                    const steamEnthalpy_kcal_kg = h_steam_kJ_kg / 4.186;
+
+                    const partialResults = {
+                        steamAbsolutePressure: steamAbsPressure_kPa,
+                        steamTemperature: steamTemperature_C,
+                        steamEnthalpy: steamEnthalpy_kcal_kg,
+                    };
+
+                    if (userOutletRh !== null && !isNaN(userOutletRh)) {
+                        const C = inletEnthalpy - (inletAbsHum / 1000) * h_steam_kJ_kg;
+                        let outletTempGuess = inletTemp;
+
+                        for (let i = 0; i < 30; i++) {
+                            const outletAbsHumGuess = calculateAbsoluteHumidity(outletTempGuess, userOutletRh);
+                            const outletEnthalpyGuess = calculateEnthalpy(outletTempGuess, outletAbsHumGuess);
+                            const LHS = outletEnthalpyGuess - (outletAbsHumGuess / 1000) * h_steam_kJ_kg;
+                            const error = C - LHS;
+                            if (Math.abs(error) < 0.01) break;
+                            outletTempGuess += error * 0.1;
+                        }
+
+                        const finalOutletTemp = outletTempGuess;
+                        const finalAbsHumidity = calculateAbsoluteHumidity(finalOutletTemp, userOutletRh);
+
+                        const calculatedOutletProps = calculateAirProperties(finalOutletTemp, null, finalAbsHumidity);
+                        newOutletAir = { ...calculatedOutletProps, rh: userOutletRh };
                         
-                        newResults = { 
-                            humidification_L_min: Math.max(0, humidification_L_min), 
-                            sprayAmount_L_min,
-                            humidificationEfficiency
-                        } as SprayWasherResultsType;
+                        if (newOutletAir.absHumidity !== null) {
+                            const steamMassFlow_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
+                            const requiredSteamAmount_kg_h = steamMassFlow_kg_s * 3600;
+                            newResults = { ...partialResults, requiredSteamAmount: Math.max(0, requiredSteamAmount_kg_h) } as SteamHumidifierResults;
+                        } else {
+                            newResults = { ...partialResults, requiredSteamAmount: 0 } as SteamHumidifierResults;
+                        }
+                    } else {
+                        newResults = { ...partialResults, requiredSteamAmount: 0 } as SteamHumidifierResults;
                     }
                     break;
                 }
@@ -235,13 +305,19 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         onUpdate(id, { ...equipment, outletAir: { ...outletAir, [key]: value } });
     };
     const handleInletAirChange = <K extends keyof AirProperties>(key: K, value: AirProperties[K]) => {
-        onUpdate(id, { ...equipment, inletAir: { ...inletAir, [key]: value }, inletIsLocked: true });
+        const temp = key === 'temp' ? value as (number | null) : inletAir.temp;
+        const rh = key === 'rh' ? value as (number | null) : inletAir.rh;
+    
+        // Recalculate all air properties to ensure consistency before updating the state.
+        const newInletAir = calculateAirProperties(temp, rh);
+    
+        onUpdate(id, { ...equipment, inletAir: newInletAir, inletIsLocked: true });
     };
 
     const isAirConditionSectionNeeded = ![EquipmentType.FILTER, EquipmentType.ELIMINATOR, EquipmentType.DAMPER, EquipmentType.CUSTOM].includes(type);
     const showEquipmentConditionsSection = type !== EquipmentType.CUSTOM;
-    const isOutletTempEditable = ![EquipmentType.FAN].includes(type);
-    const isOutletRhEditable = false;
+    const isOutletTempEditable = ![EquipmentType.FAN, EquipmentType.SPRAY_WASHER, EquipmentType.STEAM_HUMIDIFIER].includes(type);
+    const isOutletRhEditable = [EquipmentType.SPRAY_WASHER, EquipmentType.STEAM_HUMIDIFIER].includes(type);
 
     let warningMessage = '';
     if (type === EquipmentType.BURNER && outletAir.temp !== null && inletAir.temp !== null && outletAir.temp < inletAir.temp) {
@@ -333,8 +409,53 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
         }
+        if (type === EquipmentType.SPRAY_WASHER) {
+            const formulaPath = 'tooltips.spray_washer.outletTemp';
+            const title = t(`${formulaPath}.title`);
+            const formula = t(`${formulaPath}.${unitSystem}.formula`);
+            const legend = t(`${formulaPath}.${unitSystem}.legend`);
+
+            let values = {};
+            if (unitSystem === UnitSystem.IMPERIAL) {
+                 values = {
+                    'h_in': { value: convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+                    'RH_out': { value: outletAir.rh, unit: '%' },
+                };
+            } else {
+                 values = {
+                    'h_in': { value: inletAir.enthalpy, unit: 'kJ/kg(DA)' },
+                    'RH_out': { value: outletAir.rh, unit: '%' },
+                };
+            }
+            return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+        }
+        if (type === EquipmentType.STEAM_HUMIDIFIER) {
+            const formulaPath = 'tooltips.steam_humidifier.outletTemp';
+            const title = t(`${formulaPath}.title`);
+            const formula = t(`${formulaPath}.${unitSystem}.formula`);
+            const legend = t(`${formulaPath}.${unitSystem}.legend`);
+            const steamRes = results as SteamHumidifierResults;
+    
+            let values = {};
+            if (unitSystem === UnitSystem.IMPERIAL) {
+                values = {
+                    'h_in': { value: convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+                    'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+                    'h_steam': { value: convertValue(steamRes.steamEnthalpy, 'steam_enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+                    'RH_out': { value: outletAir.rh, unit: '%' },
+                };
+            } else {
+                values = {
+                    'h_in': { value: inletAir.enthalpy, unit: 'kJ/kg(DA)' },
+                    'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
+                    'h_steam': { value: (steamRes.steamEnthalpy ?? 0) * 4.186, unit: 'kJ/kg' },
+                    'RH_out': { value: outletAir.rh, unit: '%' },
+                };
+            }
+            return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+        }
         return null;
-    }, [type, results, inletAir.temp, locale, unitSystem, t]);
+    }, [type, results, inletAir, outletAir.rh, locale, unitSystem, t]);
 
     const outletRhTooltip = useMemo(() => {
         if (outletAir.temp === null || outletAir.absHumidity === null) return null;
@@ -376,6 +497,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         switch (type) {
             case EquipmentType.BURNER:
             case EquipmentType.SPRAY_WASHER:
+            case EquipmentType.STEAM_HUMIDIFIER:
                 formulaPath = 'tooltips.airProperties.absHumidityFromTH';
                 if (unitSystem === UnitSystem.IMPERIAL) {
                     values = {
@@ -511,6 +633,29 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                         <div className={conditionRowClasses}>
                             <span className="text-sm">{t('conditions.waterToAirRatio')}</span>
                             <NumberInputWithControls value={sprayCond.waterToAirRatio ?? null} onChange={(val) => handleConditionChange('waterToAirRatio', val)} unitType='water_to_air_ratio' unitSystem={unitSystem} min={0} step={0.1} />
+                        </div>
+                    </div>
+                );
+            case EquipmentType.STEAM_HUMIDIFIER:
+                const steamCond = conditions as SteamHumidifierConditions;
+                const steamRes = results as SteamHumidifierResults;
+                return (
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className={conditionRowClasses}>
+                            <span className="text-sm">{t('conditions.steamGaugePressure')}</span>
+                            <NumberInputWithControls value={steamCond.steamGaugePressure ?? null} onChange={(val) => handleConditionChange('steamGaugePressure', val)} unitType='steam_pressure' unitSystem={unitSystem} min={0} step={10} />
+                        </div>
+                        <div className={conditionRowClasses}>
+                            <span className="text-sm">{t('results.steamAbsolutePressure')}</span>
+                            <DisplayValueWithUnit value={steamRes.steamAbsolutePressure} unitType="steam_pressure" unitSystem={unitSystem} />
+                        </div>
+                         <div className={conditionRowClasses}>
+                            <span className="text-sm">{t('results.steamTemperature')}</span>
+                            <DisplayValueWithUnit value={steamRes.steamTemperature} unitType="temperature" unitSystem={unitSystem} />
+                        </div>
+                         <div className={conditionRowClasses}>
+                            <span className="text-sm">{t('results.steamEnthalpy')}</span>
+                            <DisplayValueWithUnit value={steamRes.steamEnthalpy} unitType="steam_enthalpy" unitSystem={unitSystem} />
                         </div>
                     </div>
                 );
@@ -913,6 +1058,42 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                     </div>
                  );
             }
+            case EquipmentType.STEAM_HUMIDIFIER: {
+                const steamRes = results as SteamHumidifierResults;
+                const requiredSteamTooltip = useMemo(() => {
+                    const formulaPath = 'tooltips.steam_humidifier.requiredSteam';
+                    const title = t(`${formulaPath}.title`);
+                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
+                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
+                    let values = {};
+                    if(unitSystem === UnitSystem.IMPERIAL) {
+                        values = {
+                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                            'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+                            'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+                        };
+                    } else {
+                        values = {
+                            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+                            'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
+                            'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
+                        };
+                    }
+                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+                }, [massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
+
+                return (
+                    <div className={resultRowClasses}>
+                        <span>{t('results.requiredSteamAmount')}</span>
+                        <DisplayValueWithUnit 
+                            value={steamRes.requiredSteamAmount} 
+                            unitType="steam_flow" 
+                            unitSystem={unitSystem} 
+                            tooltipContent={requiredSteamTooltip} 
+                        />
+                    </div>
+                );
+            }
             case EquipmentType.FAN: {
                  const fanRes = results as FanResults;
                  const fanCond = conditions as FanConditions;
@@ -1032,102 +1213,114 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-lg mb-6 bg-white border-l-[6px] ${color}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <input type="text" value={name} onChange={(e) => handleUpdate('name', e.target.value)} onFocus={(e) => e.target.select()} className="flex-grow min-w-[150px] px-2 py-1 border border-slate-300 rounded-md bg-white text-left font-bold text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <div className="flex flex-wrap gap-2">
-                    <button onClick={() => onMove(id, 'up')} disabled={index === 0} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md shadow-sm hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm">{t('equipment.up')}</button>
-                    <button onClick={() => onMove(id, 'down')} disabled={index === totalEquipment - 1} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md shadow-sm hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm">{t('equipment.down')}</button>
-                    <button onClick={() => onDelete(id)} className="px-4 py-2 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 text-sm">{t('equipment.delete')}</button>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => onMove(id, 'up')} disabled={index === 0} className="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        {t('equipment.up')}
+                    </button>
+                    <button onClick={() => onMove(id, 'down')} disabled={index === totalEquipment - 1} className="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        {t('equipment.down')}
+                    </button>
+                    <button onClick={() => onDelete(id)} className="px-3 py-1 text-sm bg-red-500 text-white hover:bg-red-600 rounded-md">
+                        {t('equipment.delete')}
+                    </button>
                 </div>
             </div>
 
-            <div className="flex flex-col gap-4 mt-4">
-                
-                {/* 1. Pressure Loss */}
-                {![EquipmentType.DAMPER].includes(type) && (
-                     <div className={sectionClasses}>
-                        <h3 className="font-semibold mb-2">{t('equipment.pressureLoss')}</h3>
-                        <NumberInputWithControls value={pressureLoss} onChange={(val) => handleUpdate('pressureLoss', val)} step={10} unitType="pressure" unitSystem={unitSystem} inputClassName={inputClasses} containerClassName="flex-grow" />
-                    </div>
-                )}
-                
-                {/* 2. Inlet/Outlet Air Conditions */}
-                {isAirConditionSectionNeeded && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className={`${sectionClasses} flex-1 p-2`}>
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-semibold">{t('equipment.inletAir')}</h3>
-                                <button
-                                    onClick={() => onReflectUpstream(id, index)}
-                                    className="px-2 py-1 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 text-xs"
-                                >
-                                    {index === 0 ? t('equipment.useACInlet') : t('equipment.useUpstreamOutlet')}
-                                </button>
-                            </div>
-                             <div className="grid grid-cols-1 gap-y-2">
-                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm">{t('airProperties.temperature')}</span>
-                                    {[EquipmentType.BURNER, EquipmentType.COOLING_COIL, EquipmentType.HEATING_COIL, EquipmentType.SPRAY_WASHER, EquipmentType.FAN].includes(type) ? 
-                                        <NumberInputWithControls value={inletAir.temp} onChange={(val) => handleInletAirChange('temp', val)} step={1} unitType="temperature" unitSystem={unitSystem} inputClassName={inputClasses} /> : 
-                                        <DisplayValueWithUnit value={inletAir.temp} unitType="temperature" unitSystem={unitSystem} />
-                                    }
-                                 </div>
-                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm">{t('airProperties.rh')}</span>
-                                    {[EquipmentType.BURNER, EquipmentType.COOLING_COIL, EquipmentType.HEATING_COIL, EquipmentType.SPRAY_WASHER, EquipmentType.FAN].includes(type) ?
-                                        <NumberInputWithControls value={inletAir.rh} onChange={(val) => handleInletAirChange('rh', val)} step={1} min={0} max={100} unitType="rh" unitSystem={unitSystem} inputClassName={inputClasses} /> :
-                                        <DisplayValueWithUnit value={inletAir.rh} unitType="rh" unitSystem={unitSystem} />
-                                    }
-                                 </div>
-                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={currentInletAirCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={inletAbsHumidityTooltip} /></div>
-                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={currentInletAirCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={inletEnthalpyTooltip} /></div>
-                             </div>
-                        </div>
-                         <div className={`${sectionClasses} flex-1 p-2`}>
-                            <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-semibold">{t('equipment.outletAir')}</h3>
-                                <button
-                                    onClick={() => onReflectDownstream(id, index)}
-                                    disabled={!isOutletTempEditable}
-                                    className="px-2 py-1 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                                >
-                                    {index === totalEquipment - 1 ? t('equipment.useACOutlet') : t('equipment.useDownstreamInlet')}
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-1 gap-y-2">
-                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.temperature')}</span>
-                                    {isOutletTempEditable ? 
-                                        <NumberInputWithControls value={outletAir.temp} onChange={(val) => handleOutletAirChange('temp', val)} step={1} unitType="temperature" unitSystem={unitSystem} inputClassName={inputClasses} /> :
-                                        <DisplayValueWithUnit value={outletAir.temp} unitType="temperature" unitSystem={unitSystem} tooltipContent={outletTempTooltip}/>
-                                    }
-                                 </div>
-                                 <div className="flex justify-between items-center">
-                                     <span className="text-sm">{t('airProperties.rh')}</span>
-                                     {isOutletRhEditable ?
-                                         <NumberInputWithControls value={outletAir.rh} onChange={(val) => handleOutletAirChange('rh', val)} step={1} min={0} max={100} unitType="rh" unitSystem={unitSystem} inputClassName={inputClasses} />
-                                         :
-                                         <DisplayValueWithUnit value={outletAir.rh} unitType="rh" unitSystem={unitSystem} tooltipContent={outletRhTooltip} />
-                                     }
-                                 </div>
-                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={outletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={outletAbsHumidityTooltip} /></div>
-                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={outletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={outletEnthalpyTooltip} /></div>
-                            </div>
-                            {warningMessage && <p className="text-red-600 text-sm mt-2">{warningMessage}</p>}
-                        </div>
-                    </div>
-                )}
-                
-                {/* 3. Conditions & Results */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {showEquipmentConditionsSection && (
-                        <div className={sectionClasses}>
-                            <h3 className="font-semibold mb-2">{t('equipment.conditions')} ({name})</h3>
-                             {renderConditions()}
-                        </div>
-                    )}
+            {warningMessage && <div className="mt-2 p-2 text-sm bg-yellow-100 text-yellow-800 border-l-4 border-yellow-500 rounded-r-lg">{warningMessage}</div>}
 
-                    <div className={`${sectionClasses} ${!showEquipmentConditionsSection ? 'lg:col-span-2' : ''}`}>
-                        <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
-                         {renderResults()}
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Inlet Air Section */}
+                <div className={sectionClasses}>
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-semibold">{t('equipment.inletAir')}</h4>
+                        <button
+                            onClick={() => onReflectUpstream(id, index)}
+                            title={index > 0 ? t('equipment.useUpstreamOutlet') : t('equipment.useACInlet')}
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                        >
+                            {index > 0 ? '↑' : '↰'} {index > 0 ? t('equipment.useUpstreamOutlet') : t('equipment.useACInlet')}
+                        </button>
                     </div>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.temperature')}</span>
+                        <NumberInputWithControls value={inletAir.temp} onChange={(val) => handleInletAirChange('temp', val)} unitType="temperature" unitSystem={unitSystem} />
+                    </div>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.rh')}</span>
+                        <NumberInputWithControls value={inletAir.rh} onChange={(val) => handleInletAirChange('rh', val)} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                    </div>
+                    <hr className="my-2"/>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                        <DisplayValueWithUnit value={currentInletAirCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={inletAbsHumidityTooltip} />
+                    </div>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                        <DisplayValueWithUnit value={currentInletAirCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={inletEnthalpyTooltip} />
+                    </div>
+                </div>
+
+                {/* Outlet Air Section */}
+                {isAirConditionSectionNeeded && (
+                <div className={sectionClasses}>
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-semibold">{t('equipment.outletAir')}</h4>
+                         <button
+                            onClick={() => onReflectDownstream(id, index)}
+                            title={index < totalEquipment - 1 ? t('equipment.useDownstreamInlet') : t('equipment.useACOutlet')}
+                            className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                        >
+                            {index < totalEquipment - 1 ? '↓' : '↱'} {index < totalEquipment - 1 ? t('equipment.useDownstreamInlet') : t('equipment.useACOutlet')}
+                        </button>
+                    </div>
+                    
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.temperature')}</span>
+                        {isOutletTempEditable ?
+                            <NumberInputWithControls value={outletAir.temp} onChange={(val) => handleOutletAirChange('temp', val)} unitType="temperature" unitSystem={unitSystem} />
+                            : <DisplayValueWithUnit value={outletAir.temp} unitType="temperature" unitSystem={unitSystem} tooltipContent={outletTempTooltip} />
+                        }
+                    </div>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.rh')}</span>
+                        {isOutletRhEditable ?
+                            <NumberInputWithControls value={outletAir.rh} onChange={(val) => handleOutletAirChange('rh', val)} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                            : <DisplayValueWithUnit value={outletAir.rh} unitType="rh" unitSystem={unitSystem} tooltipContent={outletRhTooltip} />
+                        }
+                    </div>
+                    <hr className="my-2"/>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                        <DisplayValueWithUnit value={outletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={outletAbsHumidityTooltip} />
+                    </div>
+                    <div className={conditionRowClasses}>
+                        <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                        <DisplayValueWithUnit value={outletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={outletEnthalpyTooltip} />
+                    </div>
+                </div>
+                )}
+            </div>
+
+            {showEquipmentConditionsSection && (
+            <div className="mt-4">
+                <div className={sectionClasses}>
+                    <h4 className="font-semibold mb-2">{t('equipment.conditions')}</h4>
+                    {renderConditions()}
+                </div>
+            </div>
+            )}
+            
+            <div className="mt-4">
+                <div className={sectionClasses}>
+                    <h4 className="font-semibold mb-2">{t('equipment.results')}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                        <div className="flex justify-between items-center py-1 text-sm">
+                            <span>{t('equipment.pressureLoss')}</span>
+                            <NumberInputWithControls value={pressureLoss} onChange={(val) => handleUpdate('pressureLoss', val)} unitType="pressure" unitSystem={unitSystem} />
+                        </div>
+                    </div>
+                    {Object.keys(results).length > 0 && <hr className="my-2 border-slate-300" />}
+                    {renderResults()}
                 </div>
             </div>
         </div>

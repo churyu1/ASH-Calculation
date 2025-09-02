@@ -1,4 +1,5 @@
 
+
 import { UnitSystem, UnitType } from '../types';
 
 // Constants for unit conversions
@@ -18,6 +19,9 @@ const UNIT_CONVERSIONS = {
         airflow_per_sheet: (m3min_per_sheet: number) => m3min_per_sheet * 35.3147, // m³/min/枚 to CFM/sheet
         area: (m2: number) => m2 * 10.7639, // m² to ft²
         density: (kg_m3: number) => kg_m3 * 0.062428, // kg/m³ to lb/ft³
+        steam_pressure: (kpa: number) => kpa / 6.89476, // kPa to psi
+        steam_enthalpy: (kcal_kg: number) => kcal_kg * 1.7989, // kcal/kg to BTU/lb
+        steam_flow: (kgh: number) => kgh * 2.20462, // kg/h to lb/h
     },
     // Conversion from Imperial unit to SI base unit
     toSI: {
@@ -34,6 +38,9 @@ const UNIT_CONVERSIONS = {
         airflow_per_sheet: (cfm_per_sheet: number) => cfm_per_sheet / 35.3147, // CFM/sheet to m³/min/枚
         area: (ft2: number) => ft2 / 10.7639, // ft² to m²
         density: (lb_ft3: number) => lb_ft3 / 0.062428, // lb/ft³ to kg/m³
+        steam_pressure: (psi: number) => psi * 6.89476, // psi to kPa
+        steam_enthalpy: (btu_lb: number) => btu_lb / 1.7989, // BTU/lb to kcal/kg
+        steam_flow: (lbh: number) => lbh / 2.20462, // lb/h to kg/h
     },
 };
 
@@ -70,6 +77,9 @@ export const getPrecisionForUnitType = (unitType: UnitType, unitSystem: UnitSyst
             case 'airflow_per_sheet': return 0;
             case 'area': return 2;
             case 'density': return 4;
+            case 'steam_pressure': return 1;
+            case 'steam_enthalpy': return 1;
+            case 'steam_flow': return 1;
             default: return 2;
         }
     } else { // SI system
@@ -90,6 +100,9 @@ export const getPrecisionForUnitType = (unitType: UnitType, unitSystem: UnitSyst
             case 'airflow_per_sheet': return 0;
             case 'area': return 2;
             case 'density': return 4;
+            case 'steam_pressure': return 0;
+            case 'steam_enthalpy': return 1;
+            case 'steam_flow': return 1;
             default: return 2;
         }
     }
