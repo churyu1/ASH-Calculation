@@ -1,8 +1,8 @@
-
-import React, { useRef, useEffect } from 'react';
-import * as d3 from 'd3';
+import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
+// FIX: Changed d3 import from namespace to named functions to fix module resolution errors.
+import { select, scaleLinear, axisBottom, axisLeft, line } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint } from '../types';
-import { convertValue, getPrecisionForUnitType, formatNumber } from '../utils/conversions';
+import { convertValue, getPrecisionForUnitType } from '../utils/conversions';
 import { calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy } from '../services/psychrometrics';
 import { useLanguage } from '../i18n';
 
@@ -15,33 +15,69 @@ interface PsychrometricChartProps {
 
 const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const { t } = useLanguage();
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+    useLayoutEffect(() => {
+        const updateSize = () => {
+            if (containerRef.current) {
+                const parentWidth = containerRef.current.clientWidth;
+                if (parentWidth > 0) {
+                    setDimensions({
+                        width: parentWidth,
+                        height: parentWidth * (2 / 3), // Maintain aspect ratio
+                    });
+                }
+            }
+        };
+
+        const resizeObserver = new ResizeObserver(updateSize);
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
+        
+        updateSize();
+
+        return () => {
+            if (containerRef.current) {
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+                resizeObserver.unobserve(containerRef.current);
+            }
+        };
+    }, []);
 
     const margin = { top: 20, right: 30, bottom: 60, left: 60 };
-    const width = 600 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+    const width = dimensions.width > (margin.left + margin.right) ? dimensions.width - margin.left - margin.right : 0;
+    const height = dimensions.height > (margin.top + margin.bottom) ? dimensions.height - margin.top - margin.bottom : 0;
+
 
     useEffect(() => {
-        if (!svgRef.current) return;
+        if (!svgRef.current || width <= 0 || height <= 0) return;
 
         const temperatureUnit = t(`units.${unitSystem}.temperature`);
         const absHumidityUnit = t(`units.${unitSystem}.abs_humidity`);
         const enthalpyUnit = t(`units.${unitSystem}.enthalpy`);
 
-        d3.select(svgRef.current).selectAll("*").remove();
+        // FIX: Use 'select' directly instead of 'd3.select'
+        select(svgRef.current).selectAll("*").remove();
 
-        const svg = d3.select(svgRef.current)
+        // FIX: Use 'select' directly instead of 'd3.select'
+        const svg = select(svgRef.current)
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        const xScale = d3.scaleLinear().domain([-20, 60]).range([0, width]);
-        const yScale = d3.scaleLinear().domain([0, 30]).range([height, 0]);
+        // FIX: Use 'scaleLinear' directly instead of 'd3.scaleLinear'
+        const xScale = scaleLinear().domain([-20, 60]).range([0, width]);
+        // FIX: Use 'scaleLinear' directly instead of 'd3.scaleLinear'
+        const yScale = scaleLinear().domain([0, 30]).range([height, 0]);
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(xScale).ticks(10).tickFormat(d => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            // FIX: Use 'axisBottom' directly instead of 'd3.axisBottom'
+            .call(axisBottom(xScale).ticks(10).tickFormat(d => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", "#64748b");
         xAxis.selectAll("line").style("stroke", "#64748b");
@@ -51,7 +87,8 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
-            .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`))
+            // FIX: Use 'axisLeft' directly instead of 'd3.axisLeft'
+            .call(axisLeft(yScale).ticks(6).tickFormat(d => `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`))
             
         yAxis.selectAll("path").style("stroke", "#64748b");
         yAxis.selectAll("line").style("stroke", "#64748b");
@@ -60,8 +97,10 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             .attr("transform", "rotate(-90)").attr("y", -45).attr("x", -height / 2).attr("fill", "#334155").attr("font-size", "12px").attr("text-anchor", "middle")
             .text(`${t('chart.yAxisLabel')} (${absHumidityUnit})`);
             
-        svg.append("g").attr("class", "grid x-grid").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(10).tickSize(-height).tickFormat(() => "")).selectAll("line").style("stroke", "#e2e8f0");
-        svg.append("g").attr("class", "grid y-grid").call(d3.axisLeft(yScale).ticks(6).tickSize(-width).tickFormat(() => "")).selectAll("line").style("stroke", "#e2e8f0");
+        // FIX: Use 'axisBottom' directly instead of 'd3.axisBottom'
+        svg.append("g").attr("class", "grid x-grid").attr("transform", `translate(0,${height})`).call(axisBottom(xScale).ticks(10).tickSize(-height).tickFormat(() => "")).selectAll("line").style("stroke", "#e2e8f0");
+        // FIX: Use 'axisLeft' directly instead of 'd3.axisLeft'
+        svg.append("g").attr("class", "grid y-grid").call(axisLeft(yScale).ticks(6).tickSize(-width).tickFormat(() => "")).selectAll("line").style("stroke", "#e2e8f0");
 
         svg.append("defs").append("marker")
             .attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
@@ -77,7 +116,8 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                     lineData.push({ temp: T, absHumidity });
                 }
             }
-            const lineGenerator = d3.line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+            // FIX: Use 'line' directly instead of 'd3.line'
+            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
             svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", "#cbd5e1").attr("stroke-width", 0.5)
                .attr("stroke-dasharray", rh === 100 ? "0" : "2,2").attr("d", lineGenerator);
             if (lineData.length > 0) {
@@ -97,7 +137,8 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                 }
             }
             const filteredLineData = lineData.filter(d => d.temp >= xScale.domain()[0] && d.temp <= xScale.domain()[1]);
-            const lineGenerator = d3.line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+            // FIX: Use 'line' directly instead of 'd3.line'
+            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
             if (filteredLineData.length > 1) {
                 svg.append("path").datum(filteredLineData).attr("fill", "none").attr("stroke", "#f59e0b").attr("stroke-width", 0.5)
                    .attr("stroke-dasharray", "4,4").attr("d", lineGenerator);
@@ -148,7 +189,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
     }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, width, height, t]);
 
     return (
-        <div className="flex justify-center items-center p-4 bg-white rounded-lg shadow-md">
+        <div ref={containerRef} className="w-full min-h-[400px]">
             <svg ref={svgRef}></svg>
         </div>
     );

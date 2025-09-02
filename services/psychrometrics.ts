@@ -1,4 +1,3 @@
-
 import { AirProperties } from '../types';
 
 export const PSYCH_CONSTANTS = {
@@ -44,6 +43,18 @@ export const calculateAbsoluteHumidityFromEnthalpy = (T_celsius: number, H_kJ_kg
     const denominator = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * T_celsius;
     if (denominator === 0) return 0;
     return (numerator / denominator) * 1000;
+};
+
+export const calculateDewPoint = (W_g_kgDA: number): number => {
+    if (W_g_kgDA <= 0) return -100; // Return a very low temp for dry air
+    const W_kg_kgDA = W_g_kgDA / 1000;
+    const Pv_from_W = (PSYCH_CONSTANTS.ATM_PRESSURE_PA * W_kg_kgDA) / (0.622 + W_kg_kgDA);
+    
+    // Using inverse of Magnus formula used in calculatePsat
+    const C = Math.log(Pv_from_W / 610.78);
+    const Tdp = (237.3 * C) / (17.27 - C);
+    
+    return Tdp;
 };
 
 export const calculateDryAirDensity = (T_celsius: number, RH_percent: number): number => {

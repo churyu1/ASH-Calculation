@@ -33,7 +33,8 @@
     "results": "計算結果",
     "warnings": {
       "burner": "出口温度は入口温度より高くしてください。",
-      "cooling_coil": "出口温度は入口温度より低くしてください。",
+      "cooling_coil_temp": "出口温度は入口温度より低くしてください。",
+      "cooling_coil_humidity": "冷却プロセスでは出口の絶対湿度は入口より高くできません。",
       "heating_coil": "出口温度は入口温度より高くしてください。"
     }
   },

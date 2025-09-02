@@ -33,7 +33,8 @@
     "results": "Calculation Results",
     "warnings": {
       "burner": "Outlet temperature should be higher than inlet.",
-      "cooling_coil": "Outlet temperature should be lower than inlet.",
+      "cooling_coil_temp": "Outlet temperature should be lower than inlet.",
+      "cooling_coil_humidity": "Outlet absolute humidity cannot be higher than inlet for a cooling process.",
       "heating_coil": "Outlet temperature should be higher than inlet."
     }
   },

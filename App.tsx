@@ -18,14 +18,92 @@ import FloatingNav from './components/FloatingNav';
 import FormulaTooltipContent from './components/FormulaTooltipContent';
 import { convertValue } from './utils/conversions';
 
+// Function to generate the initial equipment list
+const getInitialEquipment = (): Equipment[] => {
+    const initialList: Equipment[] = [];
+    let id = 0;
+    // The initial inlet air for the whole system
+    let currentInletAir: AirProperties = calculateAirProperties(0, 50);
+
+    const typesToAdd = Object.values(EquipmentType).filter(t => t !== EquipmentType.CUSTOM);
+
+    for (const type of typesToAdd) {
+        const defaultName = get(enMessages, `equipmentNames.${type}`) || type;
+        
+        let inletIsLocked = false;
+        if (type === EquipmentType.COOLING_COIL) {
+            currentInletAir = calculateAirProperties(25, 80);
+            inletIsLocked = true;
+        } else if (type === EquipmentType.FAN) {
+            currentInletAir = calculateAirProperties(25, 60);
+            inletIsLocked = true;
+        }
+
+        let newEquipment: Equipment = {
+            id: id,
+            type,
+            name: defaultName,
+            pressureLoss: 50,
+            inletAir: { ...currentInletAir },
+            outletAir: { ...currentInletAir }, // Default outlet to inlet, will be overridden
+            conditions: {},
+            results: {},
+            color: EQUIPMENT_COLORS[type],
+            inletIsLocked: inletIsLocked,
+        };
+
+        // Apply type-specific defaults, similar to addEquipment
+        switch (type) {
+            case EquipmentType.FILTER:
+                (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 };
+                break;
+            case EquipmentType.BURNER:
+                newEquipment.outletAir = calculateAirProperties(40, 20);
+                (newEquipment.conditions as BurnerConditions) = { shf: 0.9 };
+                break;
+            case EquipmentType.COOLING_COIL:
+                newEquipment.outletAir = calculateAirProperties(15, 100);
+                (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, heatExchangeEfficiency: 85 };
+                break;
+            case EquipmentType.HEATING_COIL:
+                newEquipment.outletAir = calculateAirProperties(40, 30);
+                (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, heatExchangeEfficiency: 85 };
+                break;
+            case EquipmentType.ELIMINATOR:
+                (newEquipment.conditions as EliminatorConditions) = { eliminatorType: '3-fold' };
+                break;
+            case EquipmentType.SPRAY_WASHER:
+                 newEquipment.outletAir = calculateAirProperties(30, 95);
+                 (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 };
+                 break;
+            case EquipmentType.FAN:
+                (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };
+                break;
+            case EquipmentType.DAMPER:
+                newEquipment.pressureLoss = 0;
+                (newEquipment.conditions as DamperConditions) = { width: 500, height: 500, lossCoefficientK: 1.0 };
+                break;
+            case EquipmentType.CUSTOM: // Should not happen due to filter, but as a fallback
+                (newEquipment.conditions as CustomConditions) = {};
+                break;
+        }
+
+        initialList.push(newEquipment);
+        // The inlet for the *next* component is the outlet of this one
+        currentInletAir = newEquipment.outletAir;
+        id++;
+    }
+    return initialList;
+};
+
 const App: React.FC = () => {
     const { t, locale, setLocale } = useLanguage();
     const [airflow, setAirflow] = useState<number | null>(100);
-    const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
-    const [nextId, setNextId] = useState(0);
+    const [equipmentList, setEquipmentList] = useState<Equipment[]>(getInitialEquipment);
+    const [nextId, setNextId] = useState(() => Object.values(EquipmentType).filter(t => t !== EquipmentType.CUSTOM).length);
     const [unitSystem, setUnitSystem] = useState<UnitSystem>(UnitSystem.SI);
-    const [acInletAir, setAcInletAir] = useState<AirProperties>(() => calculateAirProperties(25, 60));
-    const [acOutletAir, setAcOutletAir] = useState<AirProperties>(() => calculateAirProperties(35, 40));
+    const [acInletAir, setAcInletAir] = useState<AirProperties>(() => calculateAirProperties(0, 50));
+    const [acOutletAir, setAcOutletAir] = useState<AirProperties>(() => calculateAirProperties(27, 70));
 
     const addEquipment = (type: EquipmentType) => {
         const newId = nextId;
@@ -65,7 +143,7 @@ const App: React.FC = () => {
                 (newEquipment.conditions as EliminatorConditions) = { eliminatorType: '3-fold' };
                 break;
             case EquipmentType.SPRAY_WASHER:
-                 newEquipment.outletAir = calculateAirProperties(18, 95);
+                 newEquipment.outletAir = calculateAirProperties(30, 95);
                  (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 };
                  break;
             case EquipmentType.FAN:

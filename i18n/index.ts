@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 // Embed JSON content directly to avoid module resolution errors in browser-native ESM.
@@ -36,7 +37,8 @@ export const enMessages = {
     "results": "Calculation Results",
     "warnings": {
       "burner": "Outlet temperature should be higher than inlet.",
-      "cooling_coil": "Outlet temperature should be lower than inlet.",
+      "cooling_coil_temp": "Outlet temperature should be lower than inlet.",
+      "cooling_coil_humidity": "Outlet absolute humidity cannot be higher than inlet for a cooling process.",
       "heating_coil": "Outlet temperature should be higher than inlet."
     }
   },
@@ -420,7 +422,8 @@ const jaMessages = {
     "results": "計算結果",
     "warnings": {
       "burner": "出口温度は入口温度より高くしてください。",
-      "cooling_coil": "出口温度は入口温度より低くしてください。",
+      "cooling_coil_temp": "出口温度は入口温度より低くしてください。",
+      "cooling_coil_humidity": "冷却プロセスでは出口の絶対湿度は入口より高くできません。",
       "heating_coil": "出口温度は入口温度より高くしてください。"
     }
   },

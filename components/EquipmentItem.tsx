@@ -9,7 +9,7 @@ import {
     FilterResults, SprayWasherResults, CustomResults, EliminatorResults, EquipmentConditions,
     SprayWasherResults as SprayWasherResultsType
 } from '../types';
-import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS } from '../services/psychrometrics';
+import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS, calculateDewPoint } from '../services/psychrometrics';
 import { MOTOR_OUTPUT_OPTIONS } from '../constants';
 import { useLanguage } from '../i18n';
 import NumberInputWithControls from './NumberInputWithControls';
@@ -99,28 +99,37 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                 case EquipmentType.COOLING_COIL: {
                     const { chilledWaterInletTemp = 7, chilledWaterOutletTemp = 14, heatExchangeEfficiency = 85 } = conditions as CoolingCoilConditions;
                     const userOutletTemp = outletAir.temp;
-                    if (userOutletTemp !== null) {
-                        let tempOutletAir = calculateAirProperties(userOutletTemp, null, inletAbsHum);
-                        if (tempOutletAir.rh !== null && tempOutletAir.rh > 100) {
-                            tempOutletAir = calculateAirProperties(userOutletTemp, 100);
-                        }
-                        newOutletAir = tempOutletAir;
-                        
-                        const outletEnthalpy = newOutletAir.enthalpy;
-                        const outletAbsHum = newOutletAir.absHumidity;
-                        if (outletEnthalpy !== null && outletAbsHum !== null) {
-                            const airSideHeatLoad_kW = massFlowRateDA_kg_s * (inletEnthalpy - outletEnthalpy);
-                            const waterSideHeatLoad_kW = heatExchangeEfficiency > 0 ? airSideHeatLoad_kW / (heatExchangeEfficiency / 100) : 0;
-                            const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - outletAbsHum) / 1000;
-                            const waterTempDiff = chilledWaterOutletTemp - chilledWaterInletTemp;
-                            const chilledWaterFlow_L_min = waterTempDiff > 0 ? (waterSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
 
-                            newResults = {
-                                airSideHeatLoad_kcal: airSideHeatLoad_kW * 860.421,
-                                coldWaterSideHeatLoad_kcal: waterSideHeatLoad_kW * 860.421,
-                                dehumidification_L_min: Math.max(0, dehumidification_kg_s * 60),
-                                chilledWaterFlow_L_min: Math.max(0, chilledWaterFlow_L_min)
-                            } as CoolingCoilResults;
+                    if (userOutletTemp !== null) {
+                        const inletDewPoint = calculateDewPoint(inletAbsHum);
+                        
+                        let outletAbsHum: number | null;
+                        if (userOutletTemp >= inletDewPoint) {
+                            // Sensible cooling only
+                            outletAbsHum = inletAbsHum;
+                        } else {
+                            // Cooling and dehumidification, assume 100% RH at outlet
+                            outletAbsHum = calculateAbsoluteHumidity(userOutletTemp, 100);
+                        }
+
+                        if (outletAbsHum !== null) {
+                            newOutletAir = calculateAirProperties(userOutletTemp, null, outletAbsHum);
+                            const outletEnthalpy = newOutletAir.enthalpy;
+
+                            if (outletEnthalpy !== null && newOutletAir.absHumidity !== null) {
+                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * (inletEnthalpy - outletEnthalpy);
+                                const waterSideHeatLoad_kW = heatExchangeEfficiency > 0 ? airSideHeatLoad_kW / (heatExchangeEfficiency / 100) : 0;
+                                const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - newOutletAir.absHumidity) / 1000;
+                                const waterTempDiff = chilledWaterOutletTemp - chilledWaterInletTemp;
+                                const chilledWaterFlow_L_min = waterTempDiff > 0 ? (waterSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
+
+                                newResults = {
+                                    airSideHeatLoad_kcal: airSideHeatLoad_kW * 860.421,
+                                    coldWaterSideHeatLoad_kcal: waterSideHeatLoad_kW * 860.421,
+                                    dehumidification_L_min: Math.max(0, dehumidification_kg_s * 60),
+                                    chilledWaterFlow_L_min: Math.max(0, chilledWaterFlow_L_min)
+                                } as CoolingCoilResults;
+                            }
                         }
                     }
                     break;
@@ -232,12 +241,15 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     const isAirConditionSectionNeeded = ![EquipmentType.FILTER, EquipmentType.ELIMINATOR, EquipmentType.DAMPER, EquipmentType.CUSTOM].includes(type);
     const showEquipmentConditionsSection = type !== EquipmentType.CUSTOM;
     const isOutletTempEditable = ![EquipmentType.FAN].includes(type);
+    const isOutletRhEditable = false;
 
     let warningMessage = '';
     if (type === EquipmentType.BURNER && outletAir.temp !== null && inletAir.temp !== null && outletAir.temp < inletAir.temp) {
         warningMessage = t('equipment.warnings.burner');
-    } else if (type === EquipmentType.COOLING_COIL && outletAir.temp !== null && inletAir.temp !== null && outletAir.temp > inletAir.temp) {
-        warningMessage = t('equipment.warnings.cooling_coil');
+    } else if (type === EquipmentType.COOLING_COIL) {
+        if (outletAir.temp !== null && inletAir.temp !== null && outletAir.temp > inletAir.temp) {
+            warningMessage = t('equipment.warnings.cooling_coil_temp');
+        }
     } else if (type === EquipmentType.HEATING_COIL && outletAir.temp !== null && inletAir.temp !== null && outletAir.temp < inletAir.temp) {
         warningMessage = t('equipment.warnings.heating_coil');
     }
@@ -395,37 +407,22 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                  showTooltip = true;
                 break;
             case EquipmentType.COOLING_COIL:
-                 if (outletAir.rh !== null && outletAir.rh >= 100) {
-                    formulaPath = 'tooltips.airProperties.absHumidityFromTRh';
-                    if (unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            't_f': { value: convertValue(outletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
-                            'rh': { value: 100, unit: '%' },
-                        };
-                    } else {
-                        const P_sat = calculatePsat(outletAir.temp ?? 0);
-                        values = {
-                            't': { value: outletAir.temp, unit: '°C' },
-                            'rh': { value: 100, unit: '%' },
-                            'P_sat': { value: P_sat, unit: 'Pa' },
-                            'P_v': { value: P_sat, unit: 'Pa' },
-                        };
-                    }
-                } else {
-                    formulaPath = 'tooltips.airProperties.constantAbsHumidity';
-                    if (unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                            'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
-                        };
-                    } else {
-                        values = {
-                            'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
-                            'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' }
-                        };
-                    }
-                }
-                showTooltip = true;
+                 formulaPath = 'tooltips.airProperties.absHumidityFromTRh';
+                 if (unitSystem === UnitSystem.IMPERIAL) {
+                     values = {
+                         't_f': { value: convertValue(outletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
+                         'rh': { value: outletAir.rh, unit: '%' },
+                     };
+                 } else {
+                     const P_sat = calculatePsat(outletAir.temp ?? 0);
+                     values = {
+                         't': { value: outletAir.temp, unit: '°C' },
+                         'rh': { value: outletAir.rh, unit: '%' },
+                         'P_sat': { value: P_sat, unit: 'Pa' },
+                         'P_v': { value: P_sat * ( (outletAir.rh ?? 0) / 100), unit: 'Pa' },
+                     };
+                 }
+                 showTooltip = true;
                 break;
             default:
                 return null;
@@ -1102,7 +1099,14 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                         <DisplayValueWithUnit value={outletAir.temp} unitType="temperature" unitSystem={unitSystem} tooltipContent={outletTempTooltip}/>
                                     }
                                  </div>
-                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.rh')}</span><DisplayValueWithUnit value={outletAir.rh} unitType="rh" unitSystem={unitSystem} tooltipContent={outletRhTooltip} /></div>
+                                 <div className="flex justify-between items-center">
+                                     <span className="text-sm">{t('airProperties.rh')}</span>
+                                     {isOutletRhEditable ?
+                                         <NumberInputWithControls value={outletAir.rh} onChange={(val) => handleOutletAirChange('rh', val)} step={1} min={0} max={100} unitType="rh" unitSystem={unitSystem} inputClassName={inputClasses} />
+                                         :
+                                         <DisplayValueWithUnit value={outletAir.rh} unitType="rh" unitSystem={unitSystem} tooltipContent={outletRhTooltip} />
+                                     }
+                                 </div>
                                  <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={outletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={outletAbsHumidityTooltip} /></div>
                                  <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={outletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={outletEnthalpyTooltip} /></div>
                             </div>
