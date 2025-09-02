@@ -85,7 +85,7 @@ const getInitialEquipment = (): Equipment[] => {
                  (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 };
                  break;
             case EquipmentType.STEAM_HUMIDIFIER:
-                newEquipment.outletAir = { temp: null, rh: 60, absHumidity: null, enthalpy: null, density: null };
+                newEquipment.outletAir = { temp: null, rh: 40, absHumidity: null, enthalpy: null, density: null };
                 (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100 };
                 break;
             case EquipmentType.FAN:
@@ -160,7 +160,7 @@ const App: React.FC = () => {
                  (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 };
                  break;
             case EquipmentType.STEAM_HUMIDIFIER:
-                newEquipment.outletAir = { temp: null, rh: 60, absHumidity: null, enthalpy: null, density: null };
+                newEquipment.outletAir = { temp: null, rh: 40, absHumidity: null, enthalpy: null, density: null };
                 (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100 };
                 break;
             case EquipmentType.FAN:

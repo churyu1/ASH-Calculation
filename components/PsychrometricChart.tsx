@@ -126,12 +126,12 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             }
             // FIX: Use 'line' directly instead of 'd3.line'
             const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
-            svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", "#cbd5e1").attr("stroke-width", 0.5)
+            svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 0.5)
                .attr("stroke-dasharray", rh === 100 ? "0" : "2,2").attr("d", lineGenerator);
             if (lineData.length > 0) {
                 const lastPoint = lineData[lineData.length - 1];
                 svg.append("text").attr("x", xScale(lastPoint.temp) + 5).attr("y", yScale(lastPoint.absHumidity) - 5)
-                   .text(`${rh}%`).attr("font-size", "9px").attr("fill", "#94a3b8");
+                   .text(`${rh}%`).attr("font-size", "9px").attr("fill", "#64748b");
             }
         });
 
