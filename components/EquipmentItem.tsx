@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
     Equipment, UnitSystem, EquipmentType, AirProperties, 
     CoolingCoilConditions, HeatingCoilConditions, BurnerConditions, FanConditions, 
@@ -8,14 +8,15 @@ import {
     SteamHumidifierConditions, SteamHumidifierResults,
     CoolingCoilResults, HeatingCoilResults, BurnerResults, FanResults, DamperResults, 
     FilterResults, SprayWasherResults, CustomResults, EliminatorResults, EquipmentConditions,
-    SprayWasherResults as SprayWasherResultsType
+    SprayWasherResults as SprayWasherResultsType,
+    SteamPressureUnit
 } from '../types';
 import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS, calculateDewPoint, calculateRelativeHumidity, calculateSteamProperties } from '../services/psychrometrics';
 import { MOTOR_OUTPUT_OPTIONS } from '../constants';
 import { useLanguage } from '../i18n';
 import NumberInputWithControls from './NumberInputWithControls';
 import DisplayValueWithUnit from './DisplayValueWithUnit';
-import { formatNumber, convertValue } from '../utils/conversions';
+import { formatNumber, convertValue, convertSteamPressure, formatNumberForInput } from '../utils/conversions';
 import FormulaTooltipContent from './FormulaTooltipContent';
 
 interface EquipmentItemProps {
@@ -36,6 +37,9 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
 }) => {
     const { id, type, name, pressureLoss, inletAir, outletAir, conditions, color, results } = equipment;
     const { t, locale } = useLanguage();
+    
+    // Local state for the steam pressure input to allow for smoother user input
+    const [pressureInputValue, setPressureInputValue] = useState('');
 
     const currentInletAirCalculated = useMemo(() => calculateAirProperties(inletAir.temp, inletAir.rh), [inletAir.temp, inletAir.rh]);
     const massFlowRateDA_kg_s = useMemo(() => (airflow !== null && currentInletAirCalculated.density !== null) ? (airflow / 60) * currentInletAirCalculated.density : 0, [airflow, currentInletAirCalculated.density]);
@@ -56,6 +60,27 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const finalWSat = calculateAbsoluteHumidity(tSat, 100);
         return { finalWSat };
     }, [type, currentInletAirCalculated.temp, currentInletAirCalculated.enthalpy]);
+
+    // Effect to synchronize the local pressure input state with props from the parent
+    useEffect(() => {
+        if (type === EquipmentType.STEAM_HUMIDIFIER) {
+            const steamCond = conditions as SteamHumidifierConditions;
+            const currentUnit = steamCond.steamGaugePressureUnit || SteamPressureUnit.KPAG;
+            const valueInKpa = steamCond.steamGaugePressure ?? 100;
+            
+            if (valueInKpa !== null) {
+                const valueInCurrentUnit = convertSteamPressure(
+                    valueInKpa,
+                    SteamPressureUnit.KPAG, // internal is always kPa
+                    currentUnit
+                );
+                setPressureInputValue(formatNumberForInput(valueInCurrentUnit, currentUnit, unitSystem));
+            } else {
+                setPressureInputValue('');
+            }
+        }
+    }, [type, conditions, unitSystem]);
+
 
     useEffect(() => {
         let newPressureLoss: number | null = pressureLoss;
@@ -639,11 +664,52 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             case EquipmentType.STEAM_HUMIDIFIER:
                 const steamCond = conditions as SteamHumidifierConditions;
                 const steamRes = results as SteamHumidifierResults;
+
+                const handlePressureValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                    const stringValue = e.target.value;
+                    setPressureInputValue(stringValue);
+                    const numValue = parseFloat(stringValue);
+                    if (!isNaN(numValue)) {
+                        const valueInKpa = convertSteamPressure(
+                            numValue,
+                            steamCond.steamGaugePressureUnit || SteamPressureUnit.KPAG,
+                            SteamPressureUnit.KPAG
+                        );
+                        handleConditionChange('steamGaugePressure', valueInKpa);
+                    } else if (stringValue === '') {
+                        handleConditionChange('steamGaugePressure', null);
+                    }
+                };
+            
+                const handlePressureUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const newUnit = e.target.value as SteamPressureUnit;
+                    handleConditionChange('steamGaugePressureUnit', newUnit);
+                };
+
                 return (
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className={conditionRowClasses}>
                             <span className="text-sm">{t('conditions.steamGaugePressure')}</span>
-                            <NumberInputWithControls value={steamCond.steamGaugePressure ?? null} onChange={(val) => handleConditionChange('steamGaugePressure', val)} unitType='steam_pressure' unitSystem={unitSystem} min={0} step={10} />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={pressureInputValue}
+                                    onChange={handlePressureValueChange}
+                                    onFocus={(e) => e.target.select()}
+                                    className={inputClasses}
+                                />
+                                <select
+                                    value={steamCond.steamGaugePressureUnit || SteamPressureUnit.KPAG}
+                                    onChange={handlePressureUnitChange}
+                                    className="px-2 py-1 border border-slate-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {Object.values(SteamPressureUnit).map(unit => (
+                                        <option key={unit} value={unit}>
+                                            {t(`units.pressure_units.${unit}`)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className={conditionRowClasses}>
                             <span className="text-sm">{t('results.steamAbsolutePressure')}</span>

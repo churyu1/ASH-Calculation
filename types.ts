@@ -18,6 +18,15 @@ export enum EquipmentType {
     CUSTOM = 'custom',
 }
 
+export enum SteamPressureUnit {
+    PAG = 'pag',
+    KPAG = 'kpag',
+    MPAG = 'mpag',
+    PSIG = 'psig',
+    BARG = 'barg',
+    KGFCM2G = 'kgfcm2g',
+}
+
 export interface AirProperties {
     temp: number | null;
     rh: number | null;
@@ -63,7 +72,8 @@ export interface SprayWasherConditions extends BaseConditions {
 }
 
 export interface SteamHumidifierConditions extends BaseConditions {
-    steamGaugePressure?: number;
+    steamGaugePressure?: number; // Always stored in kPaG
+    steamGaugePressureUnit?: SteamPressureUnit;
 }
 
 export interface FanConditions extends BaseConditions {

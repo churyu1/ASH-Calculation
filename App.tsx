@@ -5,7 +5,8 @@ import {
     Equipment, UnitSystem, EquipmentType, AirProperties, 
     CoolingCoilConditions, HeatingCoilConditions, FanConditions, 
     DamperConditions, FilterConditions, BurnerConditions, 
-    EliminatorConditions, SprayWasherConditions, SteamHumidifierConditions, CustomConditions 
+    EliminatorConditions, SprayWasherConditions, SteamHumidifierConditions, CustomConditions,
+    SteamPressureUnit
 } from './types';
 import { EQUIPMENT_COLORS } from './constants';
 import { calculateAirProperties, calculatePsat } from './services/psychrometrics';
@@ -86,7 +87,10 @@ const getInitialEquipment = (): Equipment[] => {
                  break;
             case EquipmentType.STEAM_HUMIDIFIER:
                 newEquipment.outletAir = { temp: null, rh: 40, absHumidity: null, enthalpy: null, density: null };
-                (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100 };
+                (newEquipment.conditions as SteamHumidifierConditions) = { 
+                    steamGaugePressure: 100,
+                    steamGaugePressureUnit: SteamPressureUnit.KPAG,
+                };
                 break;
             case EquipmentType.FAN:
                 (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };
@@ -161,7 +165,10 @@ const App: React.FC = () => {
                  break;
             case EquipmentType.STEAM_HUMIDIFIER:
                 newEquipment.outletAir = { temp: null, rh: 40, absHumidity: null, enthalpy: null, density: null };
-                (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100 };
+                (newEquipment.conditions as SteamHumidifierConditions) = { 
+                    steamGaugePressure: 100,
+                    steamGaugePressureUnit: SteamPressureUnit.KPAG,
+                };
                 break;
             case EquipmentType.FAN:
                 (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };

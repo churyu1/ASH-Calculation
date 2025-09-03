@@ -1,6 +1,6 @@
 
 
-import { UnitSystem, UnitType } from '../types';
+import { UnitSystem, UnitType, SteamPressureUnit } from '../types';
 
 // Constants for unit conversions
 const UNIT_CONVERSIONS = {
@@ -44,6 +44,25 @@ const UNIT_CONVERSIONS = {
     },
 };
 
+// Conversion factors FROM kPaG
+const KPA_CONVERSIONS = {
+    [SteamPressureUnit.PAG]: 1000,
+    [SteamPressureUnit.KPAG]: 1,
+    [SteamPressureUnit.MPAG]: 0.001,
+    [SteamPressureUnit.PSIG]: 0.145038,
+    [SteamPressureUnit.BARG]: 0.01,
+    [SteamPressureUnit.KGFCM2G]: 0.0101972,
+};
+
+export const convertSteamPressure = (value: number, fromUnit: SteamPressureUnit, toUnit: SteamPressureUnit): number => {
+    if (fromUnit === toUnit) return value;
+    // First, convert from the 'fromUnit' to the base unit (kPaG)
+    const valueInKpa = value / KPA_CONVERSIONS[fromUnit];
+    // Then, convert from the base unit to the 'toUnit'
+    return valueInKpa * KPA_CONVERSIONS[toUnit];
+};
+
+
 export const convertValue = (value: number | null, unitType: UnitType, fromSystem: UnitSystem, toSystem: UnitSystem): number | null => {
     if (value === null || isNaN(value) || fromSystem === toSystem) return value;
 
@@ -61,7 +80,19 @@ export const convertValue = (value: number | null, unitType: UnitType, fromSyste
     return value;
 };
 
-export const getPrecisionForUnitType = (unitType: UnitType, unitSystem: UnitSystem): number => {
+export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, unitSystem: UnitSystem): number => {
+    if (Object.values(SteamPressureUnit).includes(unitType as SteamPressureUnit)) {
+        switch (unitType as SteamPressureUnit) {
+            case SteamPressureUnit.PAG: return 0;
+            case SteamPressureUnit.KPAG: return 1;
+            case SteamPressureUnit.MPAG: return 4;
+            case SteamPressureUnit.PSIG: return 2;
+            case SteamPressureUnit.BARG: return 3;
+            case SteamPressureUnit.KGFCM2G: return 3;
+            default: return 2;
+        }
+    }
+
     if (unitSystem === UnitSystem.IMPERIAL) {
         switch (unitType) {
             case 'temperature': return 1;
@@ -113,7 +144,7 @@ export const formatNumber = (num: number | null | undefined): string => {
     return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
 };
 
-export const formatNumberForInput = (num: number, unitType: UnitType, unitSystem: UnitSystem): string => {
+export const formatNumberForInput = (num: number, unitType: UnitType | SteamPressureUnit, unitSystem: UnitSystem): string => {
     if (isNaN(num)) return '';
     const precision = getPrecisionForUnitType(unitType, unitSystem);
     return parseFloat(num.toFixed(precision)).toString();

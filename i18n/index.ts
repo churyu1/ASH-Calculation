@@ -103,6 +103,14 @@ export const enMessages = {
     "enthalpy": "Enthalpy"
   },
   "units": {
+    "pressure_units": {
+      "pag": "PaG",
+      "kpag": "kPaG",
+      "mpag": "MPaG",
+      "psig": "psiG",
+      "barg": "barG",
+      "kgfcm2g": "kgf/cm²G"
+    },
     "si": {
         "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
@@ -545,6 +553,14 @@ const jaMessages = {
     "enthalpy": "比エンタルピー"
   },
   "units": {
+    "pressure_units": {
+      "pag": "PaG",
+      "kpag": "kPaG",
+      "mpag": "MPaG",
+      "psig": "psiG",
+      "barg": "barG",
+      "kgfcm2g": "kgf/cm²G"
+    },
     "si": {
         "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
