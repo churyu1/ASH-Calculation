@@ -607,6 +607,60 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
     }, [outletAir.temp, outletAir.absHumidity, locale, unitSystem, t]);
 
+    const steamAbsPressureTooltip = useMemo(() => {
+        if (type !== EquipmentType.STEAM_HUMIDIFIER) return null;
+    
+        const steamCond = conditions as SteamHumidifierConditions;
+        const steamRes = results as SteamHumidifierResults;
+        if (steamCond.steamGaugePressure === null || steamCond.steamGaugePressure === undefined || steamRes.steamAbsolutePressure === null || steamRes.steamAbsolutePressure === undefined) return null;
+    
+        const formulaPath = 'tooltips.steam_humidifier.steamAbsolutePressure';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        
+        let values = {};
+        if (unitSystem === UnitSystem.IMPERIAL) {
+            const atm_pressure_psi = convertValue(101.325, 'steam_pressure', UnitSystem.SI, UnitSystem.IMPERIAL)!;
+            values = {
+                'P_gauge': { value: convertValue(steamCond.steamGaugePressure, 'steam_pressure', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'psiG' },
+                'P_atm': { value: atm_pressure_psi, unit: 'psi' }
+            };
+        } else {
+            values = {
+                'P_gauge': { value: steamCond.steamGaugePressure, unit: 'kPaG' },
+                'P_atm': { value: 101.325, unit: 'kPa' }
+            };
+        }
+        
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, conditions, results, unitSystem, locale, t]);
+    
+    const steamPropertiesTooltip = useMemo(() => {
+        if (type !== EquipmentType.STEAM_HUMIDIFIER) return null;
+    
+        const steamRes = results as SteamHumidifierResults;
+        if (steamRes.steamAbsolutePressure === null || steamRes.steamAbsolutePressure === undefined) return null;
+    
+        const formulaPath = 'tooltips.steam_humidifier.steamProperties';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        
+        let values = {};
+        if (unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'P_abs': { value: convertValue(steamRes.steamAbsolutePressure, 'steam_pressure', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'psi' }
+            };
+        } else {
+            values = {
+                'P_abs': { value: steamRes.steamAbsolutePressure, unit: 'kPa' }
+            };
+        }
+        
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, results, unitSystem, locale, t]);
+
     const renderConditions = () => {
         switch(type) {
             case EquipmentType.FILTER:
@@ -713,15 +767,15 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                         </div>
                         <div className={conditionRowClasses}>
                             <span className="text-sm">{t('results.steamAbsolutePressure')}</span>
-                            <DisplayValueWithUnit value={steamRes.steamAbsolutePressure} unitType="steam_pressure" unitSystem={unitSystem} />
+                            <DisplayValueWithUnit value={steamRes.steamAbsolutePressure} unitType="steam_pressure" unitSystem={unitSystem} tooltipContent={steamAbsPressureTooltip} />
                         </div>
                          <div className={conditionRowClasses}>
                             <span className="text-sm">{t('results.steamTemperature')}</span>
-                            <DisplayValueWithUnit value={steamRes.steamTemperature} unitType="temperature" unitSystem={unitSystem} />
+                            <DisplayValueWithUnit value={steamRes.steamTemperature} unitType="temperature" unitSystem={unitSystem} tooltipContent={steamPropertiesTooltip} />
                         </div>
                          <div className={conditionRowClasses}>
                             <span className="text-sm">{t('results.steamEnthalpy')}</span>
-                            <DisplayValueWithUnit value={steamRes.steamEnthalpy} unitType="steam_enthalpy" unitSystem={unitSystem} />
+                            <DisplayValueWithUnit value={steamRes.steamEnthalpy} unitType="steam_enthalpy" unitSystem={unitSystem} tooltipContent={steamPropertiesTooltip} />
                         </div>
                     </div>
                 );
@@ -1276,7 +1330,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     }
 
     return (
-        <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-lg mb-6 bg-white border-l-[6px] ${color}`}>
+        <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-lg bg-white border-l-[6px] ${color}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <input type="text" value={name} onChange={(e) => handleUpdate('name', e.target.value)} onFocus={(e) => e.target.select()} className="flex-grow min-w-[150px] px-2 py-1 border border-slate-300 rounded-md bg-white text-left font-bold text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <div className="flex items-center gap-2">

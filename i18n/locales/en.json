@@ -1,5 +1,4 @@
 
-
 {
   "app": {
     "title": "HVAC Calculator",
@@ -17,7 +16,12 @@
     "noEquipmentAdded": "No equipment added.",
     "pressureLoss": "Pressure Loss",
     "totalPressureLoss": "Total Pressure Loss:",
-    "psychrometricChart": "Psychrometric Chart"
+    "psychrometricChart": "Psychrometric Chart",
+    "dataManagement": "Data Management",
+    "importConfig": "Import Config",
+    "exportConfig": "Export Config",
+    "importSuccess": "Configuration imported successfully!",
+    "importError": "Failed to import configuration. The file may be invalid or corrupted."
   },
   "equipment": {
     "pressureLoss": "Pressure Loss",
@@ -385,6 +389,28 @@
         "imperial": {
           "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
           "legend": { "M_lbh": "Rate (lb/h)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+        }
+      },
+      "steamAbsolutePressure": {
+        "title": "Steam Absolute Pressure",
+        "si": {
+          "formula": "P_abs = P_gauge + P_atm",
+          "legend": { "P_abs": "Abs. Pressure (kPa)", "P_gauge": "Gauge Pressure (kPa)", "P_atm": "Atm. Pressure (101.325 kPa)" }
+        },
+        "imperial": {
+          "formula": "P_abs = P_gauge + P_atm",
+          "legend": { "P_abs": "Abs. Pressure (psi)", "P_gauge": "Gauge Pressure (psi)", "P_atm": "Atm. Pressure (14.7 psi)" }
+        }
+      },
+      "steamProperties": {
+        "title": "Steam Properties (from Pressure)",
+        "si": {
+          "formula": "Calculated by interpolation from a steam table based on absolute pressure.",
+          "legend": { "T_steam": "Steam Temp (°C)", "h_steam": "Steam Enthalpy (kcal/kg)", "P_abs": "Abs. Pressure (kPa)" }
+        },
+        "imperial": {
+          "formula": "Calculated by interpolation from a steam table based on absolute pressure.",
+          "legend": { "T_steam": "Steam Temp (°F)", "h_steam": "Steam Enthalpy (BTU/lb)", "P_abs": "Abs. Pressure (psi)" }
         }
       }
     },

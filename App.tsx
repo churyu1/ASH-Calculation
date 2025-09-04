@@ -1,6 +1,5 @@
 
-
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { 
     Equipment, UnitSystem, EquipmentType, AirProperties, 
     CoolingCoilConditions, HeatingCoilConditions, FanConditions, 
@@ -18,7 +17,58 @@ import PsychrometricChart from './components/PsychrometricChart';
 import Summary from './components/Summary';
 import FloatingNav from './components/FloatingNav';
 import FormulaTooltipContent from './components/FormulaTooltipContent';
-import { convertValue } from './utils/conversions';
+import { convertValue, getPrecisionForUnitType } from './utils/conversions';
+
+// --- New Connector Component Definition ---
+interface ProcessConnectorProps {
+    airProperties: AirProperties;
+    unitSystem: UnitSystem;
+}
+
+const ProcessConnector: React.FC<ProcessConnectorProps> = ({ airProperties, unitSystem }) => {
+    const { t } = useLanguage();
+
+    const temp = airProperties.temp !== null
+        ? convertValue(airProperties.temp, 'temperature', UnitSystem.SI, unitSystem)
+        : null;
+    const tempUnit = t(`units.${unitSystem}.temperature`);
+
+    const rh = airProperties.rh;
+    const rhUnit = t(`units.${unitSystem}.rh`);
+
+    const format = (val: number | null, precision: number) => {
+        if (val === null || isNaN(val)) return '---';
+        return val.toFixed(precision);
+    };
+
+    const tempPrecision = getPrecisionForUnitType('temperature', unitSystem);
+    const rhPrecision = getPrecisionForUnitType('rh', unitSystem);
+
+    return (
+        <div className="flex justify-center items-center h-20 relative" aria-hidden="true">
+            <div className="border-l-2 border-dashed border-slate-300 h-full absolute"></div>
+            <div className="z-10 bg-slate-100 px-4">
+                <div className="bg-white p-2 rounded-lg shadow border border-slate-200 flex items-center gap-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                    <div className="text-xs w-48">
+                        <div className="flex justify-between items-baseline gap-2">
+                           <span className="text-slate-600 font-medium">{t('airProperties.temperature')}:</span>
+                           <span className="font-mono text-slate-800 font-bold">{format(temp, tempPrecision)} {tempUnit}</span>
+                        </div>
+                        <div className="flex justify-between items-baseline gap-2">
+                            <span className="text-slate-600 font-medium">{t('airProperties.rh')}:</span>
+                            <span className="font-mono text-slate-800 font-bold">{format(rh, rhPrecision)} {rhUnit}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+// --- End of Connector Component Definition ---
+
 
 // Function to generate the initial equipment list
 const getInitialEquipment = (): Equipment[] => {
@@ -121,6 +171,81 @@ const App: React.FC = () => {
     const [unitSystem, setUnitSystem] = useState<UnitSystem>(UnitSystem.SI);
     const [acInletAir, setAcInletAir] = useState<AirProperties>(() => calculateAirProperties(0, 50));
     const [acOutletAir, setAcOutletAir] = useState<AirProperties>(() => calculateAirProperties(27, 70));
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleExport = () => {
+        const dataToSave = {
+            version: '1.0.0',
+            airflow,
+            equipmentList,
+            unitSystem,
+            acInletAir,
+            acOutletAir,
+            locale,
+        };
+        const jsonString = JSON.stringify(dataToSave, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'hvac-calculator-config.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') {
+                    throw new Error('File content is not a string.');
+                }
+                const data = JSON.parse(text);
+
+                if (
+                    data.airflow !== undefined &&
+                    data.equipmentList !== undefined &&
+                    data.unitSystem !== undefined &&
+                    data.acInletAir !== undefined &&
+                    data.acOutletAir !== undefined
+                ) {
+                    setAirflow(data.airflow);
+                    setEquipmentList(data.equipmentList);
+                    setUnitSystem(data.unitSystem);
+                    setAcInletAir(data.acInletAir);
+                    setAcOutletAir(data.acOutletAir);
+                    if (data.locale) {
+                        setLocale(data.locale);
+                    }
+                    alert(t('app.importSuccess'));
+                } else {
+                    throw new Error('Invalid or corrupted configuration file.');
+                }
+            } catch (error) {
+                console.error("Failed to import configuration:", error);
+                alert(t('app.importError'));
+            } finally {
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            }
+        };
+        reader.onerror = () => {
+            console.error("Failed to read file.");
+            alert(t('app.importError'));
+        };
+        reader.readAsText(file);
+    };
+
+    const triggerFileSelect = () => {
+        fileInputRef.current?.click();
+    };
 
     const addEquipment = (type: EquipmentType) => {
         const newId = nextId;
@@ -487,87 +612,143 @@ const App: React.FC = () => {
                                 </div>
                             </fieldset>
                         </div>
-                    </div>
-                    <div className="p-4 bg-white rounded-lg shadow-md">
-                        <label htmlFor="airflow" className="block text-lg font-semibold mb-2">{t('app.systemAirflow')}</label>
-                        <NumberInputWithControls value={airflow} onChange={setAirflow} step={10} unitType="airflow" unitSystem={unitSystem} inputClassName="w-40 text-lg" containerClassName="flex-grow"/>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-                    <div id="ac-inlet-conditions" className="p-4 bg-white rounded-lg shadow-md">
-                        <h3 className="text-lg font-semibold mb-4">{t('app.acInletConditions')}</h3>
-                        <div className="flex flex-col gap-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.temperature')}</span>
-                                <NumberInputWithControls value={acInletAir.temp} onChange={handleAcInletTempChange} step={1} unitType="temperature" unitSystem={unitSystem} inputClassName="w-24" />
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.rh')}</span>
-                                <NumberInputWithControls value={acInletAir.rh} onChange={handleAcInletRHChange} step={1} min={0} max={100} unitType="rh" unitSystem={unitSystem} inputClassName="w-24" />
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.abs_humidity')}</span>
-                                <DisplayValueWithUnit value={acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} valueClassName="w-24 text-right" tooltipContent={acInletAbsHumidityTooltip} />
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.enthalpy')}</span>
-                                <DisplayValueWithUnit value={acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} valueClassName="w-24 text-right" tooltipContent={acInletEnthalpyTooltip} />
+                        <div className="border-t border-slate-200 mt-4 pt-4">
+                            <h3 className="text-lg font-semibold mb-2">{t('app.dataManagement')}</h3>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <button onClick={triggerFileSelect} className="flex-1 px-3 py-2 bg-green-500 text-white rounded-md shadow-sm hover:bg-green-600 transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    {t('app.importConfig')}
+                                </button>
+                                <button onClick={handleExport} className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-md shadow-sm hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 9.293a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                    {t('app.exportConfig')}
+                                </button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                    accept="application/json"
+                                />
                             </div>
                         </div>
                     </div>
-                    <div id="ac-outlet-conditions" className="p-4 bg-white rounded-lg shadow-md">
-                        <h3 className="text-lg font-semibold mb-4">{t('app.acOutletConditions')}</h3>
-                        <div className="flex flex-col gap-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.temperature')}</span>
-                                <NumberInputWithControls value={acOutletAir.temp} onChange={handleAcOutletTempChange} step={1} unitType="temperature" unitSystem={unitSystem} inputClassName="w-24" />
+
+                    <div className="p-4 bg-white rounded-lg shadow-md flex flex-col justify-center">
+                        <h2 className="text-lg font-semibold mb-2 text-center">{t('app.systemAirflow')}</h2>
+                        <div className="flex justify-center">
+                            <NumberInputWithControls value={airflow} onChange={setAirflow} unitType="airflow" unitSystem={unitSystem} containerClassName="w-full" />
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ac-inlet-conditions" className="mb-6">
+                    <h2 className="text-xl font-semibold mb-4">{t('app.acInletConditions')}</h2>
+                    <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-100 rounded-lg">
+                            <h3 className="font-semibold mb-2">{t('equipment.inletAir')}</h3>
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.temperature')}</span>
+                                <NumberInputWithControls value={acInletAir.temp} onChange={handleAcInletTempChange} unitType="temperature" unitSystem={unitSystem} />
                             </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.rh')}</span>
-                                <NumberInputWithControls value={acOutletAir.rh} onChange={handleAcOutletRHChange} step={1} min={0} max={100} unitType="rh" unitSystem={unitSystem} inputClassName="w-24" />
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.rh')}</span>
+                                <NumberInputWithControls value={acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                             </div>
-                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.abs_humidity')}</span>
-                                <DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} valueClassName="w-24 text-right" tooltipContent={acOutletAbsHumidityTooltip} />
+                        </div>
+                        <div className="p-4 bg-slate-100 rounded-lg">
+                            <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                                <DisplayValueWithUnit value={acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} />
                             </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{t('airProperties.enthalpy')}</span>
-                                <DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} valueClassName="w-24 text-right" tooltipContent={acOutletEnthalpyTooltip} />
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                                <DisplayValueWithUnit value={acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {equipmentList.map((equipment, index) => (
+                    <React.Fragment key={equipment.id}>
+                        <ProcessConnector airProperties={equipment.inletAir} unitSystem={unitSystem} />
+                        <EquipmentItem
+                            equipment={equipment}
+                            index={index}
+                            totalEquipment={equipmentList.length}
+                            airflow={airflow}
+                            onUpdate={updateEquipment}
+                            onDelete={deleteEquipment}
+                            onMove={moveEquipment}
+                            onReflectUpstream={reflectUpstreamConditions}
+                            onReflectDownstream={reflectDownstreamConditions}
+                            unitSystem={unitSystem}
+                        />
+                    </React.Fragment>
+                ))}
+
+                {equipmentList.length > 0 && <ProcessConnector airProperties={equipmentList[equipmentList.length - 1].outletAir} unitSystem={unitSystem} />}
+
+                <div className="mb-6 mt-6">
+                    <h2 className="text-xl font-semibold mb-4">{t('app.acOutletConditions')}</h2>
+                    <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="p-4 bg-slate-100 rounded-lg">
+                            <h3 className="font-semibold mb-2">{t('equipment.outletAir')}</h3>
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.temperature')}</span>
+                                <NumberInputWithControls value={acOutletAir.temp} onChange={handleAcOutletTempChange} unitType="temperature" unitSystem={unitSystem} />
+                            </div>
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.rh')}</span>
+                                <NumberInputWithControls value={acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                            </div>
+                        </div>
+                         <div className="p-4 bg-slate-100 rounded-lg">
+                            <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                                <DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/>
+                            </div>
+                            <div className="flex justify-between items-center py-1">
+                                <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                                <DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip} />
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div className="p-4 bg-white rounded-lg shadow-md mb-6">
+                <div className="p-4 bg-white rounded-lg shadow-md my-6">
                     <h2 className="text-xl font-semibold mb-4">{t('app.addEquipment')}</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">{equipmentButtons}</div>
-                    <button onClick={deleteAllEquipment} className="w-full px-4 py-3 bg-red-500 text-white rounded-md shadow-md hover:bg-red-600 transition-colors text-center text-sm font-medium">{t('app.deleteAllEquipment')}</button>
-                </div>
-
-                <div className="mb-6 space-y-6">
-                    {equipmentList.map((eq, index) => (
-                        <EquipmentItem key={eq.id} equipment={eq} index={index} totalEquipment={equipmentList.length} airflow={airflow}
-                            onUpdate={updateEquipment} onDelete={deleteEquipment} onMove={moveEquipment} 
-                            onReflectUpstream={reflectUpstreamConditions} 
-                            onReflectDownstream={reflectDownstreamConditions} 
-                            unitSystem={unitSystem} />
-                    ))}
+                    <div className="flex flex-wrap gap-2">
+                        {equipmentButtons}
+                    </div>
+                    {equipmentList.length > 0 && (
+                        <div className="mt-4 text-right">
+                             <button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-md shadow-md hover:bg-red-700 transition-colors text-sm font-medium">
+                                {t('app.deleteAllEquipment')}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <Summary equipmentList={equipmentList} totalPressureLoss={totalPressureLoss} unitSystem={unitSystem} />
 
                 <div id="psychrometric-chart" className="p-4 bg-white rounded-lg shadow-md mt-6">
-                     <h2 className="text-xl font-semibold mb-4">{t('app.psychrometricChart')}</h2>
-                     <PsychrometricChart 
+                    <h2 className="text-xl font-semibold mb-4">{t('app.psychrometricChart')}</h2>
+                    <PsychrometricChart 
                         airConditionsData={equipmentForChart} 
-                        globalInletAir={acInletAir} 
+                        globalInletAir={acInletAir}
                         globalOutletAir={acOutletCalculated}
-                        unitSystem={unitSystem} 
+                        unitSystem={unitSystem}
                     />
                 </div>
             </div>
-             <FloatingNav equipmentList={equipmentList} />
+            <FloatingNav equipmentList={equipmentList} />
         </div>
     );
 };

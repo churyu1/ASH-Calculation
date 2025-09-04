@@ -20,7 +20,12 @@ export const enMessages = {
     "noEquipmentAdded": "No equipment added.",
     "pressureLoss": "Pressure Loss",
     "totalPressureLoss": "Total Pressure Loss:",
-    "psychrometricChart": "Psychrometric Chart"
+    "psychrometricChart": "Psychrometric Chart",
+    "dataManagement": "Data Management",
+    "importConfig": "Import Config",
+    "exportConfig": "Export Config",
+    "importSuccess": "Configuration imported successfully!",
+    "importError": "Failed to import configuration. The file may be invalid or corrupted."
   },
   "equipment": {
     "pressureLoss": "Pressure Loss",
@@ -389,6 +394,28 @@ export const enMessages = {
           "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
           "legend": { "M_lbh": "Rate (lb/h)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
         }
+      },
+      "steamAbsolutePressure": {
+        "title": "Steam Absolute Pressure",
+        "si": {
+          "formula": "P_abs = P_gauge + P_atm",
+          "legend": { "P_abs": "Abs. Pressure (kPa)", "P_gauge": "Gauge Pressure (kPa)", "P_atm": "Atm. Pressure (101.325 kPa)" }
+        },
+        "imperial": {
+          "formula": "P_abs = P_gauge + P_atm",
+          "legend": { "P_abs": "Abs. Pressure (psi)", "P_gauge": "Gauge Pressure (psi)", "P_atm": "Atm. Pressure (14.7 psi)" }
+        }
+      },
+      "steamProperties": {
+        "title": "Steam Properties (from Pressure)",
+        "si": {
+          "formula": "Calculated by interpolation from a steam table based on absolute pressure.",
+          "legend": { "T_steam": "Steam Temp (°C)", "h_steam": "Steam Enthalpy (kcal/kg)", "P_abs": "Abs. Pressure (kPa)" }
+        },
+        "imperial": {
+          "formula": "Calculated by interpolation from a steam table based on absolute pressure.",
+          "legend": { "T_steam": "Steam Temp (°F)", "h_steam": "Steam Enthalpy (BTU/lb)", "P_abs": "Abs. Pressure (psi)" }
+        }
       }
     },
     "fan": {
@@ -470,7 +497,12 @@ const jaMessages = {
     "noEquipmentAdded": "機器が追加されていません。",
     "pressureLoss": "圧力損失",
     "totalPressureLoss": "合計圧力損失:",
-    "psychrometricChart": "空気線図"
+    "psychrometricChart": "空気線図",
+    "dataManagement": "データ管理",
+    "importConfig": "設定を読込",
+    "exportConfig": "設定を保存",
+    "importSuccess": "設定を正常に読み込みました！",
+    "importError": "設定の読み込みに失敗しました。ファイルが無効か破損している可能性があります。"
   },
   "equipment": {
     "pressureLoss": "圧力損失",
@@ -838,6 +870,28 @@ const jaMessages = {
         "imperial": {
           "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
           "legend": { "M_lbh": "蒸気量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+        }
+      },
+      "steamAbsolutePressure": {
+        "title": "蒸気絶対圧",
+        "si": {
+          "formula": "P_abs = P_gauge + P_atm",
+          "legend": { "P_abs": "絶対圧 (kPa)", "P_gauge": "ゲージ圧 (kPa)", "P_atm": "大気圧 (101.325 kPa)" }
+        },
+        "imperial": {
+          "formula": "P_abs = P_gauge + P_atm",
+          "legend": { "P_abs": "絶対圧 (psi)", "P_gauge": "ゲージ圧 (psi)", "P_atm": "大気圧 (14.7 psi)" }
+        }
+      },
+      "steamProperties": {
+        "title": "蒸気特性 (圧力から)",
+        "si": {
+          "formula": "絶対圧を元に蒸気表から線形補間して計算されます。",
+          "legend": { "T_steam": "蒸気温度 (°C)", "h_steam": "蒸気エンタルピー (kcal/kg)", "P_abs": "絶対圧 (kPa)" }
+        },
+        "imperial": {
+          "formula": "絶対圧を元に蒸気表から線形補間して計算されます。",
+          "legend": { "T_steam": "蒸気温度 (°F)", "h_steam": "蒸気エンタルピー (BTU/lb)", "P_abs": "絶対圧 (psi)" }
         }
       }
     },
