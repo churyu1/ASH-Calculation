@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 // FIX: Changed d3 import from namespace to named functions to fix module resolution errors.
-import { select, scaleLinear, axisBottom, axisLeft, line } from 'd3';
+import { select, scaleLinear, axisBottom, axisLeft, line, Selection } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint } from '../types';
 import { convertValue, getPrecisionForUnitType } from '../utils/conversions';
 import { calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy } from '../services/psychrometrics';
@@ -82,20 +82,21 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
         
         xAxis.selectAll("path").style("stroke", "#64748b");
         xAxis.selectAll("line").style("stroke", "#64748b");
-        xAxis.selectAll("text").style("fill", "#475569");
+        xAxis.selectAll("text").style("fill", "#475569").style("font-size", "12px");
         xAxis.append("text")
-            .attr("y", 40).attr("x", width / 2).attr("fill", "#334155").attr("font-size", "12px").attr("text-anchor", "middle")
+            .attr("y", 40).attr("x", width / 2).attr("fill", "#334155").attr("font-size", "14px").attr("text-anchor", "middle")
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
             // FIX: Use 'axisLeft' directly instead of 'd3.axisLeft'
+            // FIX: Corrected function call from getPrecisionForType to getPrecisionForUnitType
             .call(axisLeft(yScale).ticks(6).tickFormat(d => `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`))
             
         yAxis.selectAll("path").style("stroke", "#64748b");
         yAxis.selectAll("line").style("stroke", "#64748b");
-        yAxis.selectAll("text").style("fill", "#475569");
+        yAxis.selectAll("text").style("fill", "#475569").style("font-size", "12px");
         yAxis.append("text")
-            .attr("transform", "rotate(-90)").attr("y", -45).attr("x", -height / 2).attr("fill", "#334155").attr("font-size", "12px").attr("text-anchor", "middle")
+            .attr("transform", "rotate(-90)").attr("y", -45).attr("x", -height / 2).attr("fill", "#334155").attr("font-size", "14px").attr("text-anchor", "middle")
             .text(`${t('chart.yAxisLabel')} (${absHumidityUnit})`);
             
         // FIX: Use 'axisBottom' directly instead of 'd3.axisBottom'
@@ -131,7 +132,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             if (lineData.length > 0) {
                 const lastPoint = lineData[lineData.length - 1];
                 svg.append("text").attr("x", xScale(lastPoint.temp) + 5).attr("y", yScale(lastPoint.absHumidity) - 5)
-                   .text(`${rh}%`).attr("font-size", "9px").attr("fill", "#64748b");
+                   .text(`${rh}%`).attr("font-size", "11px").attr("fill", "#64748b");
             }
         });
 
@@ -154,7 +155,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                 if(labelPoint) {
                     svg.append("text").attr("x", xScale(labelPoint.temp) + 5).attr("y", yScale(labelPoint.absHumidity) - 5)
                        .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('enthalpy', unitSystem))} ${enthalpyUnit}`)
-                       .attr("font-size", "8px").attr("fill", "#b45309");
+                       .attr("font-size", "11px").attr("fill", "#b45309");
                 }
             }
         });
@@ -165,19 +166,41 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
             return `${t(labelKey)} (${temp}${temperatureUnit}, ${rh}%)`;
         };
+        
+        const addLabelWithHalo = (
+            selection: Selection<SVGTextElement, unknown, null, undefined>,
+            text: string, 
+            color: string
+        ) => {
+            selection
+                .text(text)
+                .attr("font-size", "12px")
+                .attr("font-weight", "bold")
+                .attr("fill", color)
+                .attr("stroke", "white")
+                .attr("stroke-width", "3px")
+                .attr("stroke-linejoin", "round")
+                .style("paint-order", "stroke");
+        };
 
         if (globalInletAir && globalInletAir.temp !== null && globalInletAir.absHumidity !== null) {
             svg.append("circle").attr("cx", xScale(globalInletAir.temp)).attr("cy", yScale(globalInletAir.absHumidity))
                .attr("r", 7).attr("fill", "#16a34a").attr("stroke", "#1f2937").attr("stroke-width", 1.5);
-            svg.append("text").attr("x", xScale(globalInletAir.temp) + 10).attr("y", yScale(globalInletAir.absHumidity) - 10)
-               .text(formatPointLabel(globalInletAir, 'chart.acInlet')).attr("font-size", "11px").attr("fill", "#16a34a").attr("font-weight", "bold");
+            addLabelWithHalo(
+                svg.append("text").attr("x", xScale(globalInletAir.temp) + 10).attr("y", yScale(globalInletAir.absHumidity) - 10),
+                formatPointLabel(globalInletAir, 'chart.acInlet'),
+                "#16a34a"
+            );
         }
 
         if (globalOutletAir && globalOutletAir.temp !== null && globalOutletAir.absHumidity !== null) {
             svg.append("circle").attr("cx", xScale(globalOutletAir.temp)).attr("cy", yScale(globalOutletAir.absHumidity))
                .attr("r", 7).attr("fill", "#dc2626").attr("stroke", "#1f2937").attr("stroke-width", 1.5);
-            svg.append("text").attr("x", xScale(globalOutletAir.temp) + 10).attr("y", yScale(globalOutletAir.absHumidity) + 20)
-               .text(formatPointLabel(globalOutletAir, 'chart.acOutlet')).attr("font-size", "11px").attr("fill", "#dc2626").attr("font-weight", "bold");
+             addLabelWithHalo(
+                svg.append("text").attr("x", xScale(globalOutletAir.temp) + 10).attr("y", yScale(globalOutletAir.absHumidity) + 20),
+                formatPointLabel(globalOutletAir, 'chart.acOutlet'),
+                "#dc2626"
+            );
         }
 
         airConditionsData.forEach(eq => {
@@ -191,8 +214,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             svg.append("circle").attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 5).attr("fill", "#dc2626").attr("stroke", "#1f2937");
             svg.append("line").attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
                .attr("stroke", color).attr("stroke-width", 2).attr("marker-end", `url(#arrow-${eq.id})`);
-            svg.append("text").attr("x", xScale(inletTempSI) + 8).attr("y", yScale(inletAbsHumiditySI) - 8).text(`${eq.name} ${t('chart.inlet')}`).attr("font-size", "10px").attr("fill", "#16a34a");
-            svg.append("text").attr("x", xScale(outletTempSI) + 8).attr("y", yScale(outletAbsHumiditySI) + 12).text(`${eq.name} ${t('chart.outlet')}`).attr("font-size", "10px").attr("fill", "#dc2626");
+            // Individual labels removed to declutter the chart. Info is in the summary table.
         });
 
     }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, width, height, t]);

@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 // Embed JSON content directly to avoid module resolution errors in browser-native ESM.
@@ -138,6 +136,24 @@ export const enMessages = {
     "acOutlet": "AC Outlet",
     "inlet": "Inlet",
     "outlet": "Outlet"
+  },
+  "summary": {
+    "table": {
+      "equipment": "Equipment",
+      "inlet": "Inlet",
+      "outlet": "Outlet",
+      "temp": "Temp",
+      "rh": "RH",
+      "keyResults": "Key Results",
+      "burnerLoad": "Burner Load",
+      "coolingLoad": "Cooling Water Load",
+      "coolingFlow": "Chilled Water Flow",
+      "heatingLoad": "Hot Water Load",
+      "heatingFlow": "Hot Water Flow",
+      "steamFlow": "Steam Amount",
+      "pressureLoss": "Pressure Loss",
+      "totalPressureLoss": "Total Pressure Loss"
+    }
   },
   "fab": {
     "title": "Navigation",
@@ -616,6 +632,24 @@ const jaMessages = {
     "inlet": "入口",
     "outlet": "出口"
   },
+  "summary": {
+    "table": {
+      "equipment": "機器",
+      "inlet": "入口",
+      "outlet": "出口",
+      "temp": "温度",
+      "rh": "湿度",
+      "keyResults": "主要な結果",
+      "burnerLoad": "バーナー熱負荷",
+      "coolingLoad": "冷水側熱負荷",
+      "coolingFlow": "冷水量",
+      "heatingLoad": "温水側熱負荷",
+      "heatingFlow": "温水量",
+      "steamFlow": "蒸気量",
+      "pressureLoss": "圧力損失",
+      "totalPressureLoss": "合計圧力損失"
+    }
+  },
   "fab": {
     "title": "ナビゲーション",
     "summary": "サマリーへ",
@@ -956,6 +990,8 @@ const jaMessages = {
     }
   }
 };
+
+// FIX: Removed duplicate declaration of 'jaMessages'.
 
 export const get = (obj: any, path: string): any => {
     return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj);

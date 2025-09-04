@@ -1385,13 +1385,15 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                 <div className={sectionClasses}>
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="font-semibold">{t('equipment.outletAir')}</h4>
-                         <button
-                            onClick={() => onReflectDownstream(id, index)}
-                            title={index < totalEquipment - 1 ? t('equipment.useDownstreamInlet') : t('equipment.useACOutlet')}
-                            className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                        >
-                            {index < totalEquipment - 1 ? '↓' : '↱'} {index < totalEquipment - 1 ? t('equipment.useDownstreamInlet') : t('equipment.useACOutlet')}
-                        </button>
+                        {type !== EquipmentType.FAN && (
+                             <button
+                                onClick={() => onReflectDownstream(id, index)}
+                                title={index < totalEquipment - 1 ? t('equipment.useDownstreamInlet') : t('equipment.useACOutlet')}
+                                className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                            >
+                                {index < totalEquipment - 1 ? '↓' : '↱'} {index < totalEquipment - 1 ? t('equipment.useDownstreamInlet') : t('equipment.useACOutlet')}
+                            </button>
+                        )}
                     </div>
                     
                     <div className={conditionRowClasses}>

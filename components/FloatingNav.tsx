@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Equipment } from '../types';
 import { useLanguage } from '../i18n';
@@ -27,6 +26,16 @@ const FloatingNav: React.FC<FloatingNavProps> = ({ equipmentList }) => {
                                 {t('fab.acInlet')}
                             </a>
                         </li>
+                        <li>
+                           <a href="#psychrometric-chart" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
+                                {t('fab.chart')}
+                            </a>
+                        </li>
+                        <li>
+                           <a href="#summary-section" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
+                                {t('fab.summary')}
+                            </a>
+                        </li>
                         
                         {equipmentList.length > 0 && (
                             <>
@@ -40,19 +49,6 @@ const FloatingNav: React.FC<FloatingNavProps> = ({ equipmentList }) => {
                                 ))}
                             </>
                         )}
-
-                        <hr className="my-1"/>
-
-                        <li>
-                           <a href="#summary-section" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
-                                {t('fab.summary')}
-                            </a>
-                        </li>
-                         <li>
-                           <a href="#psychrometric-chart" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
-                                {t('fab.chart')}
-                            </a>
-                        </li>
                     </ul>
                 </div>
             </div>

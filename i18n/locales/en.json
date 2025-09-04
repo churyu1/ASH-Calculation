@@ -1,4 +1,3 @@
-
 {
   "app": {
     "title": "HVAC Calculator",
@@ -134,6 +133,24 @@
     "acOutlet": "AC Outlet",
     "inlet": "Inlet",
     "outlet": "Outlet"
+  },
+  "summary": {
+    "table": {
+      "equipment": "Equipment",
+      "inlet": "Inlet",
+      "outlet": "Outlet",
+      "temp": "Temp",
+      "rh": "RH",
+      "keyResults": "Key Results",
+      "burnerLoad": "Burner Load",
+      "coolingLoad": "Cooling Water Load",
+      "coolingFlow": "Chilled Water Flow",
+      "heatingLoad": "Hot Water Load",
+      "heatingFlow": "Hot Water Flow",
+      "steamFlow": "Steam Amount",
+      "pressureLoss": "Pressure Loss",
+      "totalPressureLoss": "Total Pressure Loss"
+    }
   },
   "fab": {
     "title": "Navigation",
