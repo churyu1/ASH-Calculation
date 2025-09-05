@@ -153,10 +153,8 @@
     }
   },
   "fab": {
-    "title": "ナビゲーション",
-    "summary": "サマリーへ",
-    "chart": "空気線図へ",
-    "acInlet": "空調器入口へ"
+    "toggleToSplitView": "2カラム表示に切替",
+    "toggleToSingleView": "1カラム表示に切替"
   },
   "tooltips": {
     "airProperties": {

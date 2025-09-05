@@ -1,70 +1,34 @@
-import React, { useState } from 'react';
-import { Equipment } from '../types';
+import React from 'react';
 import { useLanguage } from '../i18n';
 
 interface FloatingNavProps {
-    equipmentList: Equipment[];
+    isTwoColumnLayout: boolean;
+    onToggleLayout: () => void;
 }
 
-const FloatingNav: React.FC<FloatingNavProps> = ({ equipmentList }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const FloatingNav: React.FC<FloatingNavProps> = ({ isTwoColumnLayout, onToggleLayout }) => {
     const { t } = useLanguage();
 
-    const toggleMenu = () => setIsOpen(!isOpen);
-    const closeMenu = () => setIsOpen(false);
+    const label = isTwoColumnLayout ? t('fab.toggleToSingleView') : t('fab.toggleToSplitView');
+
+    const icon = isTwoColumnLayout ? (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9.75 9.75M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L14.25 9.75M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9.75 14.25m10.5 6v-4.5m0 4.5h-4.5m4.5 0L14.25 14.25" />
+        </svg>
+    ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h5a2 2 0 002-2V7a2 2 0 00-2-2h-5a2 2 0 00-2 2" />
+        </svg>
+    );
 
     return (
         <div className="fixed bottom-6 right-6 z-50">
-            <div 
-                className={`absolute bottom-full right-0 mb-3 transition-all duration-300 ease-in-out ${isOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-4'}`}
-                style={{ maxHeight: 'calc(100vh - 10rem)', overflowY: 'auto' }}
-            >
-                <div className="bg-white rounded-lg shadow-2xl border border-slate-200 w-56">
-                    <ul className="py-1">
-                        <li>
-                           <a href="#ac-inlet-conditions" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
-                                {t('fab.acInlet')}
-                            </a>
-                        </li>
-                        <li>
-                           <a href="#psychrometric-chart" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
-                                {t('fab.chart')}
-                            </a>
-                        </li>
-                        <li>
-                           <a href="#summary-section" onClick={closeMenu} className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 font-semibold">
-                                {t('fab.summary')}
-                            </a>
-                        </li>
-                        
-                        {equipmentList.length > 0 && (
-                            <>
-                                <hr className="my-1"/>
-                                {equipmentList.map(eq => (
-                                    <li key={eq.id}>
-                                        <a href={`#equipment-${eq.id}`} onClick={closeMenu} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 truncate">
-                                            {eq.name}
-                                        </a>
-                                    </li>
-                                ))}
-                            </>
-                        )}
-                    </ul>
-                </div>
-            </div>
             <button
-                onClick={toggleMenu}
+                onClick={onToggleLayout}
                 className="w-16 h-16 bg-blue-600 rounded-full text-white flex items-center justify-center shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-110"
-                aria-label={t('fab.title')}
-                aria-expanded={isOpen}
+                aria-label={label}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 transition-transform duration-300 ${isOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   {isOpen ? (
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                   ) : (
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                   )}
-                </svg>
+                {icon}
             </button>
         </div>
     );

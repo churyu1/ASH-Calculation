@@ -156,10 +156,8 @@ export const enMessages = {
     }
   },
   "fab": {
-    "title": "Navigation",
-    "summary": "To Summary",
-    "chart": "To Chart",
-    "acInlet": "To AC Inlet"
+    "toggleToSplitView": "Toggle to Split View",
+    "toggleToSingleView": "Toggle to Single View"
   },
   "tooltips": {
     "airProperties": {
@@ -651,10 +649,8 @@ const jaMessages = {
     }
   },
   "fab": {
-    "title": "ナビゲーション",
-    "summary": "サマリーへ",
-    "chart": "空気線図へ",
-    "acInlet": "空調器入口へ"
+    "toggleToSplitView": "2カラム表示に切替",
+    "toggleToSingleView": "1カラム表示に切替"
   },
   "tooltips": {
     "airProperties": {
@@ -990,8 +986,6 @@ const jaMessages = {
     }
   }
 };
-
-// FIX: Removed duplicate declaration of 'jaMessages'.
 
 export const get = (obj: any, path: string): any => {
     return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj);

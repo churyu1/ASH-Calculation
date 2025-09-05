@@ -120,6 +120,9 @@ const App: React.FC = () => {
     const [acInletAir, setAcInletAir] = useState<AirProperties>(() => calculateAirProperties(0, 50));
     const [acOutletAir, setAcOutletAir] = useState<AirProperties>(() => calculateAirProperties(27, 70));
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isTwoColumnLayout, setIsTwoColumnLayout] = useState(false);
+
+    const toggleLayout = () => setIsTwoColumnLayout(prev => !prev);
 
     const handleExport = () => {
         const dataToSave = {
@@ -517,6 +520,19 @@ const App: React.FC = () => {
         return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
     }, [acOutletAir.temp, acOutletCalculated.absHumidity, locale, unitSystem, t]);
 
+    const psychrometricChartSection = (
+        <div id="psychrometric-chart" className="p-4 bg-white rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">{t('app.psychrometricChart')}</h2>
+            <PsychrometricChart 
+                airConditionsData={equipmentForChart} 
+                globalInletAir={acInletAir}
+                globalOutletAir={acOutletCalculated}
+                unitSystem={unitSystem}
+                isSplitViewActive={isTwoColumnLayout}
+            />
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
             <div className="max-w-7xl mx-auto bg-slate-50 p-6 rounded-lg shadow-xl">
@@ -545,161 +561,171 @@ const App: React.FC = () => {
                     </div>
                 </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div className="p-4 bg-white rounded-lg shadow-md">
-                        <div className="flex flex-wrap gap-x-8 gap-y-4">
-                            <fieldset>
-                                <legend className="block text-lg font-semibold mb-2">{t('app.language')}</legend>
-                                <div className="flex flex-wrap gap-2">
-                                    <div>
-                                        <input type="radio" id="lang-ja" name="language" value="ja" checked={locale === 'ja'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-ja-label"/>
-                                        <label id="lang-ja-label" htmlFor="lang-ja" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'ja' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
-                                            日本語
-                                        </label>
-                                    </div>
-                                    <div>
-                                        <input type="radio" id="lang-en" name="language" value="en" checked={locale === 'en'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-en-label"/>
-                                        <label id="lang-en-label" htmlFor="lang-en" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'en' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
-                                            English
-                                        </label>
-                                    </div>
-                                </div>
-                            </fieldset>
-                            <fieldset>
-                                <legend className="block text-lg font-semibold mb-2">{t('app.unitSystem')}</legend>
-                                <div className="flex flex-wrap gap-2">
-                                    <div>
-                                        <input type="radio" id="unit-si" name="unitSystem" value={UnitSystem.SI} checked={unitSystem === UnitSystem.SI} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-si-label"/>
-                                        <label id="unit-si-label" htmlFor="unit-si" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.SI ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
-                                            {t('app.siUnits')}
-                                        </label>
-                                    </div>
-                                    <div>
-                                        <input type="radio" id="unit-imperial" name="unitSystem" value={UnitSystem.IMPERIAL} checked={unitSystem === UnitSystem.IMPERIAL} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-imperial-label"/>
-                                        <label id="unit-imperial-label" htmlFor="unit-imperial" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.IMPERIAL ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
-                                            {t('app.imperialUnits')}
-                                        </label>
-                                    </div>
-                                </div>
-                            </fieldset>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-white rounded-lg shadow-md flex flex-col justify-center">
-                        <h2 className="text-lg font-semibold mb-2 text-center">{t('app.systemAirflow')}</h2>
-                        <div className="flex justify-center">
-                            <NumberInputWithControls value={airflow} onChange={setAirflow} unitType="airflow" unitSystem={unitSystem} containerClassName="w-full" />
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <div id="ac-inlet-conditions">
-                        <h2 className="text-xl font-semibold mb-4">{t('app.acInletConditions')}</h2>
-                        <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
-                            <div className="p-4 bg-slate-100 rounded-lg">
-                                <h3 className="font-semibold mb-2">{t('equipment.inletAir')}</h3>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.temperature')}</span>
-                                    <NumberInputWithControls value={acInletAir.temp} onChange={handleAcInletTempChange} unitType="temperature" unitSystem={unitSystem} />
-                                </div>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.rh')}</span>
-                                    <NumberInputWithControls value={acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                <div className={`lg:grid lg:gap-6 transition-all duration-500 ease-in-out ${isTwoColumnLayout ? 'lg:grid-cols-5' : 'lg:grid-cols-1'}`}>
+                    <div className={`space-y-6 ${isTwoColumnLayout ? 'lg:col-span-3' : 'lg:col-span-1'}`}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-4 bg-white rounded-lg shadow-md">
+                                <div className="flex flex-wrap gap-x-8 gap-y-4">
+                                    <fieldset>
+                                        <legend className="block text-lg font-semibold mb-2">{t('app.language')}</legend>
+                                        <div className="flex flex-wrap gap-2">
+                                            <div>
+                                                <input type="radio" id="lang-ja" name="language" value="ja" checked={locale === 'ja'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-ja-label"/>
+                                                <label id="lang-ja-label" htmlFor="lang-ja" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'ja' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
+                                                    日本語
+                                                </label>
+                                            </div>
+                                            <div>
+                                                <input type="radio" id="lang-en" name="language" value="en" checked={locale === 'en'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-en-label"/>
+                                                <label id="lang-en-label" htmlFor="lang-en" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'en' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
+                                                    English
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </fieldset>
+                                    <fieldset>
+                                        <legend className="block text-lg font-semibold mb-2">{t('app.unitSystem')}</legend>
+                                        <div className="flex flex-wrap gap-2">
+                                            <div>
+                                                <input type="radio" id="unit-si" name="unitSystem" value={UnitSystem.SI} checked={unitSystem === UnitSystem.SI} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-si-label"/>
+                                                <label id="unit-si-label" htmlFor="unit-si" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.SI ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
+                                                    {t('app.siUnits')}
+                                                </label>
+                                            </div>
+                                            <div>
+                                                <input type="radio" id="unit-imperial" name="unitSystem" value={UnitSystem.IMPERIAL} checked={unitSystem === UnitSystem.IMPERIAL} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-imperial-label"/>
+                                                <label id="unit-imperial-label" htmlFor="unit-imperial" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.IMPERIAL ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>
+                                                    {t('app.imperialUnits')}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </fieldset>
                                 </div>
                             </div>
-                            <div className="p-4 bg-slate-100 rounded-lg">
-                                <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.abs_humidity')}</span>
-                                    <DisplayValueWithUnit value={acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} />
-                                </div>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.enthalpy')}</span>
-                                    <DisplayValueWithUnit value={acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} />
+
+                            <div className="p-4 bg-white rounded-lg shadow-md flex flex-col justify-center">
+                                <h2 className="text-lg font-semibold mb-2 text-center">{t('app.systemAirflow')}</h2>
+                                <div className="flex justify-center">
+                                    <NumberInputWithControls value={airflow} onChange={setAirflow} unitType="airflow" unitSystem={unitSystem} containerClassName="w-full" />
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div id="ac-outlet-conditions">
-                        <h2 className="text-xl font-semibold mb-4">{t('app.acOutletConditions')}</h2>
-                        <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
-                             <div className="p-4 bg-slate-100 rounded-lg">
-                                <h3 className="font-semibold mb-2">{t('equipment.outletAir')}</h3>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.temperature')}</span>
-                                    <NumberInputWithControls value={acOutletAir.temp} onChange={handleAcOutletTempChange} unitType="temperature" unitSystem={unitSystem} />
-                                </div>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.rh')}</span>
-                                    <NumberInputWithControls value={acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div id="ac-inlet-conditions">
+                                <h2 className="text-xl font-semibold mb-4">{t('app.acInletConditions')}</h2>
+                                <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
+                                    <div className="p-4 bg-slate-100 rounded-lg">
+                                        <h3 className="font-semibold mb-2">{t('equipment.inletAir')}</h3>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.temperature')}</span>
+                                            <NumberInputWithControls value={acInletAir.temp} onChange={handleAcInletTempChange} unitType="temperature" unitSystem={unitSystem} />
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.rh')}</span>
+                                            <NumberInputWithControls value={acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                                        </div>
+                                    </div>
+                                    <div className="p-4 bg-slate-100 rounded-lg">
+                                        <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                                            <DisplayValueWithUnit value={acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} />
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                                            <DisplayValueWithUnit value={acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                             <div className="p-4 bg-slate-100 rounded-lg">
-                                <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.abs_humidity')}</span>
-                                    <DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/>
-                                </div>
-                                <div className="flex justify-between items-center py-1">
-                                    <span className="text-sm">{t('airProperties.enthalpy')}</span>
-                                    <DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip} />
+                            <div id="ac-outlet-conditions">
+                                <h2 className="text-xl font-semibold mb-4">{t('app.acOutletConditions')}</h2>
+                                <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
+                                     <div className="p-4 bg-slate-100 rounded-lg">
+                                        <h3 className="font-semibold mb-2">{t('equipment.outletAir')}</h3>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.temperature')}</span>
+                                            <NumberInputWithControls value={acOutletAir.temp} onChange={handleAcOutletTempChange} unitType="temperature" unitSystem={unitSystem} />
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.rh')}</span>
+                                            <NumberInputWithControls value={acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                                        </div>
+                                    </div>
+                                     <div className="p-4 bg-slate-100 rounded-lg">
+                                        <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                                            <DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                                            <DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        {!isTwoColumnLayout && psychrometricChartSection}
+
+                        <Summary equipmentList={equipmentList} totalPressureLoss={totalPressureLoss} unitSystem={unitSystem} />
+                        
+                        <hr className="my-2 border-slate-300" />
+                        
+                        <div>
+                            <div className="p-4 bg-white rounded-lg shadow-md">
+                                <h2 className="text-xl font-semibold mb-4">{t('app.addEquipment')}</h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {equipmentButtons}
+                                </div>
+                                {equipmentList.length > 0 && (
+                                    <div className="mt-4 text-right">
+                                         <button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-md shadow-md hover:bg-red-700 transition-colors text-sm font-medium">
+                                            {t('app.deleteAllEquipment')}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-6 mt-6">
+                                {equipmentList.map((equipment, index) => (
+                                    <div key={equipment.id} id={`equipment-${equipment.id}`}>
+                                        <EquipmentItem
+                                            equipment={equipment}
+                                            index={index}
+                                            totalEquipment={equipmentList.length}
+                                            airflow={airflow}
+                                            onUpdate={updateEquipment}
+                                            onDelete={deleteEquipment}
+                                            onMove={moveEquipment}
+                                            onReflectUpstream={reflectUpstreamConditions}
+                                            onReflectDownstream={reflectDownstreamConditions}
+                                            unitSystem={unitSystem}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <div id="psychrometric-chart" className="p-4 bg-white rounded-lg shadow-md mb-6">
-                    <h2 className="text-xl font-semibold mb-4">{t('app.psychrometricChart')}</h2>
-                    <PsychrometricChart 
-                        airConditionsData={equipmentForChart} 
-                        globalInletAir={acInletAir}
-                        globalOutletAir={acOutletCalculated}
-                        unitSystem={unitSystem}
-                    />
-                </div>
-                
-                <div className="mb-6">
-                    <Summary equipmentList={equipmentList} totalPressureLoss={totalPressureLoss} unitSystem={unitSystem} />
-                </div>
-
-                <hr className="my-8 border-slate-300" />
-
-                <div className="p-4 bg-white rounded-lg shadow-md mb-6">
-                    <h2 className="text-xl font-semibold mb-4">{t('app.addEquipment')}</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {equipmentButtons}
-                    </div>
-                    {equipmentList.length > 0 && (
-                        <div className="mt-4 text-right">
-                             <button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-md shadow-md hover:bg-red-700 transition-colors text-sm font-medium">
-                                {t('app.deleteAllEquipment')}
-                            </button>
+                    
+                    {isTwoColumnLayout && (
+                        <div className='lg:col-span-2'>
+                            <div className="lg:sticky lg:top-6 space-y-6">
+                                {psychrometricChartSection}
+                            </div>
                         </div>
                     )}
                 </div>
 
-                <div className="space-y-6">
-                    {equipmentList.map((equipment, index) => (
-                        <EquipmentItem
-                            key={equipment.id}
-                            equipment={equipment}
-                            index={index}
-                            totalEquipment={equipmentList.length}
-                            airflow={airflow}
-                            onUpdate={updateEquipment}
-                            onDelete={deleteEquipment}
-                            onMove={moveEquipment}
-                            onReflectUpstream={reflectUpstreamConditions}
-                            onReflectDownstream={reflectDownstreamConditions}
-                            unitSystem={unitSystem}
-                        />
-                    ))}
-                </div>
-
             </div>
-            <FloatingNav equipmentList={equipmentList} />
+            <div className="hidden lg:block">
+                <FloatingNav 
+                    isTwoColumnLayout={isTwoColumnLayout}
+                    onToggleLayout={toggleLayout}
+                />
+            </div>
         </div>
     );
 };

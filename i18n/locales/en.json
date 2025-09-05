@@ -153,10 +153,8 @@
     }
   },
   "fab": {
-    "title": "Navigation",
-    "summary": "To Summary",
-    "chart": "To Chart",
-    "acInlet": "To AC Inlet"
+    "toggleToSplitView": "Toggle to Split View",
+    "toggleToSingleView": "Toggle to Single View"
   },
   "tooltips": {
     "airProperties": {

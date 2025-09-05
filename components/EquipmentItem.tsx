@@ -1330,7 +1330,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     }
 
     return (
-        <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-lg bg-white border-l-[6px] ${color}`}>
+        <div className={`p-4 rounded-lg shadow-lg bg-white border-l-[6px] ${color}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <input type="text" value={name} onChange={(e) => handleUpdate('name', e.target.value)} onFocus={(e) => e.target.select()} className="flex-grow min-w-[150px] px-2 py-1 border border-slate-300 rounded-md bg-white text-left font-bold text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <div className="flex items-center gap-2">
