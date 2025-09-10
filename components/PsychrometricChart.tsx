@@ -60,6 +60,19 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
     useEffect(() => {
         if (!svgRef.current || width <= 0 || height <= 0) return;
+        
+        const themeColors = {
+            axis: '#64748b',
+            axisText: '#475569',
+            axisLabel: '#334155',
+            grid: '#e2e8f0',
+            rhLine: '#94a3b8',
+            rhLabel: '#64748b',
+            enthalpyLine: '#f59e0b',
+            enthalpyLabel: '#f97316',
+            halo: 'rgba(255, 255, 255, 0.8)',
+            pointStroke: '#1f2937'
+        };
 
         const temperatureUnit = t(`units.${unitSystem}.temperature`);
         const absHumidityUnit = t(`units.${unitSystem}.abs_humidity`);
@@ -89,11 +102,11 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             .attr("transform", `translate(0,${height})`)
             .call(axisBottom(xScale).ticks(10).tickFormat(d => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
-        xAxis.selectAll("path").style("stroke", "#64748b");
-        xAxis.selectAll("line").style("stroke", "#64748b");
-        xAxis.selectAll("text").style("fill", "#475569").style("font-size", "12px");
+        xAxis.selectAll("path").style("stroke", themeColors.axis);
+        xAxis.selectAll("line").style("stroke", themeColors.axis);
+        xAxis.selectAll("text").style("fill", themeColors.axisText).style("font-size", "12px");
         xAxis.append("text")
-            .attr("y", 40).attr("x", width / 2).attr("fill", "#334155").attr("font-size", "14px").attr("text-anchor", "middle")
+            .attr("y", 40).attr("x", width / 2).attr("fill", themeColors.axisLabel).attr("font-size", "14px").attr("text-anchor", "middle")
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
@@ -103,22 +116,22 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                     : `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
             ));
             
-        yAxis.selectAll("path").style("stroke", "#64748b");
-        yAxis.selectAll("line").style("stroke", "#64748b");
-        yAxis.selectAll("text").style("fill", "#475569").style("font-size", "12px");
+        yAxis.selectAll("path").style("stroke", themeColors.axis);
+        yAxis.selectAll("line").style("stroke", themeColors.axis);
+        yAxis.selectAll("text").style("fill", themeColors.axisText).style("font-size", "12px");
 
         if (!isSplitViewActive) {
              yAxis.append("text")
                 .attr("transform", "rotate(-90)")
                 .attr("y", -margin.left + 15)
                 .attr("x", -height / 2)
-                .attr("fill", "#334155")
+                .attr("fill", themeColors.axisLabel)
                 .attr("font-size", "14px")
                 .attr("text-anchor", "middle")
                 .text(`${t('chart.yAxisLabel')} (${absHumidityUnit})`);
         }
 
-        svg.append("g").attr("class", "grid x-grid").attr("transform", `translate(0,${height})`).call(axisBottom(xScale).ticks(10).tickSize(-height).tickFormat(() => "")).selectAll("line").style("stroke", "#e2e8f0");
+        svg.append("g").attr("class", "grid x-grid").attr("transform", `translate(0,${height})`).call(axisBottom(xScale).ticks(10).tickSize(-height).tickFormat(() => "")).selectAll("line").style("stroke", themeColors.grid);
         
         const yGridTicks = yScale.ticks(6);
         const yGrid = svg.append("g").attr("class", "grid y-grid");
@@ -130,7 +143,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             .attr("x2", width)
             .attr("y1", d => yScale(d))
             .attr("y2", d => yScale(d))
-            .style("stroke", d => (isSplitViewActive && hoveredAbsHumidity === d) ? "#94a3b8" : "#e2e8f0")
+            .style("stroke", d => (isSplitViewActive && hoveredAbsHumidity === d) ? themeColors.rhLine : themeColors.grid)
             .style("stroke-width", d => (isSplitViewActive && hoveredAbsHumidity === d) ? 1.5 : 1);
 
         if (isSplitViewActive) {
@@ -171,12 +184,12 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                 }
             }
             const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
-            svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 0.5)
+            svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", themeColors.rhLine).attr("stroke-width", 0.5)
                .attr("stroke-dasharray", rh === 100 ? "0" : "2,2").attr("d", lineGenerator);
             if (lineData.length > 0) {
                 const lastPoint = lineData[lineData.length - 1];
                 svg.append("text").attr("x", xScale(lastPoint.temp) + 5).attr("y", yScale(lastPoint.absHumidity) - 5)
-                   .text(`${rh}%`).attr("font-size", "11px").attr("fill", "#64748b");
+                   .text(`${rh}%`).attr("font-size", "11px").attr("fill", themeColors.rhLabel);
             }
         });
 
@@ -206,7 +219,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             if (filteredLineData.length > 1) {
                 enthalpyGroup.append("path").datum(filteredLineData)
                    .attr("fill", "none")
-                   .attr("stroke", (isSplitViewActive && hoveredEnthalpy === h) ? "#f97316" : "#f59e0b")
+                   .attr("stroke", (isSplitViewActive && hoveredEnthalpy === h) ? themeColors.enthalpyLabel : themeColors.enthalpyLine)
                    .attr("stroke-width", (isSplitViewActive && hoveredEnthalpy === h) ? 2 : 0.5)
                    .attr("stroke-dasharray", "4,4")
                    .attr("d", lineGenerator)
@@ -260,7 +273,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         const textElement = svg.append("text")
                            .attr("transform", `translate(${xPos}, ${yPos}) rotate(${angleDeg})`)
                            .attr("dominant-baseline", "middle")
-                           .attr("fill", "#f97316")
+                           .attr("fill", themeColors.enthalpyLabel)
                            .attr("font-size", "11px")
                            .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)} ${enthalpyUnit}`);
                         
@@ -291,7 +304,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                 .attr("font-size", "12px")
                 .attr("font-weight", "bold")
                 .attr("fill", color)
-                .attr("stroke", "white")
+                .attr("stroke", themeColors.halo)
                 .attr("stroke-width", "3px")
                 .attr("stroke-linejoin", "round")
                 .style("paint-order", "stroke");
@@ -299,7 +312,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
         if (globalInletAir && globalInletAir.temp !== null && globalInletAir.absHumidity !== null) {
             svg.append("circle").attr("cx", xScale(globalInletAir.temp)).attr("cy", yScale(globalInletAir.absHumidity))
-               .attr("r", 7).attr("fill", "#16a34a").attr("stroke", "#1f2937").attr("stroke-width", 1.5);
+               .attr("r", 7).attr("fill", "#16a34a").attr("stroke", themeColors.pointStroke).attr("stroke-width", 1.5);
             addLabelWithHalo(
                 svg.append("text").attr("x", xScale(globalInletAir.temp) + 10).attr("y", yScale(globalInletAir.absHumidity) - 10),
                 formatPointLabel(globalInletAir, 'chart.acInlet'),
@@ -309,7 +322,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
         if (globalOutletAir && globalOutletAir.temp !== null && globalOutletAir.absHumidity !== null) {
             svg.append("circle").attr("cx", xScale(globalOutletAir.temp)).attr("cy", yScale(globalOutletAir.absHumidity))
-               .attr("r", 7).attr("fill", "#dc2626").attr("stroke", "#1f2937").attr("stroke-width", 1.5);
+               .attr("r", 7).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke).attr("stroke-width", 1.5);
              addLabelWithHalo(
                 svg.append("text").attr("x", xScale(globalOutletAir.temp) + 10).attr("y", yScale(globalOutletAir.absHumidity) + 20),
                 formatPointLabel(globalOutletAir, 'chart.acOutlet'),
@@ -330,8 +343,8 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                 .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse");
             marker.append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", color);
 
-            svg.append("circle").attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 5).attr("fill", "#16a34a").attr("stroke", "#1f2937");
-            svg.append("circle").attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 5).attr("fill", "#dc2626").attr("stroke", "#1f2937");
+            svg.append("circle").attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 5).attr("fill", "#16a34a").attr("stroke", themeColors.pointStroke);
+            svg.append("circle").attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 5).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke);
             svg.append("line").attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
                .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id})`);
         });

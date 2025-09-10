@@ -17,6 +17,8 @@ import Summary from './components/Summary';
 import FloatingNav from './components/FloatingNav';
 import FormulaTooltipContent from './components/FormulaTooltipContent';
 import { convertValue } from './utils/conversions';
+// FIX: Add missing import for ChartDataSummary
+import ChartDataSummary from './components/ChartDataSummary';
 
 // Function to generate the initial equipment list
 const getInitialEquipment = (): Equipment[] => {
@@ -407,7 +409,7 @@ const App: React.FC = () => {
     const totalPressureLoss = equipmentList.reduce((sum, eq) => sum + (eq.pressureLoss || 0), 0);
 
     const equipmentButtons = Object.values(EquipmentType).map(type => (
-        <button key={type} onClick={() => addEquipment(type)} className="px-4 py-3 bg-blue-600 text-white rounded-md shadow-md hover:bg-blue-700 transition-colors text-center font-medium">
+        <button key={type} onClick={() => addEquipment(type)} className="px-4 py-3 text-white rounded-md shadow-md transition-colors text-center font-medium bg-blue-600 hover:bg-blue-700">
             {t(`equipmentNames.${type}`)}
         </button>
     ));
@@ -534,11 +536,11 @@ const App: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800">
-            <div className="max-w-7xl mx-auto bg-slate-50 p-6 rounded-lg shadow-xl">
+        <div className="min-h-screen p-4 font-sans text-slate-800 bg-slate-100">
+            <div className="max-w-7xl mx-auto p-6 rounded-lg shadow-xl bg-slate-50">
                 <header className="flex flex-wrap items-center justify-between gap-4 mb-6">
                     <h1 className="text-3xl font-bold text-slate-900">{t('app.title')}</h1>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                     <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={triggerFileSelect} className="flex-1 px-3 py-1.5 bg-green-500 text-white rounded-md shadow-sm hover:bg-green-600 transition-colors text-xs font-medium flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -639,10 +641,11 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+
                             <div id="ac-outlet-conditions">
                                 <h2 className="text-xl font-semibold mb-4">{t('app.acOutletConditions')}</h2>
                                 <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
-                                     <div className="p-4 bg-slate-100 rounded-lg">
+                                    <div className="p-4 bg-slate-100 rounded-lg">
                                         <h3 className="font-semibold mb-2">{t('equipment.outletAir')}</h3>
                                         <div className="flex justify-between items-center py-1">
                                             <span className="text-sm">{t('airProperties.temperature')}</span>
@@ -653,11 +656,11 @@ const App: React.FC = () => {
                                             <NumberInputWithControls value={acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                                         </div>
                                     </div>
-                                     <div className="p-4 bg-slate-100 rounded-lg">
+                                    <div className="p-4 bg-slate-100 rounded-lg">
                                         <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
                                         <div className="flex justify-between items-center py-1">
                                             <span className="text-sm">{t('airProperties.abs_humidity')}</span>
-                                            <DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/>
+                                            <DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip} />
                                         </div>
                                         <div className="flex justify-between items-center py-1">
                                             <span className="text-sm">{t('airProperties.enthalpy')}</span>
@@ -668,66 +671,61 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
-                        {!isTwoColumnLayout && psychrometricChartSection}
-
-                        <Summary equipmentList={equipmentList} totalPressureLoss={totalPressureLoss} unitSystem={unitSystem} />
-                        
-                        <hr className="my-2 border-slate-300" />
+                        {!isTwoColumnLayout && (
+                            <div className="space-y-6">
+                                {psychrometricChartSection}
+                            </div>
+                        )}
                         
                         <div>
-                            <div className="p-4 bg-white rounded-lg shadow-md">
-                                <h2 className="text-xl font-semibold mb-4">{t('app.addEquipment')}</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {equipmentButtons}
-                                </div>
+                             <Summary equipmentList={equipmentList} totalPressureLoss={totalPressureLoss} unitSystem={unitSystem} />
+                        </div>
+                        
+                        <div id="add-equipment-section">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-semibold">{t('app.addEquipment')}</h2>
                                 {equipmentList.length > 0 && (
-                                    <div className="mt-4 text-right">
-                                         <button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-md shadow-md hover:bg-red-700 transition-colors text-sm font-medium">
-                                            {t('app.deleteAllEquipment')}
-                                        </button>
-                                    </div>
+                                    <button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700 transition-colors text-sm font-medium">
+                                        {t('app.deleteAllEquipment')}
+                                    </button>
                                 )}
                             </div>
-
-                            <div className="space-y-6 mt-6">
-                                {equipmentList.map((equipment, index) => (
-                                    <div key={equipment.id} id={`equipment-${equipment.id}`}>
-                                        <EquipmentItem
-                                            equipment={equipment}
-                                            index={index}
-                                            totalEquipment={equipmentList.length}
-                                            airflow={airflow}
-                                            onUpdate={updateEquipment}
-                                            onDelete={deleteEquipment}
-                                            onMove={moveEquipment}
-                                            onReflectUpstream={reflectUpstreamConditions}
-                                            onReflectDownstream={reflectDownstreamConditions}
-                                            unitSystem={unitSystem}
-                                        />
-                                    </div>
-                                ))}
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                {equipmentButtons}
                             </div>
                         </div>
+
+                        <div className="space-y-6">
+                            {equipmentList.map((eq, index) => (
+                                <EquipmentItem
+                                    key={eq.id}
+                                    equipment={eq}
+                                    index={index}
+                                    totalEquipment={equipmentList.length}
+                                    airflow={airflow}
+                                    onUpdate={updateEquipment}
+                                    onDelete={deleteEquipment}
+                                    onMove={moveEquipment}
+                                    onReflectUpstream={reflectUpstreamConditions}
+                                    onReflectDownstream={reflectDownstreamConditions}
+                                    unitSystem={unitSystem}
+                                />
+                            ))}
+                        </div>
                     </div>
-                    
                     {isTwoColumnLayout && (
-                        <div className='lg:col-span-2'>
-                            <div className="lg:sticky lg:top-6 space-y-6">
+                        <div className="lg:col-span-2 space-y-6 hidden lg:block">
+                            <div className="sticky top-6 space-y-6">
                                 {psychrometricChartSection}
                             </div>
                         </div>
                     )}
                 </div>
-
             </div>
-            <div className="hidden lg:block">
-                <FloatingNav 
-                    isTwoColumnLayout={isTwoColumnLayout}
-                    onToggleLayout={toggleLayout}
-                />
-            </div>
+            <FloatingNav isTwoColumnLayout={isTwoColumnLayout} onToggleLayout={toggleLayout} />
         </div>
     );
 };
 
+// FIX: Add missing default export
 export default App;

@@ -1369,7 +1369,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                         <span className="text-sm">{t('airProperties.rh')}</span>
                         <NumberInputWithControls value={inletAir.rh} onChange={(val) => handleInletAirChange('rh', val)} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                     </div>
-                    <hr className="my-2"/>
+                    <hr className="my-2 border-slate-300"/>
                     <div className={conditionRowClasses}>
                         <span className="text-sm">{t('airProperties.abs_humidity')}</span>
                         <DisplayValueWithUnit value={currentInletAirCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={inletAbsHumidityTooltip} />
@@ -1410,7 +1410,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                             : <DisplayValueWithUnit value={outletAir.rh} unitType="rh" unitSystem={unitSystem} tooltipContent={outletRhTooltip} />
                         }
                     </div>
-                    <hr className="my-2"/>
+                    <hr className="my-2 border-slate-300"/>
                     <div className={conditionRowClasses}>
                         <span className="text-sm">{t('airProperties.abs_humidity')}</span>
                         <DisplayValueWithUnit value={outletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={outletAbsHumidityTooltip} />
