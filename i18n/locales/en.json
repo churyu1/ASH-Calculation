@@ -1,7 +1,9 @@
-
 {
   "app": {
     "title": "HVAC Calculator",
+    "description": "This is a psychrometric calculation application for air conditioners. You can freely combine equipment such as filters, coils, and fans to simulate changes in air conditions. The results are also displayed on a psychrometric chart, allowing for visual analysis.",
+    "instructionsTitle": "How to Use",
+    "instructions": "1. Set the system airflow and the inlet/outlet conditions for the entire air conditioner.\n2. Add necessary equipment from the 'Add Equipment' section.\n3. Configure the conditions for each piece of equipment. The air state will be automatically calculated and passed downstream.\n4. Drag the points and lines on the psychrometric chart to intuitively adjust the air conditions.",
     "language": "Language",
     "unitSystem": "Unit System",
     "siUnits": "SI Units",
@@ -21,7 +23,12 @@
     "importConfig": "Import Config",
     "exportConfig": "Export Config",
     "importSuccess": "Configuration imported successfully!",
-    "importError": "Failed to import configuration. The file may be invalid or corrupted."
+    "importError": "Failed to import configuration. The file may be invalid or corrupted.",
+    "copySuffix": " (Copy)",
+    "duplicateProject": "Duplicate project",
+    "allProjectsSummaryTab": "All Projects Summary",
+    "allProjectsSummaryTitle": "All Projects Summary",
+    "noProjects": "No projects exist. Click the '+' button in the tab bar to add a new one."
   },
   "equipment": {
     "pressureLoss": "Pressure Loss",
@@ -445,49 +452,4 @@
       "tempRise": {
         "title": "Temperature Rise",
         "si": {
-          "formula": "Δt = Q_kW / (G * 1.02)",
-          "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)" }
-        },
-        "imperial": {
-          "formula": "Δt = Q_BTUh / (1.08 * q)",
-          "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
-        }
-      },
-      "outletTemp": {
-        "title": "Outlet Temperature",
-        "si": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "Outlet Temp (°C)", "t_in": "Inlet Temp (°C)", "Δt": "Temp Rise (°C)" }
-        },
-        "imperial": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
-        }
-      }
-    },
-    "damper": {
-      "airVelocity": {
-        "title": "Air Velocity",
-        "si": {
-          "formula": "v = (q / 60) / A",
-          "legend": { "v": "Velocity (m/s)", "q": "Airflow (m³/min)", "A": "Area (m²)" }
-        },
-        "imperial": {
-          "formula": "v = q / A",
-          "legend": { "v": "Velocity (fpm)", "q": "Airflow (CFM)", "A": "Area (ft²)" }
-        }
-      },
-      "pressureLoss": {
-        "title": "Pressure Loss",
-        "si": {
-          "formula": "ΔP = K * 0.5 * ρ * v²",
-          "legend": { "ΔP": "Pressure Loss (Pa)", "K": "K-factor", "ρ": "Density (kg/m³)", "v": "Velocity (m/s)" }
-        },
-        "imperial": {
-          "formula": "ΔP = K * (v / 4005)²",
-          "legend": { "ΔP": "Pressure Loss (in.w.g.)", "K": "K-factor", "v": "Velocity (fpm)" }
-        }
-      }
-    }
-  }
-}
+          "formula": "Δt = Q

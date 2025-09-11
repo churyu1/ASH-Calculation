@@ -1,9 +1,13 @@
+// FIX: Implemented and exported LanguageProvider, useLanguage, and get to fix module resolution errors.
 import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 // Embed JSON content directly to avoid module resolution errors in browser-native ESM.
 export const enMessages = {
   "app": {
     "title": "HVAC Calculator",
+    "description": "This is a psychrometric calculation application for air conditioners. You can freely combine equipment such as filters, coils, and fans to simulate changes in air conditions. The results are also displayed on a psychrometric chart, allowing for visual analysis.",
+    "instructionsTitle": "How to Use",
+    "instructions": "1. Set the system airflow and the inlet/outlet conditions for the entire air conditioner.\n2. Add necessary equipment from the 'Add Equipment' section.\n3. Configure the conditions for each piece of equipment. The air state will be automatically calculated and passed downstream.\n4. Drag the points and lines on the psychrometric chart to intuitively adjust the air conditions.",
     "language": "Language",
     "unitSystem": "Unit System",
     "siUnits": "SI Units",
@@ -23,7 +27,12 @@ export const enMessages = {
     "importConfig": "Import Config",
     "exportConfig": "Export Config",
     "importSuccess": "Configuration imported successfully!",
-    "importError": "Failed to import configuration. The file may be invalid or corrupted."
+    "importError": "Failed to import configuration. The file may be invalid or corrupted.",
+    "copySuffix": " (Copy)",
+    "duplicateProject": "Duplicate project",
+    "allProjectsSummaryTab": "All Projects Summary",
+    "allProjectsSummaryTitle": "All Projects Summary",
+    "noProjects": "No projects exist. Click the '+' button in the tab bar to add a new one."
   },
   "equipment": {
     "pressureLoss": "Pressure Loss",
@@ -497,6 +506,9 @@ export const enMessages = {
 const jaMessages = {
   "app": {
     "title": "空調器計算機",
+    "description": "これは空調機用の空気線図計算アプリケーションです。フィルター、コイル、ファンなどの機器を自由に組み合わせて、空気の状態変化をシミュレーションできます。結果は空気線図上にも表示され、視覚的な分析が可能です。",
+    "instructionsTitle": "使い方",
+    "instructions": "1. システムの風量と、空調機全体の入口・出口条件を設定します。\n2. 「機器追加」セクションから、必要な機器を追加します。\n3. 各機器の条件を設定します。空気の状態は自動的に計算され、下流に引き継がれます。\n4. 空気線図上の点や線をドラッグして、直感的に空気の状態を調整することもできます。",
     "language": "言語",
     "unitSystem": "単位系",
     "siUnits": "国際単位系 (SI)",
@@ -516,7 +528,12 @@ const jaMessages = {
     "importConfig": "設定を読込",
     "exportConfig": "設定を保存",
     "importSuccess": "設定を正常に読み込みました！",
-    "importError": "設定の読み込みに失敗しました。ファイルが無効か破損している可能性があります。"
+    "importError": "設定の読み込みに失敗しました。ファイルが無効か破損している可能性があります。",
+    "copySuffix": " (コピー)",
+    "duplicateProject": "プロジェクトを複製",
+    "allProjectsSummaryTab": "空調器一覧",
+    "allProjectsSummaryTitle": "空調器一覧",
+    "noProjects": "プロジェクトが存在しません。タブバーの「＋」ボタンで新規追加してください。"
   },
   "equipment": {
     "pressureLoss": "圧力損失",
@@ -987,38 +1004,46 @@ const jaMessages = {
   }
 };
 
-export const get = (obj: any, path: string): any => {
-    return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj);
-};
-
-const translations: Record<string, any> = {
+const messages: Record<string, any> = {
     en: enMessages,
     ja: jaMessages,
+};
+
+export const get = (obj: any, path: string): any => {
+    return path.split('.').reduce((res, key) => (res ? res[key] : undefined), obj);
 };
 
 interface LanguageContextType {
     locale: string;
     setLocale: (locale: string) => void;
+    // FIX: Changed 't' function return type to 'any' to support complex translation objects (like legends) and arrays, not just strings.
     t: (key: string) => any;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-    const [locale, setLocale] = useState('ja'); // Default to Japanese
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [locale, setLocale] = useState('ja');
 
-    const t = useCallback(
-        (key: string): any => {
-            const messages = translations[locale] || translations.en;
-            const translation = get(messages, key);
-            return translation ?? key;
-        },
-        [locale]
-    );
+    const t = useCallback((key: string) => {
+        let message = get(messages[locale], key);
+        // If message not found in current locale, fallback to English
+        if (message === undefined) {
+            message = get(enMessages, key);
+        }
+        // If message is still not found (or is explicitly null/undefined), return the key.
+        // This explicitly allows empty strings '' to be returned as a valid translation.
+        return message !== undefined ? message : key;
+    }, [locale]);
 
-    const value = useMemo(() => ({ locale, setLocale, t }), [locale, t]);
+    const value = useMemo(() => ({
+        locale,
+        setLocale,
+        t,
+    }), [locale, t]);
 
-    return React.createElement(LanguageContext.Provider, { value: value }, children);
+    // FIX: Replaced JSX with React.createElement to prevent parsing errors, as this is a .ts file, not a .tsx file.
+    return React.createElement(LanguageContext.Provider, { value }, children);
 };
 
 export const useLanguage = (): LanguageContextType => {

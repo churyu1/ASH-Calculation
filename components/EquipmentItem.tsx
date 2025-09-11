@@ -11,13 +11,14 @@ import {
     SprayWasherResults as SprayWasherResultsType,
     SteamPressureUnit
 } from '../types';
-import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS, calculateDewPoint, calculateRelativeHumidity, calculateSteamProperties } from '../services/psychrometrics';
-import { MOTOR_OUTPUT_OPTIONS } from '../constants';
-import { useLanguage } from '../i18n';
-import NumberInputWithControls from './NumberInputWithControls';
-import DisplayValueWithUnit from './DisplayValueWithUnit';
-import { formatNumber, convertValue, convertSteamPressure, formatNumberForInput } from '../utils/conversions';
-import FormulaTooltipContent from './FormulaTooltipContent';
+import { calculateAirProperties, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, calculateAbsoluteHumidity, calculatePsat, PSYCH_CONSTANTS, calculateDewPoint, calculateRelativeHumidity, calculateSteamProperties } from '../services/psychrometrics.ts';
+import { MOTOR_OUTPUT_OPTIONS } from '../constants.ts';
+import { useLanguage } from '../i18n/index.ts';
+import NumberInputWithControls from './NumberInputWithControls.tsx';
+import DisplayValueWithUnit from './DisplayValueWithUnit.tsx';
+import { formatNumber, convertValue, convertSteamPressure, formatNumberForInput } from '../utils/conversions.ts';
+import FormulaTooltipContent from './FormulaTooltipContent.tsx';
+import Tooltip from './Tooltip.tsx';
 
 interface EquipmentItemProps {
     equipment: Equipment;
@@ -113,9 +114,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                         const totalHeat_kW = shf > 0 && shf <=1 ? sensibleHeat_kW / shf : sensibleHeat_kW;
                         const outletEnthalpy = inletEnthalpy + totalHeat_kW / massFlowRateDA_kg_s;
                         
-                        const heatLoad_kcal_h = totalHeat_kW * 860.421;
-                        const heatLoad_W = totalHeat_kW * 1000;
-                        newResults = { heatLoad_kcal: heatLoad_kcal_h, heatLoad_W: heatLoad_W } as BurnerResults;
+                        newResults = { heatLoad_kW: totalHeat_kW } as BurnerResults;
                         
                         const outletAbsHum = calculateAbsoluteHumidityFromEnthalpy(userOutletTemp, outletEnthalpy);
                         newOutletAir = calculateAirProperties(userOutletTemp, null, outletAbsHum);
@@ -320,8 +319,21 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         if (hasChanged) {
             onUpdate(id, { ...equipment, pressureLoss: newPressureLoss, outletAir: newOutletAir, results: newResults });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [airflow, JSON.stringify(conditions), JSON.stringify(inletAir), JSON.stringify(outletAir)]);
+    }, [
+        id,
+        type,
+        pressureLoss,
+        inletAir,
+        outletAir,
+        conditions,
+        results,
+        equipment,
+        airflow,
+        onUpdate,
+        currentInletAirCalculated,
+        massFlowRateDA_kg_s,
+        sprayWasherCalculatedValues,
+    ]);
 
 
     const handleUpdate = <K extends keyof Equipment>(key: K, value: Equipment[K]) => onUpdate(id, { ...equipment, [key]: value });
@@ -660,6 +672,452 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         
         return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
     }, [type, results, unitSystem, locale, t]);
+    
+    const faceVelocityTooltip = useMemo(() => {
+        if (type !== EquipmentType.FILTER) return null;
+        const filterCond = conditions as FilterConditions;
+        const formulaPath = 'tooltips.filter.faceVelocity';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            const area_ft2 = convertValue(((filterCond.width ?? 0) / 1000) * ((filterCond.height ?? 0) / 1000) * (filterCond.sheets ?? 1), 'area', UnitSystem.SI, UnitSystem.IMPERIAL);
+            values = {
+                 'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                 'a_total': { value: area_ft2, unit: 'ft²' }
+            }
+        } else {
+            const area_m2 = ((filterCond.width ?? 0) / 1000) * ((filterCond.height ?? 0) / 1000) * (filterCond.sheets ?? 1);
+            values = {
+                'q': { value: airflow, unit: 'm³/min' },
+                'a_total': { value: area_m2, unit: 'm²' }
+            }
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, airflow, conditions, locale, unitSystem, t]);
+
+    const airflowPerSheetTooltip = useMemo(() => {
+        if (type !== EquipmentType.FILTER) return null;
+        const filterCond = conditions as FilterConditions;
+        const formulaPath = 'tooltips.filter.airflowPerSheet';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        const numSheets = filterCond.sheets ?? 1;
+
+        let values = {};
+         if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                 'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                 'n': { value: numSheets, unit: t(`units.imperial.sheets`) }
+            }
+        } else {
+            values = {
+                'q': { value: airflow, unit: 'm³/min' },
+                'n': { value: numSheets, unit: t(`units.si.sheets`) }
+            }
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, airflow, conditions, locale, unitSystem, t]);
+
+    const burnerHeatLoadTooltip = useMemo(() => {
+        if (type !== EquipmentType.BURNER) return null;
+        const burnerRes = results as BurnerResults;
+        const burnerCond = conditions as BurnerConditions;
+        const formulaPath = 'tooltips.burner.heatLoad';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            const delta_t = convertValue(outletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)! - convertValue(inletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)!;
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'Δt': { value: delta_t, unit: '°F' },
+                'SHF': { value: burnerCond.shf, unit: '' },
+            }
+        } else {
+            values = {
+                'Q': { value: burnerRes.heatLoad_kW, unit: 'kW' },
+                'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+                'Δt': { value: (outletAir.temp ?? 0) - (inletAir.temp ?? 0), unit: '°C' },
+                'SHF': { value: burnerCond.shf, unit: '' },
+            }
+        }
+        
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, massFlowRateDA_kg_s, outletAir.temp, inletAir.temp, conditions, airflow, results, locale, unitSystem, t]);
+
+    const airSideTooltip = useMemo(() => {
+        if (type !== EquipmentType.COOLING_COIL) return null;
+        const formulaPath = 'tooltips.coil.airSideHeatLoad';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'h_in': { value: convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+                'h_out': { value: convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+            };
+        } else {
+            values = {
+                'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+                'h_in': { value: inletAir.enthalpy, unit: 'kJ/kg(DA)' },
+                'h_out': { value: outletAir.enthalpy, unit: 'kJ/kg(DA)' },
+            };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, locale, unitSystem, t]);
+
+    const waterSideTooltip = useMemo(() => {
+        if (type !== EquipmentType.COOLING_COIL) return null;
+        const coolRes = results as CoolingCoilResults;
+        const coolCond = conditions as CoolingCoilConditions;
+        const formulaPath = 'tooltips.coil.waterSideHeatLoad';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+             const airSideHeatLoad_BTUh = convertValue(coolRes.airSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+             values = {
+                'Q_air': { value: airSideHeatLoad_BTUh, unit: 'BTU/h' },
+                'η': { value: coolCond.heatExchangeEfficiency, unit: '%' },
+             };
+        } else {
+            const airSideHeatLoad_kW = (coolRes.airSideHeatLoad_kcal ?? 0) / 860.421;
+            values = {
+               'Q_air': { value: airSideHeatLoad_kW, unit: 'kW' },
+               'η': { value: coolCond.heatExchangeEfficiency, unit: '%' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, results, conditions, locale, unitSystem, t]);
+
+    const waterFlowTooltip = useMemo(() => {
+        if (type !== EquipmentType.COOLING_COIL) return null;
+        const coolRes = results as CoolingCoilResults;
+        const coolCond = conditions as CoolingCoilConditions;
+        const formulaPath = 'tooltips.coil.waterFlow';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+         
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            const waterSideHeatLoad_BTUh = convertValue(coolRes.coldWaterSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+            const delta_t_w = convertValue(coolCond.chilledWaterOutletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)! - convertValue(coolCond.chilledWaterInletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)!;
+            values = {
+                'Q_BTUh': { value: waterSideHeatLoad_BTUh, unit: 'BTU/h' },
+                'Δt_w': { value: delta_t_w, unit: '°F' },
+            };
+        } else {
+            const waterSideHeatLoad_kW = (coolRes.coldWaterSideHeatLoad_kcal ?? 0) / 860.421;
+            values = {
+                'Q_kW': { value: waterSideHeatLoad_kW, unit: 'kW' },
+                'Δt_w': { value: (coolCond.chilledWaterOutletTemp ?? 0) - (coolCond.chilledWaterInletTemp ?? 0), unit: '°C' },
+            };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, results, conditions, locale, unitSystem, t]);
+
+    const dehumidificationTooltip = useMemo(() => {
+        if (type !== EquipmentType.COOLING_COIL) return null;
+        const formulaPath = 'tooltips.coil.dehumidification';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        
+        let values = {};
+        if (unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+                'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+            };
+        } else {
+            values = {
+               'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+               'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
+               'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
+
+    const heatAirSideTooltip = useMemo(() => {
+        if (type !== EquipmentType.HEATING_COIL) return null;
+        const formulaPath = 'tooltips.coil.airSideHeatLoad';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'h_in': { value: convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+                'h_out': { value: convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
+            };
+        } else {
+            values = {
+                'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+                'h_in': { value: inletAir.enthalpy, unit: 'kJ/kg(DA)' },
+                'h_out': { value: outletAir.enthalpy, unit: 'kJ/kg(DA)' },
+            };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, locale, unitSystem, t]);
+
+    const heatWaterSideTooltip = useMemo(() => {
+        if (type !== EquipmentType.HEATING_COIL) return null;
+        const heatRes = results as HeatingCoilResults;
+        const heatCond = conditions as HeatingCoilConditions;
+        const formulaPath = 'tooltips.coil.waterSideHeatLoad';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+             const airSideHeatLoad_BTUh = convertValue(heatRes.airSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+             values = {
+                'Q_air': { value: airSideHeatLoad_BTUh, unit: 'BTU/h' },
+                'η': { value: heatCond.heatExchangeEfficiency, unit: '%' },
+             };
+        } else {
+            const airSideHeatLoad_kW = (heatRes.airSideHeatLoad_kcal ?? 0) / 860.421;
+            values = {
+               'Q_air': { value: airSideHeatLoad_kW, unit: 'kW' },
+               'η': { value: heatCond.heatExchangeEfficiency, unit: '%' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, results, conditions, locale, unitSystem, t]);
+
+    const heatWaterFlowTooltip = useMemo(() => {
+        if (type !== EquipmentType.HEATING_COIL) return null;
+        const heatRes = results as HeatingCoilResults;
+        const heatCond = conditions as HeatingCoilConditions;
+        const formulaPath = 'tooltips.coil.waterFlow';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+         
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            const waterSideHeatLoad_BTUh = convertValue(heatRes.hotWaterSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+            const delta_t_w = convertValue(heatCond.hotWaterInletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)! - convertValue(heatCond.hotWaterOutletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)!;
+            values = {
+                'Q_BTUh': { value: waterSideHeatLoad_BTUh, unit: 'BTU/h' },
+                'Δt_w': { value: delta_t_w, unit: '°F' },
+            };
+        } else {
+            const waterSideHeatLoad_kW = (heatRes.hotWaterSideHeatLoad_kcal ?? 0) / 860.421;
+            values = {
+                'Q_kW': { value: waterSideHeatLoad_kW, unit: 'kW' },
+                'Δt_w': { value: (heatCond.hotWaterInletTemp ?? 0) - (heatCond.hotWaterOutletTemp ?? 0), unit: '°C' },
+            };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, results, conditions, locale, unitSystem, t]);
+
+    const humidificationTooltip = useMemo(() => {
+        if (type !== EquipmentType.SPRAY_WASHER) return null;
+        const formulaPath = 'tooltips.spray_washer.humidification';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+                'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+            };
+        } else {
+            values = {
+               'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+               'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
+               'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+     }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
+
+     const sprayAmountTooltip = useMemo(() => {
+        if (type !== EquipmentType.SPRAY_WASHER) return null;
+        const sprayCond = conditions as SprayWasherConditions;
+        const formulaPath = 'tooltips.spray_washer.sprayAmount';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+               'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+               'ρ': { value: convertValue(currentInletAirCalculated.density, 'density', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'lb/ft³'},
+               'L/G': { value: sprayCond.waterToAirRatio, unit: '' },
+            };
+        } else {
+             values = {
+                'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+                'L/G': { value: sprayCond.waterToAirRatio, unit: '' },
+            };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+     }, [type, massFlowRateDA_kg_s, conditions, airflow, currentInletAirCalculated.density, locale, unitSystem, t]);
+
+     const efficiencyTooltip = useMemo(() => {
+        if (type !== EquipmentType.SPRAY_WASHER) return null;
+        const formulaPath = 'tooltips.spray_washer.humidificationEfficiency';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+         let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+               'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+               'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+               'x_sat': { value: convertValue(sprayWasherCalculatedValues.finalWSat, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+            };
+        } else {
+            values = {
+               'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
+               'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
+               'x_sat': { value: sprayWasherCalculatedValues.finalWSat, unit: 'g/kg(DA)' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+     }, [type, outletAir.absHumidity, inletAir.absHumidity, sprayWasherCalculatedValues.finalWSat, locale, unitSystem, t]);
+
+    const requiredSteamTooltip = useMemo(() => {
+        if (type !== EquipmentType.STEAM_HUMIDIFIER) return null;
+        const formulaPath = 'tooltips.steam_humidifier.requiredSteam';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+                'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+            };
+        } else {
+            values = {
+                'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+                'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
+                'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
+            };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
+
+    const heatGenerationTooltip = useMemo(() => {
+        if (type !== EquipmentType.FAN) return null;
+        const fanCond = conditions as FanConditions;
+        const formulaPath = 'tooltips.fan.heatGeneration';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+               'P': { value: convertValue(fanCond.motorOutput, 'motor_power', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'HP' },
+               'η': { value: fanCond.motorEfficiency, unit: '%' },
+            };
+        } else {
+            values = {
+               'P': { value: fanCond.motorOutput, unit: 'kW' },
+               'η': { value: fanCond.motorEfficiency, unit: '%' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+     }, [type, conditions, locale, unitSystem, t]);
+
+     const tempRiseTooltip = useMemo(() => {
+        if (type !== EquipmentType.FAN) return null;
+        const fanRes = results as FanResults;
+        const formulaPath = 'tooltips.fan.tempRise';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+
+        if(unitSystem === UnitSystem.IMPERIAL) {
+            const heatGenBTUh = convertValue(fanRes.heatGeneration_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+            values = {
+               'Q_BTUh': { value: heatGenBTUh, unit: 'BTU/h' },
+               'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+            };
+        } else {
+            const heatGenKw = (fanRes.heatGeneration_kcal ?? 0) / 860.421;
+            values = {
+               'Q_kW': { value: heatGenKw, unit: 'kW' },
+               'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+     }, [type, results, massFlowRateDA_kg_s, airflow, locale, unitSystem, t]);
+     
+    const velocityTooltip = useMemo(() => {
+        if (type !== EquipmentType.DAMPER) return null;
+        const damperCond = conditions as DamperConditions;
+        const formulaPath = 'tooltips.damper.airVelocity';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+        const area_m2 = ((damperCond.width ?? 0) / 1000) * ((damperCond.height ?? 0) / 1000);
+
+        if (unitSystem === UnitSystem.IMPERIAL) {
+            values = {
+                'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
+                'A': { value: convertValue(area_m2, 'area', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'ft²' },
+            };
+        } else {
+            values = {
+               'q': { value: airflow, unit: 'm³/min' },
+               'A': { value: area_m2, unit: 'm²' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, airflow, conditions, locale, unitSystem, t]);
+
+    const pressureLossTooltip = useMemo(() => {
+        if (type !== EquipmentType.DAMPER) return null;
+        const damperRes = results as DamperResults;
+        const damperCond = conditions as DamperConditions;
+        const formulaPath = 'tooltips.damper.pressureLoss';
+        const title = t(`${formulaPath}.title`);
+        const formula = t(`${formulaPath}.${unitSystem}.formula`);
+        const legend = t(`${formulaPath}.${unitSystem}.legend`);
+        let values = {};
+        
+        if (unitSystem === UnitSystem.IMPERIAL) {
+            const velocity_fpm = convertValue(damperRes.airVelocity_m_s, 'velocity', UnitSystem.SI, UnitSystem.IMPERIAL)! * 60;
+            values = {
+                'K': { value: damperCond.lossCoefficientK, unit: '' },
+                'v': { value: velocity_fpm, unit: 'fpm' },
+            };
+        } else {
+            values = {
+               'K': { value: damperCond.lossCoefficientK, unit: '' },
+               'ρ': { value: currentInletAirCalculated.density, unit: 'kg/m³' },
+               'v': { value: damperRes.airVelocity_m_s, unit: 'm/s' },
+           };
+        }
+        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
+    }, [type, conditions, results, currentInletAirCalculated.density, locale, unitSystem, t]);
 
     const renderConditions = () => {
         switch(type) {
@@ -813,53 +1271,6 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         switch(type) {
             case EquipmentType.FILTER: {
                 const filterRes = results as FilterResults;
-                const filterCond = conditions as FilterConditions;
-                
-                const faceVelocityTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.filter.faceVelocity';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        const area_ft2 = convertValue(((filterCond.width ?? 0) / 1000) * ((filterCond.height ?? 0) / 1000) * (filterCond.sheets ?? 1), 'area', UnitSystem.SI, UnitSystem.IMPERIAL);
-                        values = {
-                             'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                             'a_total': { value: area_ft2, unit: 'ft²' }
-                        }
-                    } else {
-                        const area_m2 = ((filterCond.width ?? 0) / 1000) * ((filterCond.height ?? 0) / 1000) * (filterCond.sheets ?? 1);
-                        values = {
-                            'q': { value: airflow, unit: 'm³/min' },
-                            'a_total': { value: area_m2, unit: 'm²' }
-                        }
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [airflow, conditions, locale, unitSystem, t]);
-
-                const airflowPerSheetTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.filter.airflowPerSheet';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    const numSheets = filterCond.sheets ?? 1;
-
-                    let values = {};
-                     if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                             'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                             'n': { value: numSheets, unit: t(`units.imperial.sheets`) }
-                        }
-                    } else {
-                        values = {
-                            'q': { value: airflow, unit: 'm³/min' },
-                            'n': { value: numSheets, unit: t(`units.si.sheets`) }
-                        }
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [airflow, conditions, locale, unitSystem, t]);
-
                 return (
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-x-4'>
                         <div className={resultRowClasses}><span>{t('results.faceVelocity')}</span><DisplayValueWithUnit value={filterRes.faceVelocity} unitType="velocity" unitSystem={unitSystem} tooltipContent={faceVelocityTooltip} /></div>
@@ -869,145 +1280,56 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.BURNER: {
                 const burnerRes = results as BurnerResults;
-                const burnerCond = conditions as BurnerConditions;
-                const burnerHeatLoadTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.burner.heatLoad';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
+                const heatLoad_kW = burnerRes.heatLoad_kW;
+                if (heatLoad_kW == null) return null;
 
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        const delta_t = convertValue(outletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)! - convertValue(inletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)!;
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'Δt': { value: delta_t, unit: '°F' },
-                            'SHF': { value: burnerCond.shf, unit: '' },
-                        }
-                    } else {
-                        const heatLoad_kW = (burnerRes.heatLoad_kcal ?? 0) / 860.421;
-                        values = {
-                            'Q': { value: heatLoad_kW, unit: 'kW' },
-                            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                            'Δt': { value: (outletAir.temp ?? 0) - (inletAir.temp ?? 0), unit: '°C' },
-                            'SHF': { value: burnerCond.shf, unit: '' },
-                        }
-                    }
-                    
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [massFlowRateDA_kg_s, outletAir.temp, inletAir.temp, conditions, airflow, results, locale, unitSystem, t]);
-                
-                return (
-                    <div className={resultRowClasses}>
-                        <span>{t('results.heatLoad_kcal')}</span>
-                        <div className="flex flex-col items-end">
-                            <DisplayValueWithUnit value={burnerRes.heatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={burnerHeatLoadTooltip} />
-                            {burnerRes.heatLoad_W != null && (
+                const heatLoad_kcal = heatLoad_kW * 860.421;
+                const heatLoad_btuh = convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+
+                if (unitSystem === UnitSystem.SI) {
+                    return (
+                        <div className={resultRowClasses}>
+                            <span>{t('results.heatLoad_kcal')}</span>
+                            <div className="flex flex-col items-end">
+                                <Tooltip content={burnerHeatLoadTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_kW)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">kW</span>
+                                    </div>
+                                </Tooltip>
                                 <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
-                                    ({formatNumber(burnerRes.heatLoad_W)} W)
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(heatLoad_kcal)} kcal/h)</span>
+                                        <span>({formatNumber(heatLoad_btuh)} BTU/h)</span>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
                         </div>
-                    </div>
-                );
+                    );
+                } else { // Imperial
+                    return (
+                         <div className={resultRowClasses}>
+                            <span>{t('results.heatLoad_kcal')}</span>
+                             <div className="flex flex-col items-end">
+                                <Tooltip content={burnerHeatLoadTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_btuh)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">{t('units.imperial.heat_load')}</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(heatLoad_kW)} kW)</span>
+                                        <span>({formatNumber(heatLoad_kcal)} kcal/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
             }
             case EquipmentType.COOLING_COIL: {
                 const coolRes = results as CoolingCoilResults;
-                const coolCond = conditions as CoolingCoilConditions;
-
-                const airSideTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.airSideHeatLoad';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'h_in': { value: convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
-                            'h_out': { value: convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
-                        };
-                    } else {
-                        values = {
-                            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                            'h_in': { value: inletAir.enthalpy, unit: 'kJ/kg(DA)' },
-                            'h_out': { value: outletAir.enthalpy, unit: 'kJ/kg(DA)' },
-                        };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, locale, unitSystem, t]);
-
-                const waterSideTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.waterSideHeatLoad';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                         const airSideHeatLoad_BTUh = convertValue(coolRes.airSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
-                         values = {
-                            'Q_air': { value: airSideHeatLoad_BTUh, unit: 'BTU/h' },
-                            'η': { value: coolCond.heatExchangeEfficiency, unit: '%' },
-                         };
-                    } else {
-                        const airSideHeatLoad_kW = (coolRes.airSideHeatLoad_kcal ?? 0) / 860.421;
-                        values = {
-                           'Q_air': { value: airSideHeatLoad_kW, unit: 'kW' },
-                           'η': { value: coolCond.heatExchangeEfficiency, unit: '%' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [results, conditions, locale, unitSystem, t]);
-
-                 const waterFlowTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.waterFlow';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                     
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        const waterSideHeatLoad_BTUh = convertValue(coolRes.coldWaterSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
-                        const delta_t_w = convertValue(coolCond.chilledWaterOutletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)! - convertValue(coolCond.chilledWaterInletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)!;
-                        values = {
-                            'Q_BTUh': { value: waterSideHeatLoad_BTUh, unit: 'BTU/h' },
-                            'Δt_w': { value: delta_t_w, unit: '°F' },
-                        };
-                    } else {
-                        const waterSideHeatLoad_kW = (coolRes.coldWaterSideHeatLoad_kcal ?? 0) / 860.421;
-                        values = {
-                            'Q_kW': { value: waterSideHeatLoad_kW, unit: 'kW' },
-                            'Δt_w': { value: (coolCond.chilledWaterOutletTemp ?? 0) - (coolCond.chilledWaterInletTemp ?? 0), unit: '°C' },
-                        };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [results, conditions, locale, unitSystem, t]);
-
-                const dehumidificationTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.dehumidification';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    
-                    let values = {};
-                    if (unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                            'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                        };
-                    } else {
-                        values = {
-                           'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                           'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
-                           'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
-
                 return (
                     <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4'>
                         <div className={resultRowClasses}><span>{t('results.airSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={coolRes.airSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={airSideTooltip}/></div>
@@ -1019,79 +1341,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.HEATING_COIL: {
                  const heatRes = results as HeatingCoilResults;
-                 const heatCond = conditions as HeatingCoilConditions;
-
-                 const heatAirSideTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.airSideHeatLoad';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'h_in': { value: convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
-                            'h_out': { value: convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' },
-                        };
-                    } else {
-                        values = {
-                            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                            'h_in': { value: inletAir.enthalpy, unit: 'kJ/kg(DA)' },
-                            'h_out': { value: outletAir.enthalpy, unit: 'kJ/kg(DA)' },
-                        };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, locale, unitSystem, t]);
-
-                 const heatWaterSideTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.waterSideHeatLoad';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                         const airSideHeatLoad_BTUh = convertValue(heatRes.airSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
-                         values = {
-                            'Q_air': { value: airSideHeatLoad_BTUh, unit: 'BTU/h' },
-                            'η': { value: heatCond.heatExchangeEfficiency, unit: '%' },
-                         };
-                    } else {
-                        const airSideHeatLoad_kW = (heatRes.airSideHeatLoad_kcal ?? 0) / 860.421;
-                        values = {
-                           'Q_air': { value: airSideHeatLoad_kW, unit: 'kW' },
-                           'η': { value: heatCond.heatExchangeEfficiency, unit: '%' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [results, conditions, locale, unitSystem, t]);
-
-                 const heatWaterFlowTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.coil.waterFlow';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                     
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        const waterSideHeatLoad_BTUh = convertValue(heatRes.hotWaterSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
-                        const delta_t_w = convertValue(heatCond.hotWaterInletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)! - convertValue(heatCond.hotWaterOutletTemp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL)!;
-                        values = {
-                            'Q_BTUh': { value: waterSideHeatLoad_BTUh, unit: 'BTU/h' },
-                            'Δt_w': { value: delta_t_w, unit: '°F' },
-                        };
-                    } else {
-                        const waterSideHeatLoad_kW = (heatRes.hotWaterSideHeatLoad_kcal ?? 0) / 860.421;
-                        values = {
-                            'Q_kW': { value: waterSideHeatLoad_kW, unit: 'kW' },
-                            'Δt_w': { value: (heatCond.hotWaterInletTemp ?? 0) - (heatCond.hotWaterOutletTemp ?? 0), unit: '°C' },
-                        };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [results, conditions, locale, unitSystem, t]);
-
-                return (
+                 return (
                     <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4'>
                         <div className={resultRowClasses}><span>{t('results.airSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={heatRes.airSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={heatAirSideTooltip} /></div>
                         <div className={resultRowClasses}><span>{t('results.hotWaterSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={heatRes.hotWaterSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={heatWaterSideTooltip} /></div>
@@ -1103,73 +1353,6 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                  return <div className={resultRowClasses}><span>{t('results.pressureLoss_Pa')}</span><DisplayValueWithUnit value={pressureLoss} unitType="pressure" unitSystem={unitSystem} /></div>
             case EquipmentType.SPRAY_WASHER: {
                  const sprayRes = results as SprayWasherResultsType;
-                 const sprayCond = conditions as SprayWasherConditions;
-
-                 const humidificationTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.spray_washer.humidification';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                            'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                        };
-                    } else {
-                        values = {
-                           'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                           'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
-                           'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                 }, [massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
-
-                 const sprayAmountTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.spray_washer.sprayAmount';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                           'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                           'ρ': { value: convertValue(currentInletAirCalculated.density, 'density', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'lb/ft³'},
-                           'L/G': { value: sprayCond.waterToAirRatio, unit: '' },
-                        };
-                    } else {
-                         values = {
-                            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                            'L/G': { value: sprayCond.waterToAirRatio, unit: '' },
-                        };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                 }, [massFlowRateDA_kg_s, conditions, airflow, currentInletAirCalculated.density, locale, unitSystem, t]);
-
-                 const efficiencyTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.spray_washer.humidificationEfficiency';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                     let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                           'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                           'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                           'x_sat': { value: convertValue(sprayWasherCalculatedValues.finalWSat, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                        };
-                    } else {
-                        values = {
-                           'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
-                           'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
-                           'x_sat': { value: sprayWasherCalculatedValues.finalWSat, unit: 'g/kg(DA)' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                 }, [outletAir.absHumidity, inletAir.absHumidity, sprayWasherCalculatedValues.finalWSat, locale, unitSystem, t]);
-
                  return (
                     <div className='grid grid-cols-1 md:grid-cols-3 gap-x-4'>
                         <div className={resultRowClasses}><span>{t('results.humidification_L_min')}</span><DisplayValueWithUnit value={sprayRes.humidification_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={humidificationTooltip} /></div>
@@ -1180,28 +1363,6 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.STEAM_HUMIDIFIER: {
                 const steamRes = results as SteamHumidifierResults;
-                const requiredSteamTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.steam_humidifier.requiredSteam';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'x_in': { value: convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                            'x_out': { value: convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
-                        };
-                    } else {
-                        values = {
-                            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                            'x_in': { value: inletAir.absHumidity, unit: 'g/kg(DA)' },
-                            'x_out': { value: outletAir.absHumidity, unit: 'g/kg(DA)' },
-                        };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, locale, unitSystem, t]);
-
                 return (
                     <div className={resultRowClasses}>
                         <span>{t('results.requiredSteamAmount')}</span>
@@ -1216,52 +1377,6 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.FAN: {
                  const fanRes = results as FanResults;
-                 const fanCond = conditions as FanConditions;
-
-                 const heatGenerationTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.fan.heatGeneration';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                           'P': { value: convertValue(fanCond.motorOutput, 'motor_power', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'HP' },
-                           'η': { value: fanCond.motorEfficiency, unit: '%' },
-                        };
-                    } else {
-                        values = {
-                           'P': { value: fanCond.motorOutput, unit: 'kW' },
-                           'η': { value: fanCond.motorEfficiency, unit: '%' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                 }, [conditions, locale, unitSystem, t]);
-
-                 const tempRiseTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.fan.tempRise';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-
-                    if(unitSystem === UnitSystem.IMPERIAL) {
-                        const heatGenBTUh = convertValue(fanRes.heatGeneration_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
-                        values = {
-                           'Q_BTUh': { value: heatGenBTUh, unit: 'BTU/h' },
-                           'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                        };
-                    } else {
-                        const heatGenKw = (fanRes.heatGeneration_kcal ?? 0) / 860.421;
-                        values = {
-                           'Q_kW': { value: heatGenKw, unit: 'kW' },
-                           'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                 }, [results, massFlowRateDA_kg_s, airflow, locale, unitSystem, t]);
-
                  return (
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-x-4'>
                         <div className={resultRowClasses}><span>{t('results.heatGeneration_kcal')}</span><DisplayValueWithUnit value={fanRes.heatGeneration_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={heatGenerationTooltip}/></div>
@@ -1271,53 +1386,6 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.DAMPER: {
                 const damperRes = results as DamperResults;
-                const damperCond = conditions as DamperConditions;
-                
-                const velocityTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.damper.airVelocity';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-                    const area_m2 = ((damperCond.width ?? 0) / 1000) * ((damperCond.height ?? 0) / 1000);
-
-                    if (unitSystem === UnitSystem.IMPERIAL) {
-                        values = {
-                            'q': { value: convertValue(airflow, 'airflow', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'CFM' },
-                            'A': { value: convertValue(area_m2, 'area', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'ft²' },
-                        };
-                    } else {
-                        values = {
-                           'q': { value: airflow, unit: 'm³/min' },
-                           'A': { value: area_m2, unit: 'm²' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [airflow, conditions, locale, unitSystem, t]);
-
-                const pressureLossTooltip = useMemo(() => {
-                    const formulaPath = 'tooltips.damper.pressureLoss';
-                    const title = t(`${formulaPath}.title`);
-                    const formula = t(`${formulaPath}.${unitSystem}.formula`);
-                    const legend = t(`${formulaPath}.${unitSystem}.legend`);
-                    let values = {};
-                    
-                    if (unitSystem === UnitSystem.IMPERIAL) {
-                        const velocity_fpm = convertValue(damperRes.airVelocity_m_s, 'velocity', UnitSystem.SI, UnitSystem.IMPERIAL)! * 60;
-                        values = {
-                            'K': { value: damperCond.lossCoefficientK, unit: '' },
-                            'v': { value: velocity_fpm, unit: 'fpm' },
-                        };
-                    } else {
-                        values = {
-                           'K': { value: damperCond.lossCoefficientK, unit: '' },
-                           'ρ': { value: currentInletAirCalculated.density, unit: 'kg/m³' },
-                           'v': { value: damperRes.airVelocity_m_s, unit: 'm/s' },
-                       };
-                    }
-                    return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-                }, [conditions, results, currentInletAirCalculated.density, locale, unitSystem, t]);
-
                 return (
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-x-4'>
                         <div className={resultRowClasses}><span>{t('results.airVelocity_m_s')}</span><DisplayValueWithUnit value={damperRes.airVelocity_m_s} unitType="velocity" unitSystem={unitSystem} tooltipContent={velocityTooltip} /></div>

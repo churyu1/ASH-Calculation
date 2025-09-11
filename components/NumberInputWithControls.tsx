@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UnitSystem, UnitType } from '../types';
-import { convertValue, getPrecisionForUnitType, formatNumber, formatNumberForInput } from '../utils/conversions';
-import { useLanguage } from '../i18n';
+import { convertValue, getPrecisionForUnitType, formatNumber, formatNumberForInput } from '../utils/conversions.ts';
+import { useLanguage } from '../i18n/index.ts';
 
 interface NumberInputWithControlsProps {
     value: number | null;
@@ -41,6 +41,10 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
     const secondaryDisplayValue = needsConversion ? convertValue(value, unitType, UnitSystem.SI, otherUnitSystem) : value;
     const secondaryDisplayUnit = t(`units.${otherUnitSystem}.${unitType}`);
 
+    const mmAqValue = (unitType === 'pressure' && value !== null) 
+        ? value / 9.80665 
+        : null;
+
     const getStepInDisplayUnits = () => {
         if (!needsConversion) return step;
 
@@ -78,10 +82,10 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
         } else {
             let parsedVal = parseFloat(valString);
             if (!isNaN(parsedVal)) {
-                const precision = getPrecisionForUnitType(unitType, unitSystem);
-                const roundedParsedVal = parseFloat(parsedVal.toFixed(precision));
-
-                let limitedVal = roundedParsedVal;
+                // Do not round the value here. Let the parent component receive the full-precision value
+                // so that small decimal changes trigger re-calculations. Formatting for display
+                // is handled separately in useEffect and onBlur.
+                let limitedVal = parsedVal;
                 if (maxInDisplayUnits !== undefined && maxInDisplayUnits !== null) limitedVal = Math.min(maxInDisplayUnits, limitedVal);
                 if (minInDisplayUnits !== undefined && minInDisplayUnits !== null) limitedVal = Math.max(minInDisplayUnits, limitedVal);
 
@@ -225,7 +229,14 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
             </div>
             {needsConversion && secondaryDisplayValue !== null && !isNaN(secondaryDisplayValue) && (
                 <div className="w-full text-xs text-slate-500 text-right pr-[8rem] pt-0.5">
-                    ({formatNumber(secondaryDisplayValue)} {secondaryDisplayUnit})
+                    {unitType === 'pressure' && mmAqValue !== null ? (
+                        <div className="flex flex-col items-end">
+                           <span>({formatNumber(secondaryDisplayValue)} {secondaryDisplayUnit})</span>
+                           <span>({formatNumber(mmAqValue)} mmAq)</span>
+                        </div>
+                    ) : (
+                        <span>({formatNumber(secondaryDisplayValue)} {secondaryDisplayUnit})</span>
+                    )}
                 </div>
             )}
         </div>

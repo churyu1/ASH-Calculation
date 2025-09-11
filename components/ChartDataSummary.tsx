@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Equipment, UnitSystem, AirProperties } from '../types';
-import { useLanguage } from '../i18n';
-import { convertValue, getPrecisionForUnitType } from '../utils/conversions';
-import { EQUIPMENT_HEX_COLORS } from '../constants';
+import { useLanguage } from '../i18n/index.ts';
+import { convertValue, getPrecisionForUnitType } from '../utils/conversions.ts';
+import { EQUIPMENT_HEX_COLORS } from '../constants.ts';
 
 interface ChartDataSummaryProps {
     equipmentList: Equipment[];

@@ -118,7 +118,7 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'temperature': return 1;
             case 'length': return 0;
             case 'airflow': return 0;
-            case 'pressure': return 0;
+            case 'pressure': return 1;
             case 'heat_load': return 0;
             case 'water_flow': return 2;
             case 'abs_humidity': return 2;

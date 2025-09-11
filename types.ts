@@ -98,8 +98,7 @@ export interface FilterResults extends BaseResults {
 }
 
 export interface BurnerResults extends BaseResults {
-    heatLoad_kcal?: number;
-    heatLoad_W?: number;
+    heatLoad_kW?: number;
 }
 
 export interface CoolingCoilResults extends BaseResults {
@@ -171,4 +170,13 @@ export type UnitType =
 export interface ChartPoint {
     temp: number;
     absHumidity: number;
+}
+
+export interface Project {
+    id: string;
+    name: string;
+    airflow: number | null;
+    equipmentList: Equipment[];
+    acInletAir: AirProperties;
+    acOutletAir: AirProperties;
 }

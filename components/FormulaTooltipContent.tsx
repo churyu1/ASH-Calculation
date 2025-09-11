@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { formatNumber } from '../utils/conversions';
+import { formatNumber } from '../utils/conversions.ts';
 
 interface FormulaTooltipContentProps {
   title: string;

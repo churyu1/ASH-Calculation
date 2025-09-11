@@ -1,8 +1,8 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import { LanguageProvider } from './i18n';
+import App from './App.tsx';
+import { LanguageProvider } from './i18n/index.ts';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

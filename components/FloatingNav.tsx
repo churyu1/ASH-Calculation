@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../i18n';
+import { useLanguage } from '../i18n/index.ts';
 
 interface FloatingNavProps {
     isTwoColumnLayout: boolean;
@@ -22,7 +22,7 @@ const FloatingNav: React.FC<FloatingNavProps> = ({ isTwoColumnLayout, onToggleLa
     );
 
     return (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-6 right-6 z-50 hidden lg:block">
             <button
                 onClick={onToggleLayout}
                 className="w-16 h-16 bg-blue-600 rounded-full text-white flex items-center justify-center shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-110"
