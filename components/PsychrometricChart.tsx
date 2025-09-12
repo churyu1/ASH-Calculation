@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 // FIX: Changed d3 import from namespace to named functions to fix module resolution errors.
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
@@ -27,11 +26,11 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
     useLayoutEffect(() => {
         const updateSize = () => {
             if (containerRef.current) {
-                const parentWidth = containerRef.current.clientWidth;
-                if (parentWidth > 0) {
+                const { clientWidth, clientHeight } = containerRef.current;
+                if (clientWidth > 0 && clientHeight > 0) {
                     setDimensions({
-                        width: parentWidth,
-                        height: parentWidth * (2 / 3), // Maintain aspect ratio
+                        width: clientWidth,
+                        height: clientHeight,
                     });
                 }
             }
@@ -60,6 +59,14 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
     useEffect(() => {
         if (!svgRef.current || width <= 0 || height <= 0) return;
         
+        const isNarrow = width < 500;
+        const numTicksX = Math.max(4, Math.round(width / 80));
+        const showYAxisMeta = !isSplitViewActive && !isNarrow;
+        const rhLinesToLabel = (isSplitViewActive || isNarrow) ? [20, 40, 60, 80, 100] : [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        const showEnthalpyLabels = !isSplitViewActive && width > 600;
+        const enthalpyLines = width < 400 ? [20, 60, 100] : (width < 600 ? [0, 20, 40, 60, 80, 100, 120] : [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
+
+
         const themeColors = {
             axis: '#64748b',
             axisText: '#475569',
@@ -91,7 +98,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            .call(axisBottom(xScale).ticks(10).tickFormat(d => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat(d => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
         xAxis.selectAll("line").style("stroke", themeColors.axis);
@@ -102,16 +109,16 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
         const yAxis = svg.append("g")
             .call(axisLeft(yScale).ticks(6).tickFormat(d =>
-                isSplitViewActive
-                    ? ''
-                    : `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
+                showYAxisMeta
+                    ? `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
+                    : ''
             ));
             
         yAxis.selectAll("path").style("stroke", themeColors.axis);
         yAxis.selectAll("line").style("stroke", themeColors.axis);
         yAxis.selectAll("text").style("fill", themeColors.axisText).style("font-size", "12px");
 
-        if (!isSplitViewActive) {
+        if (showYAxisMeta) {
              yAxis.append("text")
                 .attr("transform", "rotate(-90)")
                 .attr("y", -margin.left + 15)
@@ -218,7 +225,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             snapTargetsRef.current = { points: pointTargets, lines: lineTargets };
         };
 
-        svg.append("g").attr("class", "grid x-grid").attr("transform", `translate(0,${height})`).call(axisBottom(xScale).ticks(10).tickSize(-height).tickFormat(() => "")).selectAll("line").style("stroke", themeColors.grid);
+        svg.append("g").attr("class", "grid x-grid").attr("transform", `translate(0,${height})`).call(axisBottom(xScale).ticks(numTicksX).tickSize(-height).tickFormat(() => "")).selectAll("line").style("stroke", themeColors.grid);
         
         const yGridTicks = yScale.ticks(6);
         const yGrid = svg.append("g").attr("class", "grid y-grid");
@@ -236,7 +243,10 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
         const defs = svg.append("defs");
         const defaultColor = '#2563eb';
 
-        const rhLines = [20, 40, 60, 80, 100];
+        const rhLines = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        let lastRhLabelY: number | null = null;
+        const MIN_RH_LABEL_Y_SPACING = 18; // Minimum vertical pixel spacing for RH labels
+
         rhLines.forEach(rh => {
             const lineData: ChartPoint[] = [];
             for (let T = -20; T <= 60; T += 1) {
@@ -248,14 +258,34 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
             svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", themeColors.rhLine).attr("stroke-width", 0.5)
                .attr("stroke-dasharray", rh === 100 ? "0" : "2,2").attr("d", lineGenerator);
-            if (lineData.length > 0) {
-                const lastPoint = lineData[lineData.length - 1];
-                svg.append("text").attr("x", xScale(lastPoint.temp) + 5).attr("y", yScale(lastPoint.absHumidity) - 5)
-                   .text(`${rh}%`).attr("font-size", "11px").attr("fill", themeColors.rhLabel);
+            
+            if (lineData.length > 0 && rhLinesToLabel.includes(rh)) {
+                // Find a suitable point for the label, slightly inside the chart's right edge
+                let labelPoint: ChartPoint | null = null;
+                for (let i = lineData.length - 1; i >= 0; i--) {
+                    const point = lineData[i];
+                    if (xScale(point.temp) < width - 10) { // 10px from the right edge
+                        labelPoint = point;
+                        break;
+                    }
+                }
+                 if (!labelPoint && lineData.length > 0) {
+                    labelPoint = lineData[lineData.length - 1];
+                 }
+
+                if (labelPoint) {
+                    const currentLabelY = yScale(labelPoint.absHumidity);
+                    // Check if it's sufficiently spaced from the last label
+                    if (lastRhLabelY === null || Math.abs(currentLabelY - lastRhLabelY) > MIN_RH_LABEL_Y_SPACING) {
+                         svg.append("text").attr("x", xScale(labelPoint.temp) + 5).attr("y", currentLabelY)
+                           .attr("dominant-baseline", "middle")
+                           .text(`${rh}%`).attr("font-size", "11px").attr("fill", themeColors.rhLabel);
+                        lastRhLabelY = currentLabelY;
+                    }
+                }
             }
         });
 
-        const enthalpyLines = [0, 20, 40, 60, 80, 100, 120];
         const enthalpyGroup = svg.append("g");
         
         const hForAngle = 60;
@@ -287,7 +317,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                    .attr("d", lineGenerator)
                    .style("pointer-events", "none");
 
-                if (!isSplitViewActive) {
+                if (showEnthalpyLabels) {
                     const [tempDomainMin, tempDomainMax] = xScale.domain();
                     const [humDomainMin, humDomainMax] = yScale.domain();
                     
@@ -318,7 +348,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                            .attr("dominant-baseline", "middle")
                            .attr("fill", themeColors.enthalpyLabel)
                            .attr("font-size", "11px")
-                           .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)} ${enthalpyUnit}`);
+                           .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)}`);
                         
                         if (onLeftBorder) {
                             textElement.attr("text-anchor", "start").attr("dy", "-0.5em");
@@ -705,8 +735,12 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
     }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, width, height, t, isSplitViewActive, onUpdate]);
 
     return (
-        <div ref={containerRef} className="w-full min-h-[400px] relative">
-            <svg ref={svgRef}></svg>
+        <div
+            ref={containerRef}
+            className="w-full relative"
+            style={{ aspectRatio: '3 / 2', minHeight: '300px' }}
+        >
+            <svg ref={svgRef} style={{ position: 'absolute', top: 0, left: 0 }}></svg>
         </div>
     );
 };

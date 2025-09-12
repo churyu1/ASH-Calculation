@@ -451,6 +451,8 @@ const App: React.FC = () => {
         </div>
     );
 
+    const disclaimerContent = t('app.disclaimerContent');
+
     return (
         <div className="min-h-screen p-4 font-sans text-slate-800 bg-slate-100">
             <div className="max-w-7xl mx-auto p-6 rounded-lg shadow-xl bg-slate-50">
@@ -571,6 +573,14 @@ const App: React.FC = () => {
                     {isTwoColumnLayout && (<div className="lg:col-span-2 space-y-6 hidden lg:block"><div className="sticky top-6 space-y-6">{psychrometricChartSection}</div></div>)}
                 </div>
                 )}
+                <footer className="mt-12 pt-6 border-t border-slate-200 text-slate-500 text-xs text-left">
+                    <h3 className="font-semibold text-sm text-slate-600 mb-2 text-center">{t('app.disclaimerTitle')}</h3>
+                    <ol className="list-decimal list-inside space-y-2">
+                         {Array.isArray(disclaimerContent) && disclaimerContent.map((item, index) => (
+                            <li key={index}>{item}</li>
+                        ))}
+                    </ol>
+                </footer>
             </div>
             <FloatingNav isTwoColumnLayout={isTwoColumnLayout} onToggleLayout={toggleLayout} />
         </div>

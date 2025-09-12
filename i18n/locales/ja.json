@@ -1,35 +1,41 @@
-
 {
   "app": {
     "title": "空調器計算機",
-    "description": "これは空調機用の空気線図計算アプリケーションです。フィルター、コイル、ファンなどの機器を自由に組み合わせて、空気の状態変化をシミュレーションできます。結果は空気線図上にも表示され、視覚的な分析が可能です。",
+    "description": "これは空調器の湿り空気線図計算アプリケーションです。フィルター、コイル、ファンなどの機器を自由に組み合わせて、空気の状態変化をシミュレーションできます。結果は湿り空気線図にも表示され、視覚的な分析が可能です。",
     "instructionsTitle": "使い方",
-    "instructions": "1. システムの風量と、空調機全体の入口・出口条件を設定します。\n2. 「機器追加」セクションから、必要な機器を追加します。\n3. 各機器の条件を設定します。空気の状態は自動的に計算され、下流に引き継がれます。\n4. 空気線図上の点や線をドラッグして、直感的に空気の状態を調整することもできます。",
+    "instructions": "1. システムの風量と空調器全体の入口・出口条件を設定します。\n2. 「機器の追加」セクションから必要な機器を追加します。\n3. 各機器の条件を設定します。空気の状態は自動的に計算され、下流に引き継がれます。\n4. 湿り空気線図上の点や線をドラッグして、直感的に空気の状態を調整します。",
     "language": "言語",
     "unitSystem": "単位系",
-    "siUnits": "国際単位系 (SI)",
+    "siUnits": "SI単位",
     "imperialUnits": "ヤード・ポンド法",
     "systemAirflow": "システム風量",
     "acInletConditions": "空調器入口条件",
     "acOutletConditions": "空調器出口条件",
-    "addEquipment": "機器追加",
-    "deleteAllEquipment": "全機器削除",
+    "addEquipment": "機器の追加",
+    "deleteAllEquipment": "すべての機器を削除",
     "summary": "サマリー",
-    "configuration": "構成",
+    "configuration": "設定",
     "noEquipmentAdded": "機器が追加されていません。",
     "pressureLoss": "圧力損失",
     "totalPressureLoss": "合計圧力損失:",
-    "psychrometricChart": "空気線図",
+    "psychrometricChart": "湿り空気線図",
     "dataManagement": "データ管理",
-    "importConfig": "設定を読込",
-    "exportConfig": "設定を保存",
-    "importSuccess": "設定を正常に読み込みました！",
-    "importError": "設定の読み込みに失敗しました。ファイルが無効か破損している可能性があります。",
+    "importConfig": "設定のインポート",
+    "exportConfig": "設定のエクスポート",
+    "importSuccess": "設定が正常にインポートされました！",
+    "importError": "設定のインポートに失敗しました。ファイルが無効か破損している可能性があります。",
     "copySuffix": " (コピー)",
     "duplicateProject": "プロジェクトを複製",
-    "allProjectsSummaryTab": "空調器一覧",
-    "allProjectsSummaryTitle": "空調器一覧",
-    "noProjects": "プロジェクトが存在しません。タブバーの「＋」ボタンで新規追加してください。"
+    "allProjectsSummaryTab": "全プロジェクト概要",
+    "allProjectsSummaryTitle": "全プロジェクト概要",
+    "noProjects": "プロジェクトが存在しません。タブバーの「+」ボタンをクリックして新しいプロジェクトを追加してください。",
+    "disclaimerTitle": "免責事項",
+    "disclaimerContent": [
+      "本アプリケーションが提供するすべての計算結果および情報は参考目的であり、その完全性、正確性、有用性を保証するものではありません。",
+      "ユーザーは自己の判断と責任において本アプリケーションを使用するものとします。本アプリケーションから得られた結果を実際の設計、施工、その他の専門的な業務に適用する前に、必ず資格のある専門家による検証を行ってください。",
+      "開発者は、本アプリケーションの使用に起因してユーザーまたは第三者に生じたいかなる損害（データの損失、業務の中断、逸失利益を含むがこれらに限定されない）についても、一切の責任を負いません。",
+      "この免責事項は予告なく変更されることがあります。"
+    ]
   },
   "equipment": {
     "pressureLoss": "圧力損失",
@@ -42,20 +48,20 @@
     "useDownstreamInlet": "下流入口を使用",
     "useACOutlet": "空調器出口を使用",
     "delete": "削除",
-    "conditions": "機器条件",
+    "conditions": "条件",
     "results": "計算結果",
     "warnings": {
-      "burner": "出口温度は入口温度より高くしてください。",
-      "cooling_coil_temp": "出口温度は入口温度より低くしてください。",
-      "cooling_coil_humidity": "冷却プロセスでは出口の絶対湿度は入口より高くできません。",
-      "heating_coil": "出口温度は入口温度より高くしてください。"
+      "burner": "出口温度は入口温度より高くする必要があります。",
+      "cooling_coil_temp": "出口温度は入口温度より低くする必要があります。",
+      "cooling_coil_humidity": "冷却プロセスでは、出口の絶対湿度は入口より高くすることはできません。",
+      "heating_coil": "出口温度は入口温度より高くする必要があります。"
     }
   },
   "equipmentNames": {
     "filter": "フィルター",
     "burner": "バーナー",
-    "cooling_coil": "冷水コイル",
-    "heating_coil": "温水コイル",
+    "cooling_coil": "冷却コイル",
+    "heating_coil": "加熱コイル",
     "eliminator": "エリミネーター",
     "spray_washer": "スプレーワッシャー",
     "steam_humidifier": "蒸気加湿器",
@@ -66,34 +72,34 @@
   "conditions": {
     "width": "幅",
     "height": "高さ",
-    "thickness": "厚み",
+    "thickness": "厚さ",
     "sheets": "枚数",
-    "shf": "顕熱比(SHF)",
+    "shf": "SHF (顕熱比)",
     "chilledWaterInletTemp": "冷水入口温度",
     "chilledWaterOutletTemp": "冷水出口温度",
     "heatExchangeEfficiency": "熱交換効率",
     "hotWaterInletTemp": "温水入口温度",
     "hotWaterOutletTemp": "温水出口温度",
-    "eliminatorType": "エリミネーター種類",
-    "eliminator_3_fold": "3折",
-    "eliminator_6_fold": "6折",
+    "eliminatorType": "エリミネータータイプ",
+    "eliminator_3_fold": "3回折",
+    "eliminator_6_fold": "6回折",
     "humidificationEfficiency": "加湿効率",
     "waterToAirRatio": "水空気比 (L/G)",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
     "motorEfficiency": "モーター効率",
-    "lossCoefficientK": "損失係数(K値)"
+    "lossCoefficientK": "損失係数 (K)"
   },
   "results": {
-    "faceVelocity": "面風速",
-    "treatedAirflowPerSheet": "処理風量/枚",
+    "faceVelocity": "面速",
+    "treatedAirflowPerSheet": "風量/枚",
     "heatLoad_kcal": "熱負荷",
     "airSideHeatLoad_kcal": "空気側熱負荷",
-    "coldWaterSideHeatLoad_kcal": "冷水側熱負荷",
-    "chilledWaterFlow_L_min": "冷水量",
+    "coldWaterSideHeatLoad_kcal": "水側熱負荷",
+    "chilledWaterFlow_L_min": "冷水流量",
     "dehumidification_L_min": "除湿量",
-    "hotWaterSideHeatLoad_kcal": "温水側熱負荷",
-    "hotWaterFlow_L_min": "温水量",
+    "hotWaterSideHeatLoad_kcal": "水側熱負荷",
+    "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
     "sprayAmount_L_min": "噴霧量",
     "requiredSteamAmount": "必要蒸気量",
@@ -101,7 +107,7 @@
     "steamTemperature": "蒸気温度",
     "steamEnthalpy": "蒸気エンタルピー",
     "heatGeneration_kcal": "発熱量",
-    "tempRise_deltaT_celsius": "温度上昇⊿T",
+    "tempRise_deltaT_celsius": "温度上昇 ⊿T",
     "airVelocity_m_s": "風速",
     "pressureLoss_Pa": "圧力損失"
   },
@@ -109,7 +115,7 @@
     "temperature": "温度",
     "rh": "相対湿度",
     "abs_humidity": "絶対湿度",
-    "enthalpy": "比エンタルピー"
+    "enthalpy": "エンタルピー"
   },
   "units": {
     "pressure_units": {
@@ -130,7 +136,7 @@
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
-        "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
+        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
         "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
     }
@@ -149,26 +155,26 @@
       "inlet": "入口",
       "outlet": "出口",
       "temp": "温度",
-      "rh": "湿度",
-      "keyResults": "主要な結果",
-      "burnerLoad": "バーナー熱負荷",
-      "coolingLoad": "冷水側熱負荷",
-      "coolingFlow": "冷水量",
-      "heatingLoad": "温水側熱負荷",
-      "heatingFlow": "温水量",
+      "rh": "RH",
+      "keyResults": "主要結果",
+      "burnerLoad": "バーナー負荷",
+      "coolingLoad": "冷却水負荷",
+      "coolingFlow": "冷水流量",
+      "heatingLoad": "温水負荷",
+      "heatingFlow": "温水流量",
       "steamFlow": "蒸気量",
       "pressureLoss": "圧力損失",
       "totalPressureLoss": "合計圧力損失"
     }
   },
   "fab": {
-    "toggleToSplitView": "2カラム表示に切替",
-    "toggleToSingleView": "1カラム表示に切替"
+    "toggleToSplitView": "分割ビューに切り替え",
+    "toggleToSingleView": "シングルビューに切り替え"
   },
   "tooltips": {
     "airProperties": {
       "absHumidityFromTRh": {
-        "title": "絶対湿度 (温湿度から)",
+        "title": "絶対湿度 (T, RHより)",
         "si": {
           "formula": [
             "P_v = P_sat(t) * (rh / 100)",
@@ -176,7 +182,7 @@
           ],
           "legend": {
             "x": "絶対湿度 (g/kg)", "t": "温度 (°C)", "rh": "相対湿度 (%)",
-            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気分圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
+            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
           }
         },
         "imperial": {
@@ -187,12 +193,12 @@
           ],
           "legend": {
             "x": "絶対湿度 (gr/lb)", "t_f": "温度 (°F)", "rh": "相対湿度 (%)",
-            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気分圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
+            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
           }
         }
       },
       "enthalpyFromTX": {
-        "title": "エンタルピー (温・絶対湿度から)",
+        "title": "エンタルピー (T, xより)",
         "si": {
           "formula": "h = 1.006*t + (x/1000)*(2501 + 1.86*t)",
           "legend": { "h": "エンタルピー (kJ/kg)", "t": "温度 (°C)", "x": "絶対湿度 (g/kg)" }
@@ -203,7 +209,7 @@
         }
       },
       "rhFromTX": {
-        "title": "相対湿度 (温・絶対湿度から)",
+        "title": "相対湿度 (T, xより)",
         "si": {
           "formula": [
             "P_v = (P_atm * (x/1000)) / (0.622 + (x/1000))",
@@ -211,7 +217,7 @@
           ],
           "legend": {
             "rh": "相対湿度 (%)", "t": "温度 (°C)", "x": "絶対湿度 (g/kg)",
-            "P_v": "水蒸気分圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
+            "P_v": "水蒸気圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
           }
         },
         "imperial": {
@@ -222,12 +228,12 @@
           ],
           "legend": {
             "rh": "相対湿度 (%)", "t_f": "温度 (°F)", "x": "絶対湿度 (gr/lb)",
-            "P_v": "水蒸気分圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
+            "P_v": "水蒸気圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
           }
         }
       },
       "absHumidityFromTH": {
-        "title": "絶対湿度 (温・エンタルピーから)",
+        "title": "絶対湿度 (T, hより)",
         "si": {
           "formula": "x = 1000*(h - 1.006*t) / (2501 + 1.86*t)",
           "legend": { "x": "絶対湿度 (g/kg)", "h": "エンタルピー (kJ/kg)", "t": "温度 (°C)" }
@@ -251,25 +257,25 @@
     },
     "filter": {
       "faceVelocity": {
-        "title": "面風速",
+        "title": "面速",
         "si": {
           "formula": "v = (q / 60) / a_total",
-          "legend": { "v": "風速 (m/s)", "q": "風量 (m³/min)", "a_total": "全面積 (m²)" }
+          "legend": { "v": "速度 (m/s)", "q": "風量 (m³/min)", "a_total": "全面積 (m²)" }
         },
         "imperial": {
           "formula": "v = q / a_total",
-          "legend": { "v": "風速 (fpm)", "q": "風量 (CFM)", "a_total": "全面積 (ft²)" }
+          "legend": { "v": "速度 (fpm)", "q": "風量 (CFM)", "a_total": "全面積 (ft²)" }
         }
       },
       "airflowPerSheet": {
-        "title": "枚あたり風量",
+        "title": "シートあたりの風量",
         "si": {
           "formula": "q_sheet = q / n",
-          "legend": { "q_sheet": "風量/枚 (m³/min)", "q": "全風量 (m³/min)", "n": "枚数" }
+          "legend": { "q_sheet": "風量/枚 (m³/min)", "q": "総風量 (m³/min)", "n": "枚数" }
         },
         "imperial": {
           "formula": "q_sheet = q / n",
-          "legend": { "q_sheet": "風量/枚 (CFM)", "q": "全風量 (CFM)", "n": "枚数" }
+          "legend": { "q_sheet": "風量/枚 (CFM)", "q": "総風量 (CFM)", "n": "枚数" }
         }
       }
     },
@@ -302,15 +308,15 @@
         "title": "水側熱負荷",
         "si": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "水側負荷 (kW)", "Q_air": "空気側負荷 (kW)", "η": "効率 (%)" }
+          "legend": { "Q_water": "水負荷 (kW)", "Q_air": "空気負荷 (kW)", "η": "効率 (%)" }
         },
         "imperial": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "水側負荷 (BTU/h)", "Q_air": "空気側負荷 (BTU/h)", "η": "効率 (%)" }
+          "legend": { "Q_water": "水負荷 (BTU/h)", "Q_air": "空気負荷 (BTU/h)", "η": "効率 (%)" }
         }
       },
       "waterFlow": {
-        "title": "水量",
+        "title": "水流量",
         "si": {
           "formula": "L = (Q_kW * 60) / (4.186 * Δt_w)",
           "legend": { "L": "流量 (L/min)", "Q_kW": "負荷 (kW)", "Δt_w": "水温差 (°C)" }
@@ -324,11 +330,11 @@
         "title": "除湿量",
         "si": {
           "formula": "D = (G * |x_in - x_out| / 1000) * 60",
-          "legend": { "D": "除湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+          "legend": { "D": "除湿率 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
-          "legend": { "D_gpm": "除湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "legend": { "D_gpm": "除湿率 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       }
     },
@@ -337,22 +343,22 @@
         "title": "加湿量",
         "si": {
           "formula": "M = (G * (x_out - x_in) / 1000) * 60",
-          "legend": { "M": "加湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+          "legend": { "M": "加湿率 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "M_gpm = (q*4.5*(x_out-x_in))/(7000*8.34)",
-          "legend": { "M_gpm": "加湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "legend": { "M_gpm": "加湿率 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "sprayAmount": {
         "title": "噴霧量",
         "si": {
           "formula": "S = G * (L/G) * 60",
-          "legend": { "S": "噴霧量 (L/min)", "G": "質量流量 (kg/s)", "L/G": "水空気比" }
+          "legend": { "S": "量 (L/min)", "G": "質量流量 (kg/s)", "L/G": "水空気比" }
         },
         "imperial": {
           "formula": "S_gpm = (q * ρ * (L/G)) / 8.34",
-          "legend": { "S_gpm": "噴霧量 (GPM)", "q": "風量 (CFM)", "ρ": "空気密度 (~0.075 lb/ft³)", "L/G": "水空気比" }
+          "legend": { "S_gpm": "量 (GPM)", "q": "風量 (CFM)", "ρ": "空気密度 (~0.075 lb/ft³)", "L/G": "水空気比" }
         }
       },
       "humidificationEfficiency": {
@@ -367,40 +373,40 @@
         }
       },
       "outletTemp": {
-        "title": "出口温度 (相対湿度から)",
+        "title": "出口温度 (RHより)",
         "si": {
-          "formula": "入口エンタルピーを維持し、目標の出口相対湿度になるように計算されます。",
+          "formula": "一定エンタルピー(h_in)でRH_outに一致するように計算。",
           "legend": {
             "t_out": "出口温度 (°C)",
             "h_in": "入口エンタルピー (kJ/kg)",
-            "RH_out": "目標出口相対湿度 (%)"
+            "RH_out": "目標出口RH (%)"
           }
         },
         "imperial": {
-          "formula": "入口エンタルピーを維持し、目標の出口相対湿度になるように計算されます。",
+          "formula": "一定エンタルピー(h_in)でRH_outに一致するように計算。",
           "legend": {
             "t_out": "出口温度 (°F)",
             "h_in": "入口エンタルピー (BTU/lb)",
-            "RH_out": "目標出口相対湿度 (%)"
+            "RH_out": "目標出口RH (%)"
           }
         }
       }
     },
     "steam_humidifier": {
       "outletTemp": {
-        "title": "出口温度 (相対湿度から)",
+        "title": "出口温度 (RHより)",
         "si": {
-          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam を満たすように計算されます。",
+          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam を満たすように計算。",
           "legend": {
             "t_out": "出口温度 (°C)", "h_in": "入口エンタルピー (kJ/kg)", "x_in": "入口絶対湿度 (g/kg)",
-            "h_steam": "蒸気エンタルピー (kJ/kg)", "RH_out": "目標出口相対湿度 (%)"
+            "h_steam": "蒸気エンタルピー (kJ/kg)", "RH_out": "目標出口RH (%)"
           }
         },
         "imperial": {
-          "formula": "目標の出口相対湿度になるようエンタルピーバランスから計算されます。",
+          "formula": "目標のRH_outに対するエンタルピーバランスを満たすように計算。",
           "legend": {
             "t_out": "出口温度 (°F)", "h_in": "入口エンタルピー (BTU/lb)", "x_in": "入口絶対湿度 (gr/lb)",
-            "h_steam": "蒸気エンタルピー (BTU/lb)", "RH_out": "目標出口相対湿度 (%)"
+            "h_steam": "蒸気エンタルピー (BTU/lb)", "RH_out": "目標出口RH (%)"
           }
         }
       },
@@ -408,11 +414,11 @@
         "title": "必要蒸気量",
         "si": {
           "formula": "M = G * (x_out - x_in) / 1000 * 3600",
-          "legend": { "M": "蒸気量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+          "legend": { "M": "流量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
-          "legend": { "M_lbh": "蒸気量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "legend": { "M_lbh": "流量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "steamAbsolutePressure": {
@@ -427,13 +433,13 @@
         }
       },
       "steamProperties": {
-        "title": "蒸気特性 (圧力から)",
+        "title": "蒸気特性 (圧力より)",
         "si": {
-          "formula": "絶対圧を元に蒸気表から線形補間して計算されます。",
+          "formula": "絶対圧に基づき蒸気表から内挿計算。",
           "legend": { "T_steam": "蒸気温度 (°C)", "h_steam": "蒸気エンタルピー (kcal/kg)", "P_abs": "絶対圧 (kPa)" }
         },
         "imperial": {
-          "formula": "絶対圧を元に蒸気表から線形補間して計算されます。",
+          "formula": "絶対圧に基づき蒸気表から内挿計算。",
           "legend": { "T_steam": "蒸気温度 (°F)", "h_steam": "蒸気エンタルピー (BTU/lb)", "P_abs": "絶対圧 (psi)" }
         }
       }
@@ -478,22 +484,22 @@
         "title": "風速",
         "si": {
           "formula": "v = (q / 60) / A",
-          "legend": { "v": "風速 (m/s)", "q": "風量 (m³/min)", "A": "面積 (m²)" }
+          "legend": { "v": "速度 (m/s)", "q": "風量 (m³/min)", "A": "面積 (m²)" }
         },
         "imperial": {
           "formula": "v = q / A",
-          "legend": { "v": "風速 (fpm)", "q": "風量 (CFM)", "A": "面積 (ft²)" }
+          "legend": { "v": "速度 (fpm)", "q": "風量 (CFM)", "A": "面積 (ft²)" }
         }
       },
       "pressureLoss": {
         "title": "圧力損失",
         "si": {
           "formula": "ΔP = K * 0.5 * ρ * v²",
-          "legend": { "ΔP": "圧力損失 (Pa)", "K": "K係数", "ρ": "密度 (kg/m³)", "v": "風速 (m/s)" }
+          "legend": { "ΔP": "圧力損失 (Pa)", "K": "K係数", "ρ": "密度 (kg/m³)", "v": "速度 (m/s)" }
         },
         "imperial": {
           "formula": "ΔP = K * (v / 4005)²",
-          "legend": { "ΔP": "圧力損失 (in.w.g.)", "K": "K係数", "v": "風速 (fpm)" }
+          "legend": { "ΔP": "圧力損失 (in.w.g.)", "K": "K係数", "v": "速度 (fpm)" }
         }
       }
     }
