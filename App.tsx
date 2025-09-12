@@ -556,7 +556,15 @@ const App: React.FC = () => {
                             </div>
                         </div>
                         {!isTwoColumnLayout && (<div className="space-y-6">{psychrometricChartSection}</div>)}
-                        <div><Summary equipmentList={activeProject.equipmentList} totalPressureLoss={totalPressureLoss} unitSystem={unitSystem} /></div>
+                        <div>
+                            <Summary
+                                equipmentList={activeProject.equipmentList}
+                                totalPressureLoss={totalPressureLoss}
+                                unitSystem={unitSystem}
+                                acInletAir={activeProject.acInletAir}
+                                acOutletAir={acOutletCalculated}
+                            />
+                        </div>
                         <div id="add-equipment-section">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold">{t('app.addEquipment')}</h2>

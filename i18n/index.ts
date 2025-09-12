@@ -37,7 +37,7 @@ export const enMessages = {
     "disclaimerContent": [
       "All calculation results and information provided by this application are for reference purposes only, and their completeness, accuracy, and usefulness are not guaranteed.",
       "Users shall use this application at their own discretion and risk. Before applying the results obtained from this application to actual design, construction, or other professional work, please ensure they are verified by a qualified expert.",
-      "The developer assumes no responsibility for any damages (including but not to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.",
+      "The developer assumes no responsibility for any damages (including but not limited to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.",
       "This disclaimer is subject to change without notice."
     ]
   },
@@ -64,8 +64,8 @@ export const enMessages = {
   "equipmentNames": {
     "filter": "Filter",
     "burner": "Burner",
-    "cooling_coil": "Cooling Coil",
-    "heating_coil": "Heating Coil",
+    "cooling_coil": "Chilled Water Coil",
+    "heating_coil": "Hot Water Coil",
     "eliminator": "Eliminator",
     "spray_washer": "Spray Washer",
     "steam_humidifier": "Steam Humidifier",
@@ -99,10 +99,10 @@ export const enMessages = {
     "treatedAirflowPerSheet": "Airflow/Sheet",
     "heatLoad_kcal": "Heat Load",
     "airSideHeatLoad_kcal": "Air-Side Heat Load",
-    "coldWaterSideHeatLoad_kcal": "Water-Side Heat Load",
+    "coldWaterSideHeatLoad_kcal": "Chilled Water Side Heat Load",
     "chilledWaterFlow_L_min": "Chilled Water Flow",
     "dehumidification_L_min": "Dehumidification",
-    "hotWaterSideHeatLoad_kcal": "Water-Side Heat Load",
+    "hotWaterSideHeatLoad_kcal": "Hot Water Side Heat Load",
     "hotWaterFlow_L_min": "Hot Water Flow",
     "humidification_L_min": "Humidification",
     "sprayAmount_L_min": "Spray Amount",
@@ -140,7 +140,7 @@ export const enMessages = {
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
-        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
+        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
         "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
     }
@@ -162,9 +162,9 @@ export const enMessages = {
       "rh": "RH",
       "keyResults": "Key Results",
       "burnerLoad": "Burner Load",
-      "coolingLoad": "Cooling Water Load",
+      "coolingLoad": "Chilled Water Side Heat Load",
       "coolingFlow": "Chilled Water Flow",
-      "heatingLoad": "Hot Water Load",
+      "heatingLoad": "Hot Water Side Heat Load",
       "heatingFlow": "Hot Water Flow",
       "steamFlow": "Steam Amount",
       "pressureLoss": "Pressure Loss",
@@ -573,8 +573,8 @@ export const jaMessages = {
   "equipmentNames": {
     "filter": "フィルター",
     "burner": "バーナー",
-    "cooling_coil": "冷却コイル",
-    "heating_coil": "加熱コイル",
+    "cooling_coil": "冷水コイル",
+    "heating_coil": "温水コイル",
     "eliminator": "エリミネーター",
     "spray_washer": "スプレーワッシャー",
     "steam_humidifier": "蒸気加湿器",
@@ -608,10 +608,10 @@ export const jaMessages = {
     "treatedAirflowPerSheet": "風量/枚",
     "heatLoad_kcal": "熱負荷",
     "airSideHeatLoad_kcal": "空気側熱負荷",
-    "coldWaterSideHeatLoad_kcal": "水側熱負荷",
+    "coldWaterSideHeatLoad_kcal": "冷水側熱負荷",
     "chilledWaterFlow_L_min": "冷水流量",
     "dehumidification_L_min": "除湿量",
-    "hotWaterSideHeatLoad_kcal": "水側熱負荷",
+    "hotWaterSideHeatLoad_kcal": "温水側熱負荷",
     "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
     "sprayAmount_L_min": "噴霧量",
@@ -649,7 +649,7 @@ export const jaMessages = {
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
-        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "ft/s",
+        "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
         "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
     }
@@ -671,9 +671,9 @@ export const jaMessages = {
       "rh": "RH",
       "keyResults": "主要結果",
       "burnerLoad": "バーナー負荷",
-      "coolingLoad": "冷却水負荷",
+      "coolingLoad": "冷水側熱負荷",
       "coolingFlow": "冷水流量",
-      "heatingLoad": "温水負荷",
+      "heatingLoad": "温水側熱負荷",
       "heatingFlow": "温水流量",
       "steamFlow": "蒸気量",
       "pressureLoss": "圧力損失",
@@ -1019,42 +1019,48 @@ export const jaMessages = {
   }
 };
 
-const messages: { [key: string]: any } = {
+const translations: Record<string, any> = {
     en: enMessages,
     ja: jaMessages,
 };
 
-export const get = (obj: any, path: string): any => {
-    return path.split('.').reduce((p, c) => (p && p[c]), obj);
-};
+export function get(obj: any, path: string): any {
+    const keys = path.split('.');
+    let result = obj;
+    for (const key of keys) {
+        if (result === undefined || result === null) {
+            return undefined;
+        }
+        result = result[key];
+    }
+    return result;
+}
 
 interface LanguageContextType {
     locale: string;
     setLocale: (locale: string) => void;
+    // FIX: Changed return type of t to any to support objects and arrays in translations.
     t: (key: string) => any;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     const [locale, setLocale] = useState('ja');
 
     const t = useCallback((key: string): any => {
-        const message = get(messages[locale], key) || get(enMessages, key);
-        return message || key;
+        const message = get(translations[locale], key);
+        // FIX: Handle cases where translation is not found, or is a falsy value like an empty string.
+        return (message !== undefined && message !== null) ? message : key;
     }, [locale]);
 
-    const value = useMemo(() => ({
-        locale,
-        setLocale,
-        t,
-    }), [locale, setLocale, t]);
+    const value = useMemo(() => ({ locale, setLocale, t }), [locale, t]);
 
-    // FIX: Replaced JSX with React.createElement to be compatible with a .ts file extension.
-    return React.createElement(LanguageContext.Provider, { value: value }, children);
+    // FIX: Rewrote JSX to React.createElement to resolve parsing errors in .ts file.
+    return React.createElement(LanguageContext.Provider, { value }, children);
 };
 
-export const useLanguage = (): LanguageContextType => {
+export const useLanguage = () => {
     const context = useContext(LanguageContext);
     if (context === undefined) {
         throw new Error('useLanguage must be used within a LanguageProvider');

@@ -776,9 +776,11 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     }, [type, massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, locale, unitSystem, t]);
 
     const waterSideTooltip = useMemo(() => {
-        if (type !== EquipmentType.COOLING_COIL) return null;
-        const coolRes = results as CoolingCoilResults;
-        const coolCond = conditions as CoolingCoilConditions;
+        if (type !== EquipmentType.COOLING_COIL && type !== EquipmentType.HEATING_COIL) return null;
+        
+        const coilResults = results as CoolingCoilResults | HeatingCoilResults;
+        const coilConditions = conditions as CoolingCoilConditions | HeatingCoilConditions;
+
         const formulaPath = 'tooltips.coil.waterSideHeatLoad';
         const title = t(`${formulaPath}.title`);
         const formula = t(`${formulaPath}.${unitSystem}.formula`);
@@ -786,16 +788,16 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
 
         let values = {};
         if(unitSystem === UnitSystem.IMPERIAL) {
-             const airSideHeatLoad_BTUh = convertValue(coolRes.airSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+             const airSideHeatLoad_BTUh = convertValue(coilResults.airSideHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
              values = {
                 'Q_air': { value: airSideHeatLoad_BTUh, unit: 'BTU/h' },
-                'η': { value: coolCond.heatExchangeEfficiency, unit: '%' },
+                'η': { value: coilConditions.heatExchangeEfficiency, unit: '%' },
              };
         } else {
-            const airSideHeatLoad_kW = (coolRes.airSideHeatLoad_kcal ?? 0) / 860.421;
+            const airSideHeatLoad_kW = (coilResults.airSideHeatLoad_kcal ?? 0) / 860.421;
             values = {
                'Q_air': { value: airSideHeatLoad_kW, unit: 'kW' },
-               'η': { value: coolCond.heatExchangeEfficiency, unit: '%' },
+               'η': { value: coilConditions.heatExchangeEfficiency, unit: '%' },
            };
         }
         return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
@@ -1104,7 +1106,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         let values = {};
         
         if (unitSystem === UnitSystem.IMPERIAL) {
-            const velocity_fpm = convertValue(damperRes.airVelocity_m_s, 'velocity', UnitSystem.SI, UnitSystem.IMPERIAL)! * 60;
+            const velocity_fpm = convertValue(damperRes.airVelocity_m_s, 'velocity', UnitSystem.SI, UnitSystem.IMPERIAL);
             values = {
                 'K': { value: damperCond.lossCoefficientK, unit: '' },
                 'v': { value: velocity_fpm, unit: 'fpm' },
@@ -1330,10 +1332,100 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.COOLING_COIL: {
                 const coolRes = results as CoolingCoilResults;
+                const waterHeatLoad_kcal = coolRes.coldWaterSideHeatLoad_kcal;
+                let waterHeatLoadDisplay = null;
+
+                if (waterHeatLoad_kcal != null) {
+                    const heatLoad_kW = waterHeatLoad_kcal / 860.421;
+                    const heatLoad_btuh = convertValue(waterHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+
+                    if (unitSystem === UnitSystem.SI) {
+                        waterHeatLoadDisplay = (
+                             <div className="flex flex-col items-end">
+                                <Tooltip content={waterSideTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_kW)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">kW</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(waterHeatLoad_kcal)} kcal/h)</span>
+                                        <span>({formatNumber(heatLoad_btuh)} BTU/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    } else { // Imperial
+                        waterHeatLoadDisplay = (
+                             <div className="flex flex-col items-end">
+                                <Tooltip content={waterSideTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_btuh)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">{t('units.imperial.heat_load')}</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(heatLoad_kW)} kW)</span>
+                                        <span>({formatNumber(waterHeatLoad_kcal)} kcal/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+                }
+                
+                const airHeatLoad_kcal = coolRes.airSideHeatLoad_kcal;
+                let airHeatLoadDisplay = null;
+                if (airHeatLoad_kcal != null) {
+                    const heatLoad_kW = airHeatLoad_kcal / 860.421;
+                    const heatLoad_btuh = convertValue(airHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                
+                    if (unitSystem === UnitSystem.SI) {
+                        airHeatLoadDisplay = (
+                            <div className="flex flex-col items-end">
+                                <Tooltip content={airSideTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_kW)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">kW</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(airHeatLoad_kcal)} kcal/h)</span>
+                                        <span>({formatNumber(heatLoad_btuh)} BTU/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    } else { // Imperial
+                        airHeatLoadDisplay = (
+                            <div className="flex flex-col items-end">
+                                <Tooltip content={airSideTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_btuh)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">{t('units.imperial.heat_load')}</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(heatLoad_kW)} kW)</span>
+                                        <span>({formatNumber(airHeatLoad_kcal)} kcal/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+                }
+
                 return (
                     <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4'>
-                        <div className={resultRowClasses}><span>{t('results.airSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={coolRes.airSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={airSideTooltip}/></div>
-                        <div className={resultRowClasses}><span>{t('results.coldWaterSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={coolRes.coldWaterSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={waterSideTooltip}/></div>
+                        <div className={resultRowClasses}><span>{t('results.airSideHeatLoad_kcal')}</span>{airHeatLoadDisplay}</div>
+                        <div className={resultRowClasses}>
+                            <span>{t('results.coldWaterSideHeatLoad_kcal')}</span>
+                            {waterHeatLoadDisplay}
+                        </div>
                         <div className={resultRowClasses}><span>{t('results.chilledWaterFlow_L_min')}</span><DisplayValueWithUnit value={coolRes.chilledWaterFlow_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={waterFlowTooltip}/></div>
                         <div className={resultRowClasses}><span>{t('results.dehumidification_L_min')}</span><DisplayValueWithUnit value={coolRes.dehumidification_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={dehumidificationTooltip}/></div>
                     </div>
@@ -1341,10 +1433,99 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             }
             case EquipmentType.HEATING_COIL: {
                  const heatRes = results as HeatingCoilResults;
+                 const waterHeatLoad_kcal = heatRes.hotWaterSideHeatLoad_kcal;
+                 let waterHeatLoadDisplay = null;
+                 if (waterHeatLoad_kcal != null) {
+                     const heatLoad_kW = waterHeatLoad_kcal / 860.421;
+                     const heatLoad_btuh = convertValue(waterHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+
+                     if (unitSystem === UnitSystem.SI) {
+                         waterHeatLoadDisplay = (
+                              <div className="flex flex-col items-end">
+                                 <Tooltip content={heatWaterSideTooltip}>
+                                     <div className="flex items-center justify-end gap-1">
+                                         <span className="font-bold">{formatNumber(heatLoad_kW)}</span>
+                                         <span className="text-sm w-24 text-left pl-1">kW</span>
+                                     </div>
+                                 </Tooltip>
+                                 <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                     <div className="flex flex-col items-end">
+                                         <span>({formatNumber(waterHeatLoad_kcal)} kcal/h)</span>
+                                         <span>({formatNumber(heatLoad_btuh)} BTU/h)</span>
+                                     </div>
+                                 </div>
+                             </div>
+                         );
+                     } else { // Imperial
+                         waterHeatLoadDisplay = (
+                              <div className="flex flex-col items-end">
+                                 <Tooltip content={heatWaterSideTooltip}>
+                                     <div className="flex items-center justify-end gap-1">
+                                         <span className="font-bold">{formatNumber(heatLoad_btuh)}</span>
+                                         <span className="text-sm w-24 text-left pl-1">{t('units.imperial.heat_load')}</span>
+                                     </div>
+                                 </Tooltip>
+                                 <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                     <div className="flex flex-col items-end">
+                                         <span>({formatNumber(heatLoad_kW)} kW)</span>
+                                         <span>({formatNumber(waterHeatLoad_kcal)} kcal/h)</span>
+                                     </div>
+                                 </div>
+                             </div>
+                         );
+                     }
+                 }
+
+                const airHeatLoad_kcal = heatRes.airSideHeatLoad_kcal;
+                let airHeatLoadDisplay = null;
+                if (airHeatLoad_kcal != null) {
+                    const heatLoad_kW = airHeatLoad_kcal / 860.421;
+                    const heatLoad_btuh = convertValue(airHeatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                
+                    if (unitSystem === UnitSystem.SI) {
+                        airHeatLoadDisplay = (
+                            <div className="flex flex-col items-end">
+                                <Tooltip content={heatAirSideTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_kW)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">kW</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(airHeatLoad_kcal)} kcal/h)</span>
+                                        <span>({formatNumber(heatLoad_btuh)} BTU/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    } else { // Imperial
+                        airHeatLoadDisplay = (
+                            <div className="flex flex-col items-end">
+                                <Tooltip content={heatAirSideTooltip}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <span className="font-bold">{formatNumber(heatLoad_btuh)}</span>
+                                        <span className="text-sm w-24 text-left pl-1">{t('units.imperial.heat_load')}</span>
+                                    </div>
+                                </Tooltip>
+                                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                                    <div className="flex flex-col items-end">
+                                        <span>({formatNumber(heatLoad_kW)} kW)</span>
+                                        <span>({formatNumber(airHeatLoad_kcal)} kcal/h)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
+                }
+
                  return (
                     <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4'>
-                        <div className={resultRowClasses}><span>{t('results.airSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={heatRes.airSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={heatAirSideTooltip} /></div>
-                        <div className={resultRowClasses}><span>{t('results.hotWaterSideHeatLoad_kcal')}</span><DisplayValueWithUnit value={heatRes.hotWaterSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} tooltipContent={heatWaterSideTooltip} /></div>
+                        <div className={resultRowClasses}><span>{t('results.airSideHeatLoad_kcal')}</span>{airHeatLoadDisplay}</div>
+                        <div className={resultRowClasses}>
+                            <span>{t('results.hotWaterSideHeatLoad_kcal')}</span>
+                            {waterHeatLoadDisplay}
+                        </div>
                         <div className={resultRowClasses}><span>{t('results.hotWaterFlow_L_min')}</span><DisplayValueWithUnit value={heatRes.hotWaterFlow_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={heatWaterFlowTooltip} /></div>
                     </div>
                 );

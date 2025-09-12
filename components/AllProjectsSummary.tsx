@@ -32,6 +32,8 @@ const AllProjectsSummary: React.FC<AllProjectsSummaryProps> = ({ projects, unitS
                         equipmentList={project.equipmentList}
                         totalPressureLoss={project.equipmentList.reduce((sum, eq) => sum + (eq.pressureLoss || 0), 0)}
                         unitSystem={unitSystem}
+                        acInletAir={project.acInletAir}
+                        acOutletAir={project.acOutletAir}
                     />
                 </div>
             ))}

@@ -15,7 +15,7 @@ const UNIT_CONVERSIONS = {
         abs_humidity: (gkgDA: number) => gkgDA * 7, // g/kg(DA) to grains/lb(DA) (approx)
         enthalpy: (kjkgDA: number) => kjkgDA * 0.429923, // kJ/kg(DA) to BTU/lb(DA)
         motor_power: (kw: number) => kw * 1.34102, // kW to HP
-        velocity: (ms: number) => ms * 3.28084, // m/s to ft/s
+        velocity: (ms: number) => ms * 3.28084 * 60, // m/s to fpm
         airflow_per_sheet: (m3min_per_sheet: number) => m3min_per_sheet * 35.3147, // m³/min/枚 to CFM/sheet
         area: (m2: number) => m2 * 10.7639, // m² to ft²
         density: (kg_m3: number) => kg_m3 * 0.062428, // kg/m³ to lb/ft³
@@ -34,7 +34,7 @@ const UNIT_CONVERSIONS = {
         abs_humidity: (grains_lbDA: number) => grains_lbDA / 7, // grains/lb(DA) to g/kg(DA) (approx)
         enthalpy: (btu_lbDA: number) => btu_lbDA / 0.429923, // BTU/lb(DA) to kJ/kg(DA)
         motor_power: (hp: number) => hp / 1.34102, // HP to kW
-        velocity: (fts: number) => fts / 3.28084, // ft/s to m/s
+        velocity: (fpm: number) => (fpm / 60) / 3.28084, // fpm to m/s
         airflow_per_sheet: (cfm_per_sheet: number) => cfm_per_sheet / 35.3147, // CFM/sheet to m³/min/枚
         area: (ft2: number) => ft2 / 10.7639, // ft² to m²
         density: (lb_ft3: number) => lb_ft3 / 0.062428, // lb/ft³ to kg/m³
@@ -104,7 +104,7 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'abs_humidity': return 2;
             case 'enthalpy': return 2;
             case 'motor_power': return 1;
-            case 'velocity': return 2;
+            case 'velocity': return 0;
             case 'airflow_per_sheet': return 0;
             case 'area': return 2;
             case 'density': return 4;

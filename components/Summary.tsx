@@ -1,7 +1,6 @@
 
-
 import React from 'react';
-import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, EliminatorConditions, SprayWasherResults, FanConditions, FanResults, DamperResults } from '../types';
+import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, EliminatorConditions, SprayWasherResults, FanConditions, FanResults, DamperResults, AirProperties } from '../types';
 import { useLanguage } from '../i18n/index.ts';
 import DisplayValueWithUnit from './DisplayValueWithUnit.tsx';
 import { convertValue, getPrecisionForUnitType, formatNumber } from '../utils/conversions.ts';
@@ -11,9 +10,11 @@ interface SummaryProps {
     equipmentList: Equipment[];
     totalPressureLoss: number;
     unitSystem: UnitSystem;
+    acInletAir?: AirProperties;
+    acOutletAir?: AirProperties;
 }
 
-const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, unitSystem }) => {
+const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, unitSystem, acInletAir, acOutletAir }) => {
     const { t } = useLanguage();
 
     const formatValue = (value: number | null, unitType: 'temperature' | 'rh') => {
@@ -29,7 +30,7 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
     return (
         <div id="summary-section" className="p-4 bg-white rounded-lg shadow-md">
             <h2 className="text-xl font-semibold mb-4">{t('app.summary')}</h2>
-            {equipmentList.length > 0 ? (
+            {(equipmentList.length > 0 || acInletAir || acOutletAir) ? (
                  <div className="overflow-x-auto relative shadow-md sm:rounded-lg">
                     <table className="w-full text-sm text-left text-slate-500">
                         <thead className="text-xs text-slate-700 uppercase bg-slate-200">
@@ -43,10 +44,10 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                 <th colSpan={2} className="px-6 py-3 text-center border-b border-l border-slate-300">
                                     {t('summary.table.outlet')}
                                 </th>
-                                <th rowSpan={2} className="px-6 py-3 align-bottom text-left border-l border-slate-300">
+                                <th rowSpan={2} className="px-6 py-3 align-bottom text-center">
                                     {t('summary.table.keyResults')}
                                 </th>
-                                <th rowSpan={2} className="px-6 py-3 align-bottom text-right border-l border-slate-300">
+                                <th rowSpan={2} className="px-6 py-3 align-bottom text-right">
                                     {t('summary.table.pressureLoss')}
                                 </th>
                             </tr>
@@ -58,6 +59,19 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                             </tr>
                         </thead>
                         <tbody>
+                            {acInletAir && (
+                                <tr className="bg-green-100 border-b font-semibold text-green-800">
+                                    <th scope="row" className="px-6 py-4 whitespace-nowrap">
+                                        {t('chart.acInlet')}
+                                    </th>
+                                    <td className="px-4 py-4 text-right">{formatValue(acInletAir.temp, 'temperature')}</td>
+                                    <td className="px-4 py-4 text-right">{formatValue(acInletAir.rh, 'rh')}</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-200">-</td>
+                                    <td className="px-4 py-4 text-right">-</td>
+                                    <td className="px-6 py-4 border-l border-slate-200">-</td>
+                                    <td className="px-6 py-4 border-l border-slate-200 text-right">-</td>
+                                </tr>
+                            )}
                             {equipmentList.map((eq) => {
                                 const results = eq.results;
                                 const conditions = eq.conditions;
@@ -97,60 +111,63 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                         const burnerRes = results as BurnerResults;
                                         const heatLoad_kW = burnerRes.heatLoad_kW;
                                         if (heatLoad_kW != null) {
-                                            const heatLoad_kcal = heatLoad_kW * 860.421;
-                                            const heatLoad_btuh = convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const value = (unitSystem === UnitSystem.SI)
+                                                ? heatLoad_kW
+                                                : convertValue(heatLoad_kW * 860.421, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const unit = (unitSystem === UnitSystem.SI)
+                                                ? 'kW'
+                                                : t('units.imperial.heat_load');
 
-                                            if (unitSystem === UnitSystem.SI) {
-                                                resultsParts.push(
-                                                    <div key="load" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
-                                                        <span className="text-slate-600">{t('summary.table.burnerLoad')}:</span>
-                                                        <div className="flex flex-col items-end">
-                                                            <div className="flex items-center justify-end gap-0.5">
-                                                                <span className="text-xs font-bold">{formatNumber(heatLoad_kW)}</span>
-                                                                <span className="text-[10px] w-auto text-left pl-1">kW</span>
-                                                            </div>
-                                                            <div className="text-[10px] text-slate-500 flex flex-col items-end">
-                                                                <span>({formatNumber(heatLoad_kcal)} kcal/h)</span>
-                                                                <span>({formatNumber(heatLoad_btuh)} BTU/h)</span>
-                                                            </div>
-                                                        </div>
+                                            resultsParts.push(
+                                                <div key="load" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
+                                                    <span className="text-slate-600">{t('summary.table.burnerLoad')}:</span>
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <span className="text-xs">{formatNumber(value)}</span>
+                                                        <span className="text-[10px] w-auto text-left pl-1">{unit}</span>
                                                     </div>
-                                                );
-                                            } else { // Imperial
-                                                resultsParts.push(
-                                                    <div key="load" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
-                                                        <span className="text-slate-600">{t('summary.table.burnerLoad')}:</span>
-                                                         <div className="flex flex-col items-end">
-                                                            <div className="flex items-center justify-end gap-0.5">
-                                                                <span className="text-xs font-bold">{formatNumber(heatLoad_btuh)}</span>
-                                                                <span className="text-[10px] w-auto text-left pl-1">{t('units.imperial.heat_load')}</span>
-                                                            </div>
-                                                            <div className="text-[10px] text-slate-500 flex flex-col items-end">
-                                                                <span>({formatNumber(heatLoad_kW)} kW)</span>
-                                                                <span>({formatNumber(heatLoad_kcal)} kcal/h)</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
+                                                </div>
+                                            );
                                         }
                                         break;
                                     }
                                     case EquipmentType.COOLING_COIL: {
                                         const coolRes = results as CoolingCoilResults;
                                         if (coolRes.airSideHeatLoad_kcal != null) {
+                                            const heatLoad_kcal = coolRes.airSideHeatLoad_kcal;
+                                            const heatLoad_kW = heatLoad_kcal / 860.421;
+                                            const value = (unitSystem === UnitSystem.SI)
+                                                ? heatLoad_kW
+                                                : convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const unit = (unitSystem === UnitSystem.SI)
+                                                ? 'kW'
+                                                : t('units.imperial.heat_load');
                                             resultsParts.push(
                                                 <div key="airLoad" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
                                                     <span className="text-slate-600">{t('results.airSideHeatLoad_kcal')}:</span>
-                                                    <DisplayValueWithUnit compact value={coolRes.airSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} />
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <span className="text-xs">{formatNumber(value)}</span>
+                                                        <span className="text-[10px] w-auto text-left pl-1">{unit}</span>
+                                                    </div>
                                                 </div>
                                             );
                                         }
                                         if (coolRes.coldWaterSideHeatLoad_kcal != null) {
+                                            const heatLoad_kcal = coolRes.coldWaterSideHeatLoad_kcal;
+                                            const heatLoad_kW = heatLoad_kcal / 860.421;
+                                            const value = (unitSystem === UnitSystem.SI)
+                                                ? heatLoad_kW
+                                                : convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const unit = (unitSystem === UnitSystem.SI)
+                                                ? 'kW'
+                                                : t('units.imperial.heat_load');
+
                                             resultsParts.push(
                                                 <div key="waterLoad" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
                                                     <span className="text-slate-600">{t('summary.table.coolingLoad')}:</span>
-                                                    <DisplayValueWithUnit compact value={coolRes.coldWaterSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} />
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <span className="text-xs">{formatNumber(value)}</span>
+                                                        <span className="text-[10px] w-auto text-left pl-1">{unit}</span>
+                                                    </div>
                                                 </div>
                                             );
                                         }
@@ -175,18 +192,40 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                     case EquipmentType.HEATING_COIL: {
                                         const heatRes = results as HeatingCoilResults;
                                         if (heatRes.airSideHeatLoad_kcal != null) {
+                                            const heatLoad_kcal = heatRes.airSideHeatLoad_kcal;
+                                            const heatLoad_kW = heatLoad_kcal / 860.421;
+                                            const value = (unitSystem === UnitSystem.SI)
+                                                ? heatLoad_kW
+                                                : convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const unit = (unitSystem === UnitSystem.SI)
+                                                ? 'kW'
+                                                : t('units.imperial.heat_load');
                                             resultsParts.push(
                                                 <div key="airLoad" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
                                                     <span className="text-slate-600">{t('results.airSideHeatLoad_kcal')}:</span>
-                                                    <DisplayValueWithUnit compact value={heatRes.airSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} />
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <span className="text-xs">{formatNumber(value)}</span>
+                                                        <span className="text-[10px] w-auto text-left pl-1">{unit}</span>
+                                                    </div>
                                                 </div>
                                             );
                                         }
                                         if (heatRes.hotWaterSideHeatLoad_kcal != null) {
-                                            resultsParts.push(
+                                            const heatLoad_kcal = heatRes.hotWaterSideHeatLoad_kcal;
+                                            const heatLoad_kW = heatLoad_kcal / 860.421;
+                                            const value = (unitSystem === UnitSystem.SI)
+                                                ? heatLoad_kW
+                                                : convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const unit = (unitSystem === UnitSystem.SI)
+                                                ? 'kW'
+                                                : t('units.imperial.heat_load');
+                                             resultsParts.push(
                                                 <div key="waterLoad" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
                                                     <span className="text-slate-600">{t('summary.table.heatingLoad')}:</span>
-                                                    <DisplayValueWithUnit compact value={heatRes.hotWaterSideHeatLoad_kcal} unitType="heat_load" unitSystem={unitSystem} />
+                                                    <div className="flex items-center justify-end gap-0.5">
+                                                        <span className="text-xs">{formatNumber(value)}</span>
+                                                        <span className="text-[10px] w-auto text-left pl-1">{unit}</span>
+                                                    </div>
                                                 </div>
                                             );
                                         }
@@ -288,10 +327,21 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                             );
                                         }
                                          if (fanRes.heatGeneration_kcal != null) {
+                                            const heatLoad_kcal = fanRes.heatGeneration_kcal;
+                                            const heatLoad_kW = heatLoad_kcal / 860.421;
+                                            const value = (unitSystem === UnitSystem.SI)
+                                                ? heatLoad_kW
+                                                : convertValue(heatLoad_kcal, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL);
+                                            const unit = (unitSystem === UnitSystem.SI)
+                                                ? 'kW'
+                                                : t('units.imperial.heat_load');
                                             resultsParts.push(
                                                 <div key="heat" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
                                                     <span className="text-slate-600">{t('results.heatGeneration_kcal')}:</span>
-                                                    <DisplayValueWithUnit compact value={fanRes.heatGeneration_kcal} unitType="heat_load" unitSystem={unitSystem} />
+                                                     <div className="flex items-center justify-end gap-0.5">
+                                                        <span className="text-xs">{formatNumber(value)}</span>
+                                                        <span className="text-[10px] w-auto text-left pl-1">{unit}</span>
+                                                    </div>
                                                 </div>
                                             );
                                         }
@@ -347,6 +397,19 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                     </tr>
                                 );
                             })}
+                            {acOutletAir && (
+                                <tr className="bg-red-100 border-b font-semibold text-red-800">
+                                    <th scope="row" className="px-6 py-4 whitespace-nowrap">
+                                        {t('chart.acOutlet')}
+                                    </th>
+                                    <td className="px-4 py-4 text-right">-</td>
+                                    <td className="px-4 py-4 text-right">-</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-200">{formatValue(acOutletAir.temp, 'temperature')}</td>
+                                    <td className="px-4 py-4 text-right">{formatValue(acOutletAir.rh, 'rh')}</td>
+                                    <td className="px-6 py-4 border-l border-slate-200">-</td>
+                                    <td className="px-6 py-4 border-l border-slate-200 text-right">-</td>
+                                </tr>
+                            )}
                         </tbody>
                         <tfoot className="bg-slate-200 font-bold">
                             <tr className="border-t-2 border-slate-300">
