@@ -62,7 +62,7 @@ const ChartDataSummary: React.FC<ChartDataSummaryProps> = ({ equipmentList, glob
                             <tr key={eq.id} className="border-b border-slate-200 last:border-b-0">
                                 <td className="py-1.5 pr-2 flex items-center gap-2">
                                     <span className="w-3 h-3 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: EQUIPMENT_HEX_COLORS[eq.type] }}></span>
-                                    <span className="truncate" title={eq.name}>{eq.name}</span>
+                                    <span className="truncate" title={t(`equipmentNames.${eq.type}`)}>{t(`equipmentNames.${eq.type}`)}</span>
                                 </td>
                                 <td className="py-1.5 px-1 text-right font-mono">{formatTemp(eq.inletAir.temp)}</td>
                                 <td className="py-1.5 px-1 text-right font-mono">{formatRh(eq.inletAir.rh)}</td>

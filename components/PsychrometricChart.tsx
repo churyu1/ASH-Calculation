@@ -1,9 +1,11 @@
+
+
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 // FIX: Changed d3 import from namespace to named functions to fix module resolution errors.
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
-import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions } from '../types';
+import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
 import { convertValue, getPrecisionForUnitType } from '../utils/conversions.ts';
-import { calculateAirProperties, calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, PSYCH_CONSTANTS, calculateSteamProperties } from '../services/psychrometrics.ts';
+import { calculateAirProperties, calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, PSYCH_CONSTANTS, calculateSteamProperties, calculateDewPoint, calculateRelativeHumidity } from '../services/psychrometrics.ts';
 import { useLanguage } from '../i18n/index.ts';
 import { EQUIPMENT_HEX_COLORS } from '../constants.ts';
 
@@ -22,6 +24,8 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
     const { t } = useLanguage();
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const snapTargetsRef = useRef<{ points: any[]; lines: any[] }>({ points: [], lines: [] });
+    const dragInProgress = useRef(false);
+    const isDraggingLine = useRef(false);
 
     useLayoutEffect(() => {
         const updateSize = () => {
@@ -55,9 +59,74 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
     const width = dimensions.width > (margin.left + margin.right) ? dimensions.width - margin.left - margin.right : 0;
     const height = dimensions.height > (margin.top + margin.bottom) ? dimensions.height - margin.top - margin.bottom : 0;
 
+    const findAnalyticalIntersection = (
+        lineEq: { type: EquipmentType; fixedPoint: AirProperties; conditions: any; },
+        curveEq: { type: EquipmentType; enthalpy: number | null; },
+        projectedTemp: number // To choose the right solution
+    ): { temp: number; absHumidity: number } | null => {
+    
+        const burner = lineEq.type === EquipmentType.BURNER ? lineEq : null;
+        const washer = curveEq.type === EquipmentType.SPRAY_WASHER && curveEq.enthalpy !== null ? curveEq : null;
+    
+        if (!burner || !washer || burner.fixedPoint.temp === null || burner.fixedPoint.absHumidity === null) return null;
+    
+        const { shf = 1.0 } = burner.conditions as BurnerConditions;
+    
+        // Effective SHF calculation at drag start
+        let m: number; // slope dx/dt in data units
+        if (shf >= 1.0) {
+            m = 0;
+        } else {
+            const Cpa = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR;
+            const L = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C;
+            m = (1 / shf - 1) * (Cpa / (L / 1000));
+        }
+
+        // Line equation: x = m*t + c
+        const c = burner.fixedPoint.absHumidity - m * burner.fixedPoint.temp;
+    
+        // From h = 1.006*t + (x/1000)*(2501 + 1.86*t), substitute x = m*t + c
+        // This gives the quadratic equation: A*t^2 + B*t + C = 0
+        const A = 1.86 * m;
+        const B = 1006 + 2501 * m + 1.86 * c;
+        const C_quad = 2501 * c - 1000 * washer.enthalpy!;
+    
+        // If m is 0 (SHF=1), it's a linear equation, not quadratic.
+        if (Math.abs(A) < 1e-9) {
+            if (Math.abs(B) < 1e-9) return null; // No solution
+            const t = -C_quad / B;
+            return { temp: t, absHumidity: c };
+        }
+    
+        const discriminant = B * B - 4 * A * C_quad;
+        if (discriminant < 0) return null; // No real intersection
+    
+        const sqrtDiscriminant = Math.sqrt(discriminant);
+        const t1 = (-B + sqrtDiscriminant) / (2 * A);
+        const t2 = (-B - sqrtDiscriminant) / (2 * A);
+    
+        if (isNaN(t1) && isNaN(t2)) return null;
+
+        // Choose solution closer to the projected mouse temperature
+        let chosenT;
+        if (isNaN(t1)) {
+            chosenT = t2;
+        } else if (isNaN(t2)) {
+            chosenT = t1;
+        } else {
+            const dist1 = Math.abs(t1 - projectedTemp);
+            const dist2 = Math.abs(t2 - projectedTemp);
+            chosenT = dist1 < dist2 ? t1 : t2;
+        }
+    
+        if (isNaN(chosenT)) return null;
+    
+        return { temp: chosenT, absHumidity: m * chosenT + c };
+    };
+
 
     useEffect(() => {
-        if (!svgRef.current || width <= 0 || height <= 0) return;
+        if (!svgRef.current || !containerRef.current || width <= 0 || height <= 0) return;
         
         const isNarrow = width < 500;
         const numTicksX = Math.max(4, Math.round(width / 80));
@@ -86,12 +155,29 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
         const svgSelection = select(svgRef.current);
         svgSelection.selectAll("*").remove();
+        select(containerRef.current).select(".chart-tooltip").remove();
+
+        const tooltip = select(containerRef.current)
+            .append("div")
+            .attr("class", "chart-tooltip")
+            .style("position", "absolute")
+            .style("visibility", "hidden")
+            .style("background", "rgba(31, 41, 55, 0.9)")
+            .style("color", "white")
+            .style("padding", "4px 8px")
+            .style("border-radius", "4px")
+            .style("font-size", "12px")
+            .style("pointer-events", "none")
+            .style("z-index", "10");
 
         const svg = svgSelection
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        const previewGroup = svg.append("g").attr("class", "drag-preview-group");
+        const tempIndicatorGroup = svg.append("g").attr("class", "temp-indicator-group");
 
         const xScale = scaleLinear().domain([-20, 60]).range([0, width]);
         const yScale = scaleLinear().domain([0, 30]).range([height, 0]);
@@ -129,7 +215,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                 .text(`${t('chart.yAxisLabel')} (${absHumidityUnit})`);
         }
         
-        // Snap feature helpers
         const SNAP_RADIUS = 15;
 
         const snapHighlight = svg.append("circle")
@@ -140,6 +225,51 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             .attr("stroke-width", 2)
             .style("pointer-events", "none")
             .style("display", "none");
+        
+        const showWaterTempIndicator = (equipment: Equipment) => {
+            tempIndicatorGroup.selectAll("*").remove();
+        
+            let temp: number | undefined;
+            let label: string | undefined;
+            let color: string | undefined;
+        
+            if (equipment.type === EquipmentType.COOLING_COIL) {
+                const conditions = equipment.conditions as CoolingCoilConditions;
+                temp = conditions.chilledWaterInletTemp;
+                label = t('conditions.chilledWaterInletTemp');
+                color = '#3b82f6'; // blue-500
+            } else if (equipment.type === EquipmentType.HEATING_COIL) {
+                const conditions = equipment.conditions as HeatingCoilConditions;
+                temp = conditions.hotWaterInletTemp;
+                label = t('conditions.hotWaterInletTemp');
+                color = '#ef4444'; // red-500
+            }
+        
+            if (temp !== undefined && temp !== null && label && color) {
+                const xPos = xScale(temp);
+                if (xPos >= 0 && xPos <= width) {
+                    tempIndicatorGroup.append("line")
+                        .attr("x1", xPos).attr("y1", 0)
+                        .attr("x2", xPos).attr("y2", height)
+                        .attr("stroke", color).attr("stroke-width", 1.5)
+                        .attr("stroke-dasharray", "4,4").style("pointer-events", "none");
+        
+                    const textEl = tempIndicatorGroup.append("text")
+                        .attr("x", xPos).attr("y", -5)
+                        .attr("text-anchor", "middle").attr("fill", color)
+                        .style("font-size", "12px").style("font-weight", "500").text(label);
+                    
+                    textEl.clone(true).lower()
+                          .attr('stroke', themeColors.halo)
+                          .attr('stroke-width', 3)
+                          .attr('stroke-linejoin', 'round');
+                }
+            }
+        };
+
+        const hideWaterTempIndicator = () => {
+            tempIndicatorGroup.selectAll("*").remove();
+        };
 
         const findClosestSnapPoint = (x: number, y: number, targets: any[], radius: number) => {
             let closestPoint = null;
@@ -156,43 +286,43 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             return closestPoint;
         };
         
-        const findClosestPointOnLineSegment = (px: number, py: number, p1x: number, p1y: number, p2x: number, p2y: number) => {
-            const dx = p2x - p1x;
-            const dy = p2y - p1y;
-        
-            if (dx === 0 && dy === 0) { // Segment is a point
-                const dist = Math.hypot(px - p1x, py - p1y);
-                return { x: p1x, y: p1y, distance: dist };
+        const findRaySegmentIntersection = (
+            rayOriginX: number, rayOriginY: number, 
+            rayPointX: number, rayPointY: number, 
+            segP1X: number, segP1Y: number, 
+            segP2X: number, segP2Y: number
+        ): { x: number; y: number } | null => {
+            const v1x = rayPointX - rayOriginX;
+            const v1y = rayPointY - rayOriginY;
+            const v2x = segP2X - segP1X;
+            const v2y = segP2Y - segP1Y;
+            
+            // Check if ray has zero length
+            if (Math.abs(v1x) < 1e-9 && Math.abs(v1y) < 1e-9) {
+                return null;
             }
         
-            const dot = ((px - p1x) * dx + (py - p1y) * dy);
-            const len_sq = dx * dx + dy * dy;
-            let t = -1;
-            if (len_sq !== 0) {
-                t = dot / len_sq;
+            const den = v1x * v2y - v1y * v2x;
+            if (Math.abs(den) < 1e-9) {
+                return null; // Parallel or collinear
             }
         
-            let closestX, closestY;
+            const t = ((segP1X - rayOriginX) * v2y - (segP1Y - rayOriginY) * v2x) / den;
+            const u = ((segP1X - rayOriginX) * v1y - (segP1Y - rayOriginY) * v1x) / den;
         
-            if (t < 0) {
-                closestX = p1x;
-                closestY = p1y;
-            } else if (t > 1) {
-                closestX = p2x;
-                closestY = p2y;
-            } else {
-                closestX = p1x + t * dx;
-                closestY = p1y + t * dy;
+            if (t >= 0 && u >= 0 && u <= 1) { // t>=0 for ray, 0<=u<=1 for segment
+                return {
+                    x: rayOriginX + t * v1x,
+                    y: rayOriginY + t * v1y,
+                };
             }
         
-            const distance = Math.hypot(px - closestX, py - closestY);
-            return { x: closestX, y: closestY, distance };
+            return null;
         };
 
         const generateSnapTargets = (excludeId: number) => {
             const pointTargets: any[] = [];
             const lineTargets: any[] = [];
-            const defaultColor = '#2563eb';
 
             if (globalInletAir.temp !== null && globalInletAir.absHumidity !== null) {
                 pointTargets.push({ id: 'global-inlet', type: 'point', x: xScale(globalInletAir.temp), y: yScale(globalInletAir.absHumidity), ...globalInletAir });
@@ -216,9 +346,9 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                     lineTargets.push({
                         id: `${eq.id}-line`,
                         type: 'line',
-                        p1: { x: xScale(eq.inletAir.temp), y: yScale(eq.inletAir.absHumidity) },
-                        p2: { x: xScale(eq.outletAir.temp), y: yScale(eq.outletAir.absHumidity) },
-                        color: EQUIPMENT_HEX_COLORS[eq.type] || defaultColor
+                        p1: { x: xScale(eq.inletAir.temp!), y: yScale(eq.inletAir.absHumidity!) },
+                        p2: { x: xScale(eq.outletAir.temp!), y: yScale(eq.outletAir.absHumidity!) },
+                        equipment: eq
                     });
                 }
             });
@@ -260,11 +390,10 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                .attr("stroke-dasharray", rh === 100 ? "0" : "2,2").attr("d", lineGenerator);
             
             if (lineData.length > 0 && rhLinesToLabel.includes(rh)) {
-                // Find a suitable point for the label, slightly inside the chart's right edge
                 let labelPoint: ChartPoint | null = null;
                 for (let i = lineData.length - 1; i >= 0; i--) {
                     const point = lineData[i];
-                    if (xScale(point.temp) < width - 10) { // 10px from the right edge
+                    if (xScale(point.temp) < width - 10) { 
                         labelPoint = point;
                         break;
                     }
@@ -275,7 +404,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
 
                 if (labelPoint) {
                     const currentLabelY = yScale(labelPoint.absHumidity);
-                    // Check if it's sufficiently spaced from the last label
                     if (lastRhLabelY === null || Math.abs(currentLabelY - lastRhLabelY) > MIN_RH_LABEL_Y_SPACING) {
                          svg.append("text").attr("x", xScale(labelPoint.temp) + 5).attr("y", currentLabelY)
                            .attr("dominant-baseline", "middle")
@@ -348,7 +476,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                            .attr("dominant-baseline", "middle")
                            .attr("fill", themeColors.enthalpyLabel)
                            .attr("font-size", "11px")
-                           .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)}`);
+                           .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)} ${enthalpyUnit}`);
                         
                         if (onLeftBorder) {
                             textElement.attr("text-anchor", "start").attr("dy", "-0.5em");
@@ -403,6 +531,109 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             );
         }
 
+        const generatePreviewPath = (equipment: Equipment, handleType: 'inlet' | 'outlet'): ChartPoint[] | null => {
+            const [tempDomainMin, tempDomainMax] = xScale.domain();
+            const path: ChartPoint[] = [];
+
+            const startPoint = handleType === 'inlet' ? equipment.outletAir : equipment.inletAir;
+            const endPoint = handleType === 'inlet' ? equipment.inletAir : equipment.outletAir;
+            
+            if (startPoint.temp === null || startPoint.absHumidity === null || endPoint.temp === null || endPoint.absHumidity === null) return null;
+
+            switch (equipment.type) {
+                case EquipmentType.HEATING_COIL: {
+                    const { hotWaterInletTemp = 80 } = equipment.conditions as HeatingCoilConditions;
+                    if (handleType === 'outlet') {
+                        const maxOutletTemp = Math.min(tempDomainMax, hotWaterInletTemp);
+                        path.push({ temp: startPoint.temp, absHumidity: startPoint.absHumidity });
+                        path.push({ temp: maxOutletTemp, absHumidity: startPoint.absHumidity });
+                    } else { // inlet drag
+                        path.push({ temp: tempDomainMin, absHumidity: startPoint.absHumidity });
+                        path.push({ temp: startPoint.temp, absHumidity: startPoint.absHumidity });
+                    }
+                    break;
+                }
+                case EquipmentType.COOLING_COIL:
+                    if (handleType === 'outlet') {
+                        const { bypassFactor = 5, chilledWaterInletTemp = 7 } = equipment.conditions as CoolingCoilConditions;
+                        const BF = bypassFactor / 100;
+                        const { temp: T_in, absHumidity: x_in } = startPoint;
+                        
+                        const minOutletTemp = Math.max(tempDomainMin, chilledWaterInletTemp);
+                        const inletDewPoint = calculateDewPoint(x_in);
+
+                        for (let t_out = T_in; t_out >= minOutletTemp; t_out -= 0.5) {
+                             let x_out: number;
+                            if (t_out >= inletDewPoint || BF >= 1.0) {
+                                x_out = x_in;
+                            } else {
+                                const t_adp = (t_out - T_in * BF) / (1 - BF);
+                                const x_adp = calculateAbsoluteHumidity(t_adp, 100);
+                                x_out = x_adp * (1 - BF) + x_in * BF;
+                            }
+                            const saturationHumidity = calculateAbsoluteHumidity(t_out, 100);
+                            if (x_out > saturationHumidity) {
+                                x_out = saturationHumidity;
+                            }
+                            path.push({ temp: t_out, absHumidity: x_out });
+                        }
+                    } else { // Inlet hover
+                        path.push({ temp: startPoint.temp, absHumidity: startPoint.absHumidity });
+                        path.push({ temp: tempDomainMax, absHumidity: startPoint.absHumidity });
+                    }
+                    break;
+                case EquipmentType.BURNER: {
+                    const { shf = 1.0 } = equipment.conditions as BurnerConditions;
+                    let slope = 0;
+                    if (shf > 0 && shf < 1.0) {
+                        slope = (1 / shf - 1) * (PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR / (PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C / 1000));
+                    }
+                    const t1 = tempDomainMin;
+                    const x1 = startPoint.absHumidity + slope * (t1 - startPoint.temp);
+                    path.push({ temp: t1, absHumidity: x1 });
+
+                    const t2 = tempDomainMax;
+                    const x2 = startPoint.absHumidity + slope * (t2 - startPoint.temp);
+                    path.push({ temp: t2, absHumidity: x2 });
+                    break;
+                }
+                case EquipmentType.SPRAY_WASHER: {
+                    const h = calculateEnthalpy(startPoint.temp, startPoint.absHumidity);
+                    for (let t = tempDomainMax; t >= tempDomainMin; t -= 1) {
+                        const x = calculateAbsoluteHumidityFromEnthalpy(t, h);
+                        if (x >= yScale.domain()[0] && x <= yScale.domain()[1]) {
+                           path.push({ temp: t, absHumidity: x });
+                        }
+                    }
+                    break;
+                }
+                case EquipmentType.STEAM_HUMIDIFIER: {
+                    const steamCond = equipment.conditions as SteamHumidifierConditions;
+                    const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
+                    const h_steam = steamProps.enthalpy;
+                    const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (startPoint.absHumidity / 1000);
+                    const h_vapor = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * startPoint.temp;
+                    const denominator = h_steam - h_vapor;
+                    let slope = 0;
+                    if (Math.abs(denominator) > 0.1) {
+                         slope = (1000 * c_pa_moist) / denominator;
+                    }
+
+                    const t1 = tempDomainMin;
+                    const x1 = startPoint.absHumidity + slope * (t1 - startPoint.temp);
+                    path.push({ temp: t1, absHumidity: x1 });
+
+                    const t2 = tempDomainMax;
+                    const x2 = startPoint.absHumidity + slope * (t2 - startPoint.temp);
+                    path.push({ temp: t2, absHumidity: x2 });
+                    break;
+                }
+                default:
+                    return null;
+            }
+            return path;
+        };
+
         airConditionsData.forEach(eq => {
             if (!eq.inletAir || !eq.outletAir || eq.inletAir.temp === null || eq.inletAir.absHumidity === null || eq.outletAir.temp === null || eq.outletAir.absHumidity === null) return;
             
@@ -410,329 +641,783 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             const [outletTempSI, outletAbsHumiditySI] = [eq.outletAir.temp, eq.outletAir.absHumidity];
             const color = EQUIPMENT_HEX_COLORS[eq.type] || defaultColor;
             
+            const handleDefaultOpacity = 0.4;
+            const lineDefaultOpacity = 1.0;
+            const hoverOpacity = 1.0;
+
             const marker = defs.append("marker")
                 .attr("id", `arrow-${eq.id}`)
                 .attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
                 .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse");
-            marker.append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", color);
+            
+            const markerPath = marker.append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", color).style("opacity", lineDefaultOpacity);
 
-            const inletDot = svg.append("circle").attr("class", `inlet-dot-${eq.id}`).attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 5).attr("fill", "#16a34a").attr("stroke", themeColors.pointStroke);
-            const outletDot = svg.append("circle").attr("class", `outlet-dot-${eq.id}`).attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 5).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke);
+            const inletDot = svg.append("circle").attr("class", `inlet-dot-${eq.id}`).attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 4).attr("fill", "#16a34a").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
+            const outletDot = svg.append("circle").attr("class", `outlet-dot-${eq.id}`).attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 4).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
             const processLine = svg.append("line").attr("class", `process-line-${eq.id}`).attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-               .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id})`);
+               .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id})`).style("transition", "stroke-width 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", lineDefaultOpacity);
 
-            const isDraggable = eq.type !== EquipmentType.FAN;
-            if (isDraggable) {
-                const pointHandleRadius = 12;
+            const midX = (xScale(inletTempSI) + xScale(outletTempSI)) / 2;
+            const midY = (yScale(inletAbsHumiditySI) + yScale(outletAbsHumiditySI)) / 2;
+            
+            const visibleHandle = svg.append("rect")
+                .attr("class", `line-handle-${eq.id}`)
+                .attr("x", midX - 3)
+                .attr("y", midY - 3)
+                .attr("width", 6)
+                .attr("height", 6)
+                .attr("fill", color)
+                .attr("stroke", themeColors.pointStroke)
+                .attr("stroke-width", 1.5)
+                .style("pointer-events", "none")
+                .style("transition", "all 0.15s ease-in-out, opacity 0.15s ease-in-out")
+                .style("opacity", handleDefaultOpacity);
 
-                const processDrag = drag()
-                    .on("start", function (event) {
-                        const [mx, my] = pointer(event, svg.node());
+            const lineTooltipHitbox = svg.append("line")
+                .attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI))
+                .attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
+                .attr("stroke", "transparent")
+                .attr("stroke-width", 15)
+                .on("mouseover", function() {
+                    if (dragInProgress.current) return;
+                    processLine.attr("stroke-width", 4.5).style("opacity", hoverOpacity);
+                    markerPath.style("opacity", hoverOpacity);
+                    tooltip.style("visibility", "visible").text(t(`equipmentNames.${eq.type}`));
+                })
+                .on("mousemove", function(event) {
+                    if (dragInProgress.current) return;
+                    const [x, y] = pointer(event, containerRef.current);
+                    tooltip.style("top", `${y + 20}px`)
+                           .style("left", `${x + 20}px`)
+                           .style("transform", "translateX(0)");
+                })
+                .on("mouseout", function() {
+                    if (dragInProgress.current) return;
+                    processLine.attr("stroke-width", 2.5).style("opacity", lineDefaultOpacity);
+                    markerPath.style("opacity", lineDefaultOpacity);
+                    tooltip.style("visibility", "hidden");
+                });
+            
+            const getCoolingCoilOutletHumidity = (t_out: number, inlet: AirProperties, conditions: CoolingCoilConditions): number => {
+                const { temp: t_in, absHumidity: x_in } = inlet;
+                const { bypassFactor = 5 } = conditions;
+                const BF = bypassFactor / 100;
+            
+                if (t_in === null || x_in === null) return 0;
+            
+                const inletDewPoint = calculateDewPoint(x_in);
+            
+                if (t_out >= inletDewPoint || BF >= 1.0) {
+                    return x_in; // Sensible cooling only
+                }
+            
+                // Dehumidifying
+                const t_adp = (t_out - t_in * BF) / (1 - BF);
+                const x_adp = calculateAbsoluteHumidity(t_adp, 100);
+                const outletAbsHum = x_adp * (1 - BF) + x_in * BF;
+
+                // Correct for supersaturation which can occur due to the linear mixing model approximation
+                const saturationHumidityAtOutlet = calculateAbsoluteHumidity(t_out, 100);
+                if (outletAbsHum > saturationHumidityAtOutlet) {
+                    return saturationHumidityAtOutlet;
+                }
+
+                return outletAbsHum;
+            };
+
+            const pointHandleRadius = 12;
+
+            const updateHandlePositions = (inletX: number, outletX: number, inletY: number, outletY: number) => {
+                const newMidX = (inletX + outletX) / 2;
+                const newMidY = (inletY + outletY) / 2;
+                const isHovered = visibleHandle.attr('data-hovered') === 'true';
+                const size = isHovered ? 12 : 6;
+                visibleHandle.attr("x", newMidX - size/2).attr("y", newMidY - size/2);
+                svg.select(`.line-drag-handle-${eq.id}`).attr("x", newMidX - 10).attr("y", newMidY - 10);
+            };
+            
+            const processDrag = drag<SVGElement, unknown>()
+                .on("start", function (event) {
+                    dragInProgress.current = true;
+                    const dragMode = select(this).attr('data-drag-mode');
+                    select(this).property('__drag_mode__', dragMode);
+                    generateSnapTargets(eq.id);
+                    showWaterTempIndicator(eq);
+                    
+                    if (dragMode === 'line') {
+                        isDraggingLine.current = true;
+                        visibleHandle.style("transition", "none");
+                    }
+
+                    if (dragMode === 'inlet') {
+                        inletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
+                    } else if (dragMode === 'outlet') {
+                        outletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
+                    } else if (dragMode === 'line') {
+                        processLine.raise().attr("stroke-width", 4.5).style("opacity", hoverOpacity);
+                        markerPath.style("opacity", hoverOpacity);
+                        inletDot.raise().style('opacity', hoverOpacity);
+                        outletDot.raise().style('opacity', hoverOpacity);
+                        visibleHandle.raise().style('opacity', hoverOpacity);
+                        
                         const x1 = xScale(inletTempSI), y1 = yScale(inletAbsHumiditySI);
                         const x2 = xScale(outletTempSI), y2 = yScale(outletAbsHumiditySI);
                         
-                        const distToInlet = Math.hypot(mx - x1, my - y1);
-                        const distToOutlet = Math.hypot(mx - x2, my - y2);
-
-                        let dragMode = 'line';
-                        if (distToInlet < pointHandleRadius && distToInlet <= distToOutlet) {
-                            dragMode = 'inlet';
-                        } else if (distToOutlet < pointHandleRadius && distToOutlet < distToInlet) {
-                            dragMode = 'outlet';
-                        }
+                        select(this).property('__start_pointer__', { x: event.x, y: event.y });
+                        select(this).property('__start_pos__', { inletX: x1, inletY: y1, outletX: x2, outletY: y2 });
                         
-                        select(this).property('__drag_mode__', dragMode);
-                        generateSnapTargets(eq.id);
+                        previewGroup.selectAll('*').remove();
+                        const pathData = generatePreviewPath(eq, 'outlet');
+                        if (pathData && pathData.length > 1) {
+                            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+                            previewGroup.append("path")
+                                .datum(pathData)
+                                .attr("fill", "none")
+                                .attr("stroke", color)
+                                .attr("stroke-width", 2)
+                                .attr("stroke-dasharray", "6,6")
+                                .style("opacity", 0.6)
+                                .style("pointer-events", "none")
+                                .attr("d", lineGenerator);
+                        }
 
-                        if (dragMode === 'inlet') {
-                            inletDot.raise().attr('r', 8);
-                        } else if (dragMode === 'outlet') {
-                            outletDot.raise().attr('r', 8);
+                        if (eq.type === EquipmentType.BURNER) {
+                            const delta_t = outletTempSI - inletTempSI;
+                            const delta_x = outletAbsHumiditySI - inletAbsHumiditySI;
+                            let effectiveShf;
+                            if (Math.abs(delta_t) < 1e-9) {
+                                effectiveShf = 0;
+                            } else {
+                                const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (inletAbsHumiditySI / 1000);
+                                const sensible_h = c_pa_moist * delta_t;
+                                const latent_h = (PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * outletTempSI) * (delta_x / 1000);
+                                const total_h = sensible_h + latent_h;
+                                effectiveShf = Math.abs(total_h) < 1e-9 ? 1.0 : sensible_h / total_h;
+                            }
+                                select(this).property('__effective_shf__', effectiveShf);
+                        }
+                    }
+                    
+                    if (dragMode === 'inlet' || dragMode === 'outlet') {
+                        const airProps = dragMode === 'inlet' ? eq.inletAir : eq.outletAir;
+                        if (airProps && airProps.temp !== null && airProps.rh !== null) {
+                            const temp = convertValue(airProps.temp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
+                            const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
+                            const pointTypeLabel = dragMode === 'inlet' ? t('chart.inlet') : t('chart.outlet');
+                            
+                            const line1 = `${t(`equipmentNames.${eq.type}`)} ${pointTypeLabel}:`;
+                            const line2 = `${temp}${temperatureUnit}, ${rh}%`;
+                            const label = `<div>${line1}</div><div>${line2}</div>`;
+                            
+                            const [x, y] = pointer(event.sourceEvent, containerRef.current);
+                            tooltip.style("visibility", "visible")
+                                    .html(label)
+                                    .style("top", `${y + 20}px`)
+                                    .style("left", `${x + 20}px`)
+                                    .style("transform", "translateX(0)");
+                        }
+                    }
+                })
+                .on("drag", function (event) {
+                    const dragMode = select(this).property('__drag_mode__');
+                    const [mx, my] = pointer(event, svg.node());
+                    
+                    svg.selectAll(".snap-line-highlight").remove();
+
+                    if (dragMode === 'line') {
+                        const startPointer = select(this).property('__start_pointer__');
+                        const startPos = select(this).property('__start_pos__');
+                        if (!startPointer || !startPos) return;
+
+                        const dx = event.x - startPointer.x, dy = event.y - startPointer.y;
+                        let finalDx = dx, finalDy = dy;
+                        
+                        const proposedInletX = startPos.inletX + dx, proposedInletY = startPos.inletY + dy;
+                        const proposedOutletX = startPos.outletX + dx, proposedOutletY = startPos.outletY + dy;
+                        
+                        const snapForInlet = findClosestSnapPoint(proposedInletX, proposedInletY, snapTargetsRef.current.points, SNAP_RADIUS);
+                        const snapForOutlet = findClosestSnapPoint(proposedOutletX, proposedOutletY, snapTargetsRef.current.points, SNAP_RADIUS);
+                        
+                        let winningSnapPoint = snapForInlet && (!snapForOutlet || snapForInlet.distance < snapForOutlet.distance) ? snapForInlet : snapForOutlet;
+
+                        if (winningSnapPoint) {
+                            if (winningSnapPoint === snapForInlet) {
+                                finalDx = winningSnapPoint.x - startPos.inletX;
+                                finalDy = winningSnapPoint.y - startPos.inletY;
+                            } else {
+                                finalDx = winningSnapPoint.x - startPos.outletX;
+                                finalDy = winningSnapPoint.y - startPos.outletY;
+                            }
+                            snapHighlight.style("display", "block").attr("cx", winningSnapPoint.x).attr("cy", winningSnapPoint.y);
                         } else {
-                            processLine.raise().attr("stroke-width", 4.5);
-                            inletDot.raise();
-                            outletDot.raise();
-                            select(this).property('__start_pointer__', { x: event.x, y: event.y });
-                            select(this).property('__start_pos__', { inletX: x1, inletY: y1, outletX: x2, outletY: y2 });
+                            snapHighlight.style("display", "none");
                         }
-                    })
-                    .on("drag", function (event) {
-                        const dragMode = select(this).property('__drag_mode__');
-                        const [mx, my] = pointer(event, svg.node());
+
+                        if ([EquipmentType.HEATING_COIL, EquipmentType.BURNER, EquipmentType.COOLING_COIL, EquipmentType.STEAM_HUMIDIFIER].includes(eq.type)) {
+                            const proposedInletXAfterSnap = startPos.inletX + finalDx;
+                            const proposedInletTemp = xScale.invert(proposedInletXAfterSnap);
+
+                            const [tempDomainMin, tempDomainMax] = xScale.domain();
+                            const clampedTemp = Math.max(tempDomainMin, Math.min(tempDomainMax, proposedInletTemp));
+
+                            const saturationHumidity = calculateAbsoluteHumidity(clampedTemp, 100);
+                            const saturationY = yScale(saturationHumidity);
+                            
+                            const proposedInletYAfterSnap = startPos.inletY + finalDy;
+
+                            if (proposedInletYAfterSnap < saturationY) {
+                                finalDy = saturationY - startPos.inletY;
+                            }
+                        }
+
+                        const newInletX = startPos.inletX + finalDx, newInletY = startPos.inletY + finalDy;
+                        const newOutletX = startPos.outletX + finalDx, newOutletY = startPos.outletY + finalDy;
+
+                        inletDot.attr("cx", newInletX).attr("cy", newInletY);
+                        outletDot.attr("cx", newOutletX).attr("cy", newOutletY);
+                        processLine.attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
                         
-                        svg.selectAll(".snap-line-highlight").remove();
+                        updateHandlePositions(newInletX, newOutletX, newInletY, newOutletY);
+                        lineTooltipHitbox.attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
 
-                        if (dragMode === 'line') {
-                            const startPointer = select(this).property('__start_pointer__');
-                            const startPos = select(this).property('__start_pos__');
-                            if (!startPointer || !startPos) return;
+                        previewGroup.selectAll('*').remove();
+                        const tempEqForPreview: Equipment = {
+                            ...eq,
+                            inletAir: calculateAirProperties(xScale.invert(newInletX), null, yScale.invert(newInletY)),
+                        };
+                        const pathData = generatePreviewPath(tempEqForPreview, 'outlet');
+                        if (pathData && pathData.length > 1) {
+                            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+                            previewGroup.append("path")
+                                .datum(pathData)
+                                .attr("fill", "none")
+                                .attr("stroke", color)
+                                .attr("stroke-width", 2)
+                                .attr("stroke-dasharray", "6,6")
+                                .style("opacity", 0.6)
+                                .style("pointer-events", "none")
+                                .attr("d", lineGenerator);
+                        }
 
-                            const dx = event.x - startPointer.x, dy = event.y - startPointer.y;
-                            let finalDx = dx, finalDy = dy;
-                            
-                            const proposedInletX = startPos.inletX + dx, proposedInletY = startPos.inletY + dy;
-                            const proposedOutletX = startPos.outletX + dx, proposedOutletY = startPos.outletY + dy;
-                            
-                            const snapForInlet = findClosestSnapPoint(proposedInletX, proposedInletY, snapTargetsRef.current.points, SNAP_RADIUS);
-                            const snapForOutlet = findClosestSnapPoint(proposedOutletX, proposedOutletY, snapTargetsRef.current.points, SNAP_RADIUS);
-                            
-                            let winningSnapPoint = snapForInlet && (!snapForOutlet || snapForInlet.distance < snapForOutlet.distance) ? snapForInlet : snapForOutlet;
+                        select(this).property('__latest_drag_pos__', {
+                            inlet: { temp: xScale.invert(newInletX), absHumidity: yScale.invert(newInletY) },
+                            outlet: { temp: xScale.invert(newOutletX), absHumidity: yScale.invert(newOutletY) }
+                        });
+                    } else { // Inlet or Outlet drag
+                        const fixedDot = dragMode === 'outlet' ? inletDot : outletDot;
+                        const fixedPointX = parseFloat(fixedDot.attr("cx"));
+                        const fixedPointY = parseFloat(fixedDot.attr("cy"));
+                        
+                        let projectedMx: number, projectedMy: number;
+                        // FIX: Declared projectedTemp in a higher scope to make it accessible in all drag scenarios.
+                        let projectedTemp: number;
 
-                            if (winningSnapPoint) {
-                                if (winningSnapPoint === snapForInlet) {
-                                    finalDx = winningSnapPoint.x - startPos.inletX;
-                                    finalDy = winningSnapPoint.y - startPos.inletY;
-                                } else {
-                                    finalDx = winningSnapPoint.x - startPos.outletX;
-                                    finalDy = winningSnapPoint.y - startPos.outletY;
-                                }
-                                snapHighlight.style("display", "block").attr("cx", winningSnapPoint.x).attr("cy", winningSnapPoint.y);
-                            } else {
-                                snapHighlight.style("display", "none");
-                            }
-
-                            const newInletX = startPos.inletX + finalDx, newInletY = startPos.inletY + finalDy;
-                            const newOutletX = startPos.outletX + finalDx, newOutletY = startPos.outletY + finalDy;
-
-                            inletDot.attr("cx", newInletX).attr("cy", newInletY);
-                            outletDot.attr("cx", newOutletX).attr("cy", newOutletY);
-                            processLine.attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
+                        if (eq.type === EquipmentType.COOLING_COIL && dragMode === 'outlet') {
+                            const inletProps = {
+                                temp: xScale.invert(fixedPointX),
+                                absHumidity: yScale.invert(fixedPointY)
+                            } as AirProperties;
                             
-                            select(this).property('__latest_drag_pos__', {
-                                inlet: { temp: xScale.invert(newInletX), absHumidity: yScale.invert(newInletY) },
-                                outlet: { temp: xScale.invert(newOutletX), absHumidity: yScale.invert(newOutletY) }
-                            });
-                        } else { // Inlet or Outlet drag
-                            let finalX = mx, finalY = my;
-                            
-                            const closestPointSnap = findClosestSnapPoint(mx, my, snapTargetsRef.current.points, SNAP_RADIUS);
-                            
-                            let closestLineSnap: { x: number; y: number; distance: number; line: any } | null = null;
-                            let minLineDist = SNAP_RADIUS;
+                            let mouseTemp = xScale.invert(mx);
+                            if (mouseTemp > inletProps.temp!) mouseTemp = inletProps.temp!;
 
-                            snapTargetsRef.current.lines.forEach(line => {
-                                const { x, y, distance } = findClosestPointOnLineSegment(mx, my, line.p1.x, line.p1.y, line.p2.x, line.p2.y);
-                                if (distance < minLineDist) {
-                                    minLineDist = distance;
-                                    closestLineSnap = { x, y, distance, line };
-                                }
-                            });
+                            projectedMx = xScale(mouseTemp);
+                            const projectedHum = getCoolingCoilOutletHumidity(mouseTemp, inletProps, eq.conditions as CoolingCoilConditions);
+                            projectedMy = yScale(projectedHum);
 
-                            let winningSnap: any = null;
-                            if (closestPointSnap && (!closestLineSnap || closestPointSnap.distance <= closestLineSnap.distance)) {
-                                winningSnap = { type: 'point', ...closestPointSnap };
-                            } else if (closestLineSnap) {
-                                winningSnap = { type: 'line', ...closestLineSnap };
-                            }
-                            
-                            if (winningSnap) {
-                                finalX = winningSnap.x;
-                                finalY = winningSnap.y;
-                                if (winningSnap.type === 'point') {
-                                    snapHighlight.style("display", "block").attr("cx", finalX).attr("cy", finalY);
-                                } else { // line snap
-                                    snapHighlight.style("display", "none");
-                                    svg.append("line")
-                                        .attr("class", "snap-line-highlight")
-                                        .attr("x1", winningSnap.line.p1.x).attr("y1", winningSnap.line.p1.y)
-                                        .attr("x2", winningSnap.line.p2.x).attr("y2", winningSnap.line.p2.y)
-                                        .attr("stroke", winningSnap.line.color)
-                                        .attr("stroke-opacity", 0.6)
-                                        .attr("stroke-width", 8)
-                                        .style("pointer-events", "none");
-                                    
-                                     svg.append("circle")
-                                        .attr("class", "snap-line-highlight") // use same class for cleanup
-                                        .attr("cx", finalX).attr("cy", finalY)
-                                        .attr("r", 7)
-                                        .attr("fill", "none")
-                                        .attr("stroke", winningSnap.line.color)
-                                        .attr("stroke-width", 3)
-                                        .style("pointer-events", "none");
-                                }
-                            } else {
-                                snapHighlight.style("display", "none");
-                                let constrainedTemp = xScale.invert(mx);
-                                let constrainedAbsHumidity = yScale.invert(my);
+                            projectedTemp = mouseTemp;
+                        } else {
+                            // 1. Calculate the IDEAL projected point on the unconstrained process line.
+                            projectedTemp = xScale.invert(mx);
+                            let projectedAbsHumidity = yScale.invert(my);
+
+                            const getProjectedPoint = (lineP1_s: {x:number, y:number}, lineVec_s: {x:number, y:number}) => {
+                                const v_len_sq = lineVec_s.x * lineVec_s.x + lineVec_s.y * lineVec_s.y;
+                                if (v_len_sq < 1e-9) return lineP1_s;
                                 
-                                if (dragMode === 'outlet') {
-                                    switch (eq.type) {
-                                        case EquipmentType.HEATING_COIL: constrainedAbsHumidity = inletAbsHumiditySI; break;
-                                        case EquipmentType.BURNER: {
-                                            const { shf = 1.0 } = eq.conditions as BurnerConditions;
-                                            if (shf >= 1.0) { constrainedAbsHumidity = inletAbsHumiditySI; } 
-                                            else if (shf > 0) {
-                                                const slope = (1 / shf - 1) * (1.02 / 2.5);
-                                                const t1_s = xScale(inletTempSI), x1_s = yScale(inletAbsHumiditySI);
-                                                const dataSlopeToScreenSlope = -(height / 30) / (width / 80);
-                                                const m_s = slope * dataSlopeToScreenSlope;
-                                                const new_mx = (m_s * my + mx - m_s * x1_s + m_s * m_s * t1_s) / (m_s * m_s + 1);
-                                                const new_my = m_s * (new_mx - t1_s) + x1_s;
-                                                constrainedTemp = xScale.invert(new_mx);
-                                                constrainedAbsHumidity = yScale.invert(new_my);
-                                            }
-                                            break;
+                                const ap = { x: mx - lineP1_s.x, y: my - lineP1_s.y };
+                                const t = (ap.x * lineVec_s.x + ap.y * lineVec_s.y) / v_len_sq;
+                                return { x: lineP1_s.x + t * lineVec_s.x, y: lineP1_s.y + t * lineVec_s.y };
+                            };
+
+                            const getProcessLineVector = (
+                                equipmentType: EquipmentType, 
+                                startTemp: number, 
+                                startHum: number, 
+                                conds: any, 
+                                reverse: boolean = false
+                            ) => {
+                                let endTemp = startTemp + 10;
+                                let endHum = startHum;
+
+                                switch (equipmentType) {
+                                    case EquipmentType.COOLING_COIL:
+                                    case EquipmentType.HEATING_COIL:
+                                        break;
+                                    case EquipmentType.BURNER: {
+                                        const shf = select(this).property('__effective_shf__') ?? (conds as BurnerConditions).shf ?? 1.0;
+                                        if (shf >= 1.0) { /* remains horizontal */ }
+                                        else if (shf > 0) {
+                                            const slope_data = (1 / shf - 1) * (PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR / (PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C / 1000));
+                                            endHum = startHum + slope_data * 10;
                                         }
-                                        case EquipmentType.STEAM_HUMIDIFIER: {
-                                            const steamCond = eq.conditions as SteamHumidifierConditions;
-                                            const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
-                                            const h_steam = steamProps.enthalpy;
-                                            const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (inletAbsHumiditySI / 1000);
-                                            const h_vapor_inlet = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * inletTempSI;
-                                            const denominator = h_steam - h_vapor_inlet;
-                                            if (Math.abs(denominator) < 0.1) { constrainedTemp = inletTempSI; } 
-                                            else {
-                                                const slope_data = (1000 * c_pa_moist) / denominator;
-                                                const p1_s = { x: xScale(inletTempSI), y: yScale(inletAbsHumiditySI) };
-                                                const p2_s = { x: xScale(inletTempSI + 10), y: yScale(inletAbsHumiditySI + slope_data * 10) };
-                                                if (Math.abs(p2_s.x - p1_s.x) < 1e-6) { constrainedTemp = inletTempSI; } 
-                                                else {
-                                                    const m_s = (p2_s.y - p1_s.y) / (p2_s.x - p1_s.x);
-                                                    const new_mx = (m_s * my + mx - m_s * p1_s.y + m_s * m_s * p1_s.x) / (m_s * m_s + 1);
-                                                    const new_my = m_s * (new_mx - p1_s.x) + p1_s.y;
-                                                    constrainedTemp = xScale.invert(new_mx);
-                                                    constrainedAbsHumidity = yScale.invert(new_my);
-                                                }
-                                            }
-                                            break;
-                                        }
-                                        case EquipmentType.SPRAY_WASHER: {
-                                            const h1 = eq.inletAir.enthalpy!;
-                                            const p1_s = { x: xScale(60), y: yScale(calculateAbsoluteHumidityFromEnthalpy(60, h1)) };
-                                            const p2_s = { x: xScale(-20), y: yScale(calculateAbsoluteHumidityFromEnthalpy(-20, h1)) };
-                                            if (Math.abs(p2_s.x - p1_s.x) < 1e-6) { constrainedTemp = xScale.invert(p1_s.x); } 
-                                            else {
-                                                const m_s = (p2_s.y - p1_s.y) / (p2_s.x - p1_s.x);
-                                                const new_mx = (m_s * my + mx - m_s * p1_s.y + m_s * m_s * p1_s.x) / (m_s * m_s + 1);
-                                                const new_my = m_s * (new_mx - p1_s.x) + p1_s.y;
-                                                constrainedTemp = xScale.invert(new_mx);
-                                                constrainedAbsHumidity = yScale.invert(new_my);
-                                            }
-                                            break;
-                                        }
+                                        break;
                                     }
-                                } else { // 'inlet' drag
-                                     switch (eq.type) {
-                                        case EquipmentType.HEATING_COIL: constrainedAbsHumidity = outletAbsHumiditySI; break;
-                                        case EquipmentType.BURNER: {
-                                            const { shf = 1.0 } = eq.conditions as BurnerConditions;
-                                            if (shf >= 1.0) { constrainedAbsHumidity = outletAbsHumiditySI; } 
-                                            else if (shf > 0) {
-                                                const slope = (1 / shf - 1) * (1.02 / 2.5);
-                                                const t2_s = xScale(outletTempSI), x2_s = yScale(outletAbsHumiditySI);
-                                                const dataSlopeToScreenSlope = -(height / 30) / (width / 80);
-                                                const m_s = slope * dataSlopeToScreenSlope;
-                                                const new_mx = (m_s * my + mx - m_s * x2_s + m_s * m_s * t2_s) / (m_s * m_s + 1);
-                                                const new_my = m_s * (new_mx - t2_s) + x2_s;
-                                                constrainedTemp = xScale.invert(new_mx);
-                                                constrainedAbsHumidity = yScale.invert(new_my);
-                                            }
-                                            break;
+                                    case EquipmentType.STEAM_HUMIDIFIER: {
+                                        const steamCond = conds as SteamHumidifierConditions;
+                                        const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
+                                        const h_steam = steamProps.enthalpy;
+                                        const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (startHum / 1000);
+                                        const h_vapor = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * startTemp;
+                                        const denominator = h_steam - h_vapor;
+                                        if (Math.abs(denominator) > 0.1) {
+                                            const slope_data = (1000 * c_pa_moist) / denominator;
+                                            endHum = startHum + slope_data * 10;
                                         }
-                                        case EquipmentType.STEAM_HUMIDIFIER: {
-                                            const steamCond = eq.conditions as SteamHumidifierConditions;
-                                            const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
-                                            const h_steam = steamProps.enthalpy;
-                                            const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (outletAbsHumiditySI / 1000);
-                                            const h_vapor_outlet = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * outletTempSI;
-                                            const denominator = h_steam - h_vapor_outlet;
-                                            if (Math.abs(denominator) < 0.1) { constrainedTemp = outletTempSI; } 
-                                            else {
-                                                const slope_data = (1000 * c_pa_moist) / denominator;
-                                                const p2_s = { x: xScale(outletTempSI), y: yScale(outletAbsHumiditySI) };
-                                                const p1_s = { x: xScale(outletTempSI - 10), y: yScale(outletAbsHumiditySI - slope_data * 10) };
-                                                if (Math.abs(p2_s.x - p1_s.x) < 1e-6) { constrainedTemp = outletTempSI; } 
-                                                else {
-                                                    const m_s = (p2_s.y - p1_s.y) / (p2_s.x - p1_s.x);
-                                                    const new_mx = (m_s * my + mx - m_s * p1_s.y + m_s * m_s * p1_s.x) / (m_s * m_s + 1);
-                                                    const new_my = m_s * (new_mx - p1_s.x) + p1_s.y;
-                                                    constrainedTemp = xScale.invert(new_mx);
-                                                    constrainedAbsHumidity = yScale.invert(new_my);
-                                                }
-                                            }
-                                            break;
-                                        }
-                                        case EquipmentType.SPRAY_WASHER: {
-                                            const h2 = eq.outletAir.enthalpy!;
-                                            const p1_s = { x: xScale(60), y: yScale(calculateAbsoluteHumidityFromEnthalpy(60, h2)) };
-                                            const p2_s = { x: xScale(-20), y: yScale(calculateAbsoluteHumidityFromEnthalpy(-20, h2)) };
-                                            if (Math.abs(p2_s.x - p1_s.x) < 1e-6) { constrainedTemp = xScale.invert(p1_s.x); } 
-                                            else {
-                                                const m_s = (p2_s.y - p1_s.y) / (p2_s.x - p1_s.x);
-                                                const new_mx = (m_s * my + mx - m_s * p1_s.y + m_s * m_s * p1_s.x) / (m_s * m_s + 1);
-                                                const new_my = m_s * (new_mx - p1_s.x) + p1_s.y;
-                                                constrainedTemp = xScale.invert(new_mx);
-                                                constrainedAbsHumidity = yScale.invert(new_my);
-                                            }
-                                            break;
-                                        }
+                                        break;
+                                    }
+                                    case EquipmentType.SPRAY_WASHER: {
+                                        const h = calculateEnthalpy(startTemp, startHum);
+                                        endHum = calculateAbsoluteHumidityFromEnthalpy(endTemp, h);
+                                        break;
                                     }
                                 }
-                                constrainedTemp = Math.max(xScale.domain()[0], Math.min(xScale.domain()[1], constrainedTemp));
-                                constrainedAbsHumidity = Math.max(yScale.domain()[0], Math.min(yScale.domain()[1], constrainedAbsHumidity));
-                                finalX = xScale(constrainedTemp);
-                                finalY = yScale(constrainedAbsHumidity);
-                            }
 
-                            const finalPos = { temp: xScale.invert(finalX), absHumidity: yScale.invert(finalY) };
+                                const p1_s = { x: xScale(startTemp), y: yScale(startHum) };
+                                const p2_s = { x: xScale(endTemp), y: yScale(endHum) };
+                                
+                                return reverse 
+                                    ? { x: p1_s.x - p2_s.x, y: p1_s.y - p2_s.y }
+                                    : { x: p2_s.x - p1_s.x, y: p2_s.y - p1_s.y };
+                            };
+
+                            const startPoint_s = { x: fixedPointX, y: fixedPointY };
+                            const startPoint_d = { 
+                                temp: xScale.invert(fixedPointX), 
+                                absHumidity: yScale.invert(fixedPointY) 
+                            };
+
+                            const lineVec_s = getProcessLineVector(
+                                eq.type, 
+                                startPoint_d.temp, 
+                                startPoint_d.absHumidity, 
+                                eq.conditions, 
+                                dragMode === 'inlet'
+                            );
                             
+                            const {x: new_mx, y: new_my} = getProjectedPoint(startPoint_s, lineVec_s);
+                            projectedTemp = xScale.invert(new_mx);
+                            projectedAbsHumidity = yScale.invert(new_my);
+                            
+                            projectedMx = xScale(projectedTemp);
+                            projectedMy = yScale(projectedAbsHumidity);
+                        }
+                        
+                        // 2. Now find snaps based on the IDEAL projected position.
+                        const closestPointSnap = findClosestSnapPoint(projectedMx, projectedMy, snapTargetsRef.current.points, SNAP_RADIUS);
+                        
+                        let closestIntersectionSnap: { x: number; y: number; distance: number; line: any } | null = null;
+                        let minIntersectionDist = SNAP_RADIUS;
+
+                        snapTargetsRef.current.lines.forEach(line => {
+                            let intersection: { x: number; y: number } | null = null;
+                            const targetEquipment = line.equipment as Equipment;
+
+                            const isDraggedBurner = eq.type === EquipmentType.BURNER;
+                            const isTargetWasher = targetEquipment.type === EquipmentType.SPRAY_WASHER;
+
+                            // Analytical intersection for Burner <-> Spray Washer
+                            if (isDraggedBurner && isTargetWasher) {
+                                const burnerLineEq = {
+                                    type: eq.type,
+                                    fixedPoint: dragMode === 'outlet' ? eq.inletAir : eq.outletAir,
+                                    conditions: { shf: select(this).property('__effective_shf__') ?? (eq.conditions as BurnerConditions).shf ?? 1.0 }
+                                };
+                                const washerCurveEq = {
+                                    type: targetEquipment.type,
+                                    enthalpy: targetEquipment.inletAir.enthalpy
+                                };
+                                
+                                const intersectionPointData = findAnalyticalIntersection(burnerLineEq, washerCurveEq, projectedTemp);
+                                
+                                if (intersectionPointData) {
+                                    const washerInletTemp = targetEquipment.inletAir.temp!;
+                                    const washerOutletTemp = targetEquipment.outletAir.temp!;
+                                    const minT = Math.min(washerInletTemp, washerOutletTemp);
+                                    const maxT = Math.max(washerInletTemp, washerOutletTemp);
+                                    
+                                    if (intersectionPointData.temp >= minT && intersectionPointData.temp <= maxT) {
+                                        intersection = {
+                                            x: xScale(intersectionPointData.temp),
+                                            y: yScale(intersectionPointData.absHumidity)
+                                        };
+                                    }
+                                }
+                            } else {
+                                // Default geometric line-segment intersection
+                                intersection = findRaySegmentIntersection(
+                                    fixedPointX, fixedPointY,
+                                    projectedMx, projectedMy,
+                                    line.p1.x, line.p1.y,
+                                    line.p2.x, line.p2.y
+                                );
+                            }
+                        
+                            if (intersection) {
+                                const dist = Math.hypot(intersection.x - projectedMx, intersection.y - projectedMy);
+                                if (dist < minIntersectionDist) {
+                                    minIntersectionDist = dist;
+                                    closestIntersectionSnap = {
+                                        x: intersection.x,
+                                        y: intersection.y,
+                                        distance: dist,
+                                        line: line
+                                    };
+                                }
+                            }
+                        });
+                        
+                        let winningSnap: any = null;
+                        if (closestPointSnap && (!closestIntersectionSnap || closestPointSnap.distance <= closestIntersectionSnap.distance)) {
+                            winningSnap = { type: 'point', ...closestPointSnap };
+                        } else if (closestIntersectionSnap) {
+                            winningSnap = { type: 'line', ...closestIntersectionSnap };
+                        }
+
+                        // 3. Determine the final ideal position (snapped or projected)
+                        let idealFinalX: number, idealFinalY: number;
+
+                        if (winningSnap) {
+                            idealFinalX = winningSnap.x;
+                            idealFinalY = winningSnap.y;
+                            if (winningSnap.type === 'point') {
+                                snapHighlight.style("display", "block").attr("cx", idealFinalX).attr("cy", idealFinalY);
+                            } else { // line snap
+                                const snapColor = EQUIPMENT_HEX_COLORS[winningSnap.line.equipment.type] || defaultColor;
+                                snapHighlight.style("display", "none");
+                                svg.append("line")
+                                    .attr("class", "snap-line-highlight")
+                                    .attr("x1", winningSnap.line.p1.x).attr("y1", winningSnap.line.p1.y)
+                                    .attr("x2", winningSnap.line.p2.x).attr("y2", winningSnap.line.p2.y)
+                                    .attr("stroke", snapColor)
+                                    .attr("stroke-opacity", 0.6)
+                                    .attr("stroke-width", 8)
+                                    .style("pointer-events", "none");
+                                
+                                    svg.append("circle")
+                                    .attr("class", "snap-line-highlight") // use same class for cleanup
+                                    .attr("cx", idealFinalX).attr("cy", idealFinalY)
+                                    .attr("r", 7)
+                                    .attr("fill", "none")
+                                    .attr("stroke", snapColor)
+                                    .attr("stroke-width", 3)
+                                    .style("pointer-events", "none");
+                            }
+                        } else {
+                            idealFinalX = projectedMx;
+                            idealFinalY = projectedMy;
+                            snapHighlight.style("display", "none");
+                        }
+
+                        // 4. ONLY NOW, apply physical constraints to the final ideal point
+                        let finalTemp = xScale.invert(idealFinalX);
+                        let finalAbsHumidity = yScale.invert(idealFinalY);
+                        
+                        const startPoint_d = { temp: xScale.invert(fixedPointX), absHumidity: yScale.invert(fixedPointY) };
+
+                        if (dragMode === 'inlet' && (eq.type === EquipmentType.HEATING_COIL || (eq.type === EquipmentType.BURNER && (eq.conditions as BurnerConditions).shf >= 1.0))) {
+                            const dewPointTemp = calculateDewPoint(outletAbsHumiditySI);
+                            if (finalTemp < dewPointTemp) {
+                                finalTemp = dewPointTemp;
+                            }
+                        }
+
+                        if (eq.type === EquipmentType.COOLING_COIL) {
+                            const inletProps = { temp: startPoint_d.temp, absHumidity: startPoint_d.absHumidity } as AirProperties;
                             if (dragMode === 'outlet') {
-                                outletDot.attr("cx", finalX).attr("cy", finalY);
-                                processLine.attr("x2", finalX).attr("y2", finalY);
-                                select(this).property('__latest_drag_pos__', { outlet: finalPos });
-                            } else { // inlet
-                                inletDot.attr("cx", finalX).attr("cy", finalY);
-                                processLine.attr("x1", finalX).attr("y1", finalY);
-                                select(this).property('__latest_drag_pos__', { inlet: finalPos });
+                                const { chilledWaterInletTemp = 7 } = eq.conditions as CoolingCoilConditions;
+                                if (finalTemp > inletProps.temp!) finalTemp = inletProps.temp!;
+                                if (finalTemp < chilledWaterInletTemp) finalTemp = chilledWaterInletTemp;
+                                finalAbsHumidity = getCoolingCoilOutletHumidity(finalTemp, inletProps, eq.conditions as CoolingCoilConditions);
+                            } else { // inlet drag
+                                const outletTemp = startPoint_d.temp;
+                                if (finalTemp < outletTemp) finalTemp = outletTemp;
                             }
-                        }
-                    })
-                    .on("end", function () {
-                        const dragMode = select(this).property('__drag_mode__');
-                        const finalPos = select(this).property('__latest_drag_pos__');
-                        
-                        snapHighlight.style("display", "none");
-                        svg.selectAll(".snap-line-highlight").remove();
-                        snapTargetsRef.current = { points: [], lines: [] };
-                        
-                        if (finalPos) {
-                             if (dragMode === 'line') {
-                                const finalInlet = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
-                                const finalOutlet = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
-                                onUpdate(eq.id, { inlet: finalInlet, outlet: finalOutlet });
-                            } else if (dragMode === 'outlet') {
-                                const finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
-                                onUpdate(eq.id, { outlet: finalOutletAir });
-                            } else if (dragMode === 'inlet') {
-                                const finalInletAir = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
-                                onUpdate(eq.id, { inlet: finalInletAir });
+                        } else if (eq.type === EquipmentType.HEATING_COIL) {
+                            if (dragMode === 'outlet') {
+                                const { hotWaterInletTemp = 80 } = eq.conditions as HeatingCoilConditions;
+                                const inletTemp = startPoint_d.temp;
+                                if (finalTemp < inletTemp) finalTemp = inletTemp;
+                                if (finalTemp > hotWaterInletTemp) finalTemp = hotWaterInletTemp;
+                            } else { // inlet drag
+                                const outletTemp = startPoint_d.temp;
+                                if (finalTemp > outletTemp) finalTemp = outletTemp;
                             }
                         }
 
-                        // Reset visual styles
-                        if (dragMode === 'inlet') inletDot.attr('r', 5);
-                        else if (dragMode === 'outlet') outletDot.attr('r', 5);
-                        else processLine.attr("stroke-width", 2.5);
+                        const saturationHumidityAtTemp = calculateAbsoluteHumidity(finalTemp, 100);
+                        if (finalAbsHumidity > saturationHumidityAtTemp) {
+                            finalAbsHumidity = saturationHumidityAtTemp;
+                        }
 
-                        // Clear all temporary properties
-                        select(this)
-                            .property('__drag_mode__', null)
-                            .property('__start_pointer__', null)
-                            .property('__start_pos__', null)
-                            .property('__latest_drag_pos__', null);
-                    });
+                        finalTemp = Math.max(xScale.domain()[0], Math.min(xScale.domain()[1], finalTemp));
+                        finalAbsHumidity = Math.max(yScale.domain()[0], Math.min(yScale.domain()[1], finalAbsHumidity));
+                        
+                        const finalRh = calculateRelativeHumidity(finalTemp, finalAbsHumidity);
+                        const tempString = convertValue(finalTemp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
+                        const rhString = finalRh.toFixed(getPrecisionForUnitType('rh', unitSystem));
+                        const pointTypeLabel = dragMode === 'inlet' ? t('chart.inlet') : t('chart.outlet');
+                        
+                        const line1 = `${t(`equipmentNames.${eq.type}`)} ${pointTypeLabel}:`;
+                        const line2 = `${tempString}${temperatureUnit}, ${rhString}%`;
+                        const label = `<div>${line1}</div><div>${line2}</div>`;
 
-                svg.append("line")
-                    .attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI))
-                    .attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-                    .attr("stroke", "transparent")
-                    .attr("stroke-width", 20)
-                    .style("cursor", "grab")
-                    .call(processDrag);
+                        const [cursorX, cursorY] = pointer(event, containerRef.current);
+                        tooltip.style("visibility", "visible")
+                                .html(label)
+                                .style("top", `${cursorY + 20}px`)
+                                .style("left", `${cursorX + 20}px`)
+                                .style("transform", "translateX(0)");
+
+                        const finalX = xScale(finalTemp);
+                        const finalY = yScale(finalAbsHumidity);
+                        const finalPos = { temp: finalTemp, absHumidity: finalAbsHumidity };
+                        
+                        // 5. Update UI with the final, constrained position
+                        if (dragMode === 'outlet') {
+                            outletDot.attr("cx", finalX).attr("cy", finalY);
+                            processLine.attr("x2", finalX).attr("y2", finalY);
+                            updateHandlePositions(parseFloat(inletDot.attr("cx")), finalX, parseFloat(inletDot.attr("cy")), finalY);
+                            lineTooltipHitbox.attr("x2", finalX).attr("y2", finalY);
+                            select(this).property('__latest_drag_pos__', { outlet: finalPos });
+                        } else { // inlet
+                            inletDot.attr("cx", finalX).attr("cy", finalY);
+                            processLine.attr("x1", finalX).attr("y1", finalY);
+                            updateHandlePositions(finalX, parseFloat(outletDot.attr("cx")), finalY, parseFloat(outletDot.attr("cy")));
+                            lineTooltipHitbox.attr("x1", finalX).attr("y1", finalY);
+                            select(this).property('__latest_drag_pos__', { inlet: finalPos });
+                        }
+                    }
+                })
+                .on("end", function () {
+                    tooltip.style("visibility", "hidden");
+                    dragInProgress.current = false;
+                    hideWaterTempIndicator();
+                    const dragMode = select(this).property('__drag_mode__');
+                    const finalPos = select(this).property('__latest_drag_pos__');
+                    
+                    if (dragMode === 'line') {
+                        isDraggingLine.current = false;
+                        visibleHandle.style("transition", "all 0.15s ease-in-out, opacity 0.15s ease-in-out");
+                    }
+                    
+                    previewGroup.selectAll('*').remove();
+                    snapHighlight.style("display", "none");
+                    svg.selectAll(".snap-line-highlight").remove();
+                    snapTargetsRef.current = { points: [], lines: [] };
+                    
+                    if (finalPos) {
+                            if (dragMode === 'line') {
+                            const finalInlet = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
+                            const finalOutlet = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
+                            onUpdate(eq.id, { inlet: finalInlet, outlet: finalOutlet });
+                        } else if (dragMode === 'outlet') {
+                            let finalOutletAir: AirProperties;
+                            if (eq.type === EquipmentType.SPRAY_WASHER && 
+                                eq.inletAir.enthalpy !== null && 
+                                eq.inletAir.temp !== null &&
+                                finalPos.outlet.temp !== null && 
+                                finalPos.outlet.absHumidity !== null) 
+                            {
+                                const draggedRh = calculateRelativeHumidity(finalPos.outlet.temp, finalPos.outlet.absHumidity);
+                                const inletEnthalpy = eq.inletAir.enthalpy;
+                                let outletTempGuess = eq.inletAir.temp;
+
+                                for (let i = 0; i < 20; i++) {
+                                    const outletAbsHumGuess = calculateAbsoluteHumidityFromEnthalpy(outletTempGuess, inletEnthalpy);
+                                    if (outletAbsHumGuess < 0) { outletTempGuess += 0.5; continue; }
+                                    const outletRhGuess = calculateRelativeHumidity(outletTempGuess, outletAbsHumGuess);
+                                    const error = draggedRh - outletRhGuess;
+                                    if (Math.abs(error) < 0.01) break;
+                                    outletTempGuess -= error * 0.1;
+                                }
+                                const finalTemp = outletTempGuess;
+                                const finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalTemp, inletEnthalpy);
+                                finalOutletAir = calculateAirProperties(finalTemp, null, finalAbsHumidity);
+                            } else {
+                                finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
+                            }
+                            onUpdate(eq.id, { outlet: finalOutletAir });
+                        } else if (dragMode === 'inlet') {
+                            const finalInletAir = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
+                            onUpdate(eq.id, { inlet: finalInletAir });
+                        }
+                    }
+
+                    // Reset visual styles
+                    if (dragMode === 'inlet') {
+                        inletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
+                    } else if (dragMode === 'outlet') {
+                        outletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
+                    } else if (dragMode === 'line') {
+                        processLine.attr("stroke-width", 2.5).style("opacity", lineDefaultOpacity);
+                        markerPath.style("opacity", lineDefaultOpacity);
+                        inletDot.style('opacity', handleDefaultOpacity);
+                        visibleHandle.style('opacity', handleDefaultOpacity);
+                    }
+
+                    // Clear all temporary properties
+                    select(this)
+                        .property('__drag_mode__', null)
+                        .property('__start_pointer__', null)
+                        .property('__start_pos__', null)
+                        .property('__latest_drag_pos__', null)
+                        .property('__effective_shf__', null);
+                });
+            
+            // Line drag handle (invisible) is available for all draggable equipment, including Fan
+            svg.append("rect")
+                .attr("class", `line-drag-handle-${eq.id}`)
+                .attr("data-drag-mode", "line")
+                .attr("x", midX - 10)
+                .attr("y", midY - 10)
+                .attr("width", 20)
+                .attr("height", 20)
+                .attr("fill", "transparent")
+                .style("cursor", "move")
+                .on('mouseover', () => {
+                    if (dragInProgress.current) return;
+                    const currentMidX = (parseFloat(processLine.attr("x1")) + parseFloat(processLine.attr("x2"))) / 2;
+                    const currentMidY = (parseFloat(processLine.attr("y1")) + parseFloat(processLine.attr("y2"))) / 2;
+                    visibleHandle.attr('width', 12).attr('height', 12)
+                                    .attr('x', currentMidX - 6).attr('y', currentMidY - 6)
+                                    .attr('data-hovered', 'true')
+                                    .style('opacity', hoverOpacity);
+                    
+                    previewGroup.selectAll('*').remove();
+                    const pathData = generatePreviewPath(eq, 'outlet');
+                    if (pathData && pathData.length > 1) {
+                        const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+                        previewGroup.append("path")
+                            .datum(pathData)
+                            .attr("fill", "none")
+                            .attr("stroke", color)
+                            .attr("stroke-width", 2)
+                            .attr("stroke-dasharray", "6,6")
+                            .style("opacity", 0.6)
+                            .style("pointer-events", "none")
+                            .attr("d", lineGenerator);
+                    }
+                    showWaterTempIndicator(eq);
+                })
+                .on('mouseout', () => {
+                    if (dragInProgress.current) return;
+                    const currentMidX = (parseFloat(processLine.attr("x1")) + parseFloat(processLine.attr("x2"))) / 2;
+                    const currentMidY = (parseFloat(processLine.attr("y1")) + parseFloat(processLine.attr("y2"))) / 2;
+                    visibleHandle.attr('width', 6).attr('height', 6)
+                                    .attr('x', currentMidX - 3).attr('y', currentMidY - 3)
+                                    .attr('data-hovered', 'false')
+                                    .style('opacity', handleDefaultOpacity);
+                    previewGroup.selectAll('*').remove();
+                    hideWaterTempIndicator();
+                })
+                .call(processDrag);
+
+            const createPointHoverHandlers = (
+                pointType: 'inlet' | 'outlet',
+                dotSelection: Selection<SVGCircleElement, unknown, null, undefined>
+            ) => ({
+                mouseover: function(event: MouseEvent) {
+                    if (dragInProgress.current) return;
+                    dotSelection.attr('r', 7).style('opacity', hoverOpacity);
+            
+                    // Preview path is only for draggable points, so check type
+                    if (eq.type !== EquipmentType.FAN) {
+                        previewGroup.selectAll('*').remove();
+                        const pathData = generatePreviewPath(eq, pointType);
+                        if (pathData && pathData.length > 1) {
+                            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+                            previewGroup.append("path")
+                                .datum(pathData)
+                                .attr("fill", "none")
+                                .attr("stroke", color)
+                                .attr("stroke-width", 2)
+                                .attr("stroke-dasharray", "6,6")
+                                .style("opacity", 0.6)
+                                .style("pointer-events", "none")
+                                .attr("d", lineGenerator);
+                        }
+                    }
+                    
+                    const airProps = pointType === 'inlet' ? eq.inletAir : eq.outletAir;
+                    if (airProps && airProps.temp !== null && airProps.rh !== null) {
+                        const temp = convertValue(airProps.temp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
+                        const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
+                        const line1 = `${t(`equipmentNames.${eq.type}`)} ${t(`chart.${pointType}`)}:`;
+                        const line2 = `${temp}${temperatureUnit}, ${rh}%`;
+                        const label = `<div>${line1}</div><div>${line2}</div>`;
+                        
+                        const [x, y] = pointer(event, containerRef.current);
+                        tooltip.style("visibility", "visible")
+                                .html(label)
+                                .style("top", `${y + 20}px`)
+                                .style("left", `${x + 20}px`)
+                                .style("transform", "translateX(0)");
+                    }
+                    
+                    showWaterTempIndicator(eq);
+                },
+                mousemove: function(event: MouseEvent) {
+                    if (dragInProgress.current) return;
+                    const [x, y] = pointer(event, containerRef.current);
+                    tooltip.style("top", `${y + 20}px`)
+                            .style("left", `${x + 20}px`)
+                            .style("transform", "translateX(0)");
+                },
+                mouseout: function() {
+                    if (dragInProgress.current) return;
+                    dotSelection.attr('r', 4).style('opacity', handleDefaultOpacity);
+                    tooltip.style("visibility", "hidden");
+                    previewGroup.selectAll('*').remove();
+                    hideWaterTempIndicator();
+                }
+            });
+
+            const inletHoverHandlers = createPointHoverHandlers('inlet', inletDot);
+            const outletHoverHandlers = createPointHoverHandlers('outlet', outletDot);
+
+            const inletHandle = svg.append("circle")
+                .attr("class", `inlet-drag-handle-${eq.id}`)
+                .attr("data-drag-mode", "inlet")
+                .attr("cx", xScale(inletTempSI))
+                .attr("cy", yScale(inletAbsHumiditySI))
+                .attr("r", pointHandleRadius)
+                .attr("fill", "transparent")
+                .on('mouseover', inletHoverHandlers.mouseover)
+                .on('mousemove', inletHoverHandlers.mousemove)
+                .on('mouseout', inletHoverHandlers.mouseout);
+
+            const outletHandle = svg.append("circle")
+                .attr("class", `outlet-drag-handle-${eq.id}`)
+                .attr("data-drag-mode", "outlet")
+                .attr("cx", xScale(outletTempSI))
+                .attr("cy", yScale(outletAbsHumiditySI))
+                .attr("r", pointHandleRadius)
+                .attr("fill", "transparent")
+                .on('mouseover', outletHoverHandlers.mouseover)
+                .on('mousemove', outletHoverHandlers.mousemove)
+                .on('mouseout', outletHoverHandlers.mouseout);
+
+            if (eq.type !== EquipmentType.FAN) {
+                inletHandle.style("cursor", "pointer").call(processDrag);
+                outletHandle.style("cursor", "pointer").call(processDrag);
+            } else {
+                inletHandle.style("cursor", "crosshair");
+                outletHandle.style("cursor", "crosshair");
             }
         });
 
-    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, width, height, t, isSplitViewActive, onUpdate]);
+    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, width, height, t, isSplitViewActive, onUpdate, findAnalyticalIntersection]);
 
     return (
         <div

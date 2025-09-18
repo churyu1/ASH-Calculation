@@ -1,6 +1,7 @@
 
 
 import { UnitSystem, UnitType, SteamPressureUnit } from '../types';
+import { MOTOR_OUTPUT_CONVERSIONS } from '../constants.ts';
 
 // Constants for unit conversions
 const UNIT_CONVERSIONS = {
@@ -10,7 +11,7 @@ const UNIT_CONVERSIONS = {
         temperature: (c: number) => (c * 9/5) + 32, // Celsius to Fahrenheit
         length: (mm: number) => mm * 0.0393701, // mm to inches
         pressure: (pa: number) => pa * 0.00401463, // Pa to in.w.g.
-        heat_load: (kcalh: number) => kcalh * 3.96832, // kcal/h to BTU/h
+        heat_load: (kw: number) => kw * 3412.142, // kW to BTU/h
         water_flow: (lpm: number) => lpm * 0.264172, // L/min to GPM
         abs_humidity: (gkgDA: number) => gkgDA * 7, // g/kg(DA) to grains/lb(DA) (approx)
         enthalpy: (kjkgDA: number) => kjkgDA * 0.429923, // kJ/kg(DA) to BTU/lb(DA)
@@ -29,7 +30,7 @@ const UNIT_CONVERSIONS = {
         temperature: (f: number) => (f - 32) * 5/9, // Fahrenheit to Celsius
         length: (inch: number) => inch / 0.0393701, // inches to mm
         pressure: (inwg: number) => inwg / 0.00401463, // in.w.g. to Pa
-        heat_load: (btuh: number) => btuh / 3.96832, // BTU/h to kcal/h
+        heat_load: (btuh: number) => btuh / 3412.142, // BTU/h to kW
         water_flow: (gpm: number) => gpm / 0.264172, // GPM to L/min
         abs_humidity: (grains_lbDA: number) => grains_lbDA / 7, // grains/lb(DA) to g/kg(DA) (approx)
         enthalpy: (btu_lbDA: number) => btu_lbDA / 0.429923, // BTU/lb(DA) to kJ/kg(DA)
@@ -119,7 +120,7 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'length': return 0;
             case 'airflow': return 0;
             case 'pressure': return 1;
-            case 'heat_load': return 0;
+            case 'heat_load': return 2;
             case 'water_flow': return 2;
             case 'abs_humidity': return 2;
             case 'enthalpy': return 2;
@@ -137,6 +138,17 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             default: return 2;
         }
     }
+};
+
+export const findMotorHp = (kw: number): string | null => {
+    // Find an exact match first for performance and precision
+    const exactMatch = MOTOR_OUTPUT_CONVERSIONS.find(o => o.kw === kw);
+    if (exactMatch) return exactMatch.hp;
+
+    // If no exact match, try with a small tolerance for floating point issues
+    const tolerance = 0.001;
+    const match = MOTOR_OUTPUT_CONVERSIONS.find(o => Math.abs(o.kw - kw) < tolerance);
+    return match ? match.hp : null;
 };
 
 export const formatNumber = (num: number | null | undefined): string => {

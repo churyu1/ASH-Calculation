@@ -54,7 +54,7 @@ export interface BurnerConditions extends BaseConditions {
 export interface CoolingCoilConditions extends BaseConditions {
     chilledWaterInletTemp?: number;
     chilledWaterOutletTemp?: number;
-    heatExchangeEfficiency?: number;
+    bypassFactor?: number;
 }
 
 export interface HeatingCoilConditions extends BaseConditions {
@@ -102,15 +102,18 @@ export interface BurnerResults extends BaseResults {
 }
 
 export interface CoolingCoilResults extends BaseResults {
-    airSideHeatLoad_kcal?: number;
-    coldWaterSideHeatLoad_kcal?: number;
+    airSideHeatLoad_kW?: number;
+    coldWaterSideHeatLoad_kW?: number;
     chilledWaterFlow_L_min?: number;
     dehumidification_L_min?: number;
+    bypassFactor?: number;
+    contactFactor?: number;
+    apparatusDewPointTemp?: number;
 }
 
 export interface HeatingCoilResults extends BaseResults {
-    airSideHeatLoad_kcal?: number;
-    hotWaterSideHeatLoad_kcal?: number;
+    airSideHeatLoad_kW?: number;
+    hotWaterSideHeatLoad_kW?: number;
     hotWaterFlow_L_min?: number;
 }
 
@@ -132,7 +135,7 @@ export interface SteamHumidifierResults extends BaseResults {
 }
 
 export interface FanResults extends BaseResults {
-    heatGeneration_kcal?: number;
+    heatGeneration_kW?: number;
     tempRise_deltaT_celsius?: number;
 }
 
@@ -151,7 +154,6 @@ export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResult
 export interface Equipment {
     id: number;
     type: EquipmentType;
-    name: string;
     pressureLoss: number | null;
     inletAir: AirProperties;
     outletAir: AirProperties;

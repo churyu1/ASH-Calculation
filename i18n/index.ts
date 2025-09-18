@@ -17,6 +17,9 @@ export const enMessages = {
     "acOutletConditions": "Air Conditioner Outlet Conditions",
     "addEquipment": "Add Equipment",
     "deleteAllEquipment": "Delete All Equipment",
+    "expandAll": "Expand All",
+    "collapseAll": "Collapse All",
+    "toggleExpand": "Toggle expand/collapse",
     "summary": "Summary",
     "configuration": "Configuration",
     "noEquipmentAdded": "No equipment added.",
@@ -37,7 +40,7 @@ export const enMessages = {
     "disclaimerContent": [
       "All calculation results and information provided by this application are for reference purposes only, and their completeness, accuracy, and usefulness are not guaranteed.",
       "Users shall use this application at their own discretion and risk. Before applying the results obtained from this application to actual design, construction, or other professional work, please ensure they are verified by a qualified expert.",
-      "The developer assumes no responsibility for any damages (including but not limited to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.",
+      "The developer assumes no responsibility for any damages (including but not to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.",
       "This disclaimer is subject to change without notice."
     ]
   },
@@ -47,13 +50,15 @@ export const enMessages = {
     "outletAir": "Outlet Air",
     "up": "Up",
     "down": "Down",
-    "useACInlet": "Use AC Inlet",
-    "useUpstreamOutlet": "Use Upstream Outlet",
-    "useDownstreamInlet": "Use Downstream Inlet",
-    "useACOutlet": "Use AC Outlet",
+    "copyACInlet": "Copy temp/humidity from AC inlet",
+    "copyUpstreamEquipment": "Copy temp/humidity from upstream equipment",
+    "copyDownstreamEquipment": "Copy temp/humidity from downstream equipment",
+    "copyACOutlet": "Copy temp/humidity from AC outlet",
     "delete": "Delete",
     "conditions": "Conditions",
     "results": "Calculation Results",
+    "inletLockedTooltip": "Inlet conditions are locked and will not update automatically from upstream. Edit values directly or click the sync button to unlock and follow upstream.",
+    "inletUnlockedTooltip": "Inlet conditions are unlocked and will automatically update from upstream. Edit any value to lock it.",
     "warnings": {
       "burner": "Outlet temperature should be higher than inlet.",
       "cooling_coil_temp": "Outlet temperature should be lower than inlet.",
@@ -97,12 +102,12 @@ export const enMessages = {
   "results": {
     "faceVelocity": "Face Velocity",
     "treatedAirflowPerSheet": "Airflow/Sheet",
-    "heatLoad_kcal": "Heat Load",
-    "airSideHeatLoad_kcal": "Air-Side Heat Load",
-    "coldWaterSideHeatLoad_kcal": "Chilled Water Side Heat Load",
+    "heatLoad": "Heat Load",
+    "airSideHeatLoad": "Air-Side Heat Load",
+    "coldWaterSideHeatLoad": "Chilled Water Side Heat Load",
     "chilledWaterFlow_L_min": "Chilled Water Flow",
     "dehumidification_L_min": "Dehumidification",
-    "hotWaterSideHeatLoad_kcal": "Hot Water Side Heat Load",
+    "hotWaterSideHeatLoad": "Hot Water Side Heat Load",
     "hotWaterFlow_L_min": "Hot Water Flow",
     "humidification_L_min": "Humidification",
     "sprayAmount_L_min": "Spray Amount",
@@ -110,10 +115,13 @@ export const enMessages = {
     "steamAbsolutePressure": "Steam Absolute Pressure",
     "steamTemperature": "Steam Temperature",
     "steamEnthalpy": "Steam Enthalpy",
-    "heatGeneration_kcal": "Heat Generation",
+    "heatGeneration": "Heat Generation",
     "tempRise_deltaT_celsius": "Temp Rise ⊿T",
     "airVelocity_m_s": "Air Velocity",
-    "pressureLoss_Pa": "Pressure Loss"
+    "pressureLoss_Pa": "Pressure Loss",
+    "bypassFactor": "Bypass Factor",
+    "contactFactor": "Contact Factor (Efficiency)",
+    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)"
   },
   "airProperties": {
     "temperature": "Temperature",
@@ -131,7 +139,7 @@ export const enMessages = {
       "kgfcm2g": "kgf/cm²G"
     },
     "si": {
-        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
+        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
@@ -287,12 +295,12 @@ export const enMessages = {
       "heatLoad": {
         "title": "Heat Load",
         "si": {
-          "formula": "Q_kW = G*1.02*(t_out-t_in)/SHF",
-          "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "Δt": "Temp Rise (°C)", "SHF": "Sensible Heat Factor" }
+          "formula": "Q_kW = G * (h_out - h_in)",
+          "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "h_in": "Inlet Enthalpy (kJ/kg)", "h_out": "Outlet Enthalpy (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 1.08 * q * Δt / SHF",
-          "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "Δt": "Temp Rise (°F)", "SHF": "Sensible Heat Factor" }
+          "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
+          "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
         }
       }
     },
@@ -339,6 +347,52 @@ export const enMessages = {
         "imperial": {
           "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
           "legend": { "D_gpm": "Rate (GPM)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+        }
+      },
+      "bypassFactor": {
+        "title": "Bypass Factor",
+        "si": {
+          "formula": "BF = (t_out - t_adp) / (t_in - t_adp)",
+          "legend": { "BF": "Bypass Factor", "t_in": "Inlet Temp (°C)", "t_out": "Outlet Temp (°C)", "t_adp": "ADP Temp (°C)" }
+        },
+        "imperial": {
+          "formula": "BF = (t_out - t_adp) / (t_in - t_adp)",
+          "legend": { "BF": "Bypass Factor", "t_in": "Inlet Temp (°F)", "t_out": "Outlet Temp (°F)", "t_adp": "ADP Temp (°F)" }
+        }
+      },
+      "contactFactor": {
+        "title": "Contact Factor (Efficiency)",
+        "si": { "formula": "CF = 1 - BF", "legend": { "CF": "Contact Factor", "BF": "Bypass Factor" } },
+        "imperial": { "formula": "CF = 1 - BF", "legend": { "CF": "Contact Factor", "BF": "Bypass Factor" } }
+      },
+      "apparatusDewPointTemp": {
+        "title": "Apparatus Dew Point (ADP)",
+        "si": {
+          "formula": "t_adp = (t_out - t_in * BF) / (1 - BF)",
+          "legend": { "t_adp": "ADP Temp (°C)", "t_in": "Inlet Temp (°C)", "t_out": "Outlet Temp (°C)", "BF": "Bypass Factor" }
+        },
+        "imperial": {
+          "formula": "t_adp = (t_out - t_in * BF) / (1 - BF)",
+          "legend": { "t_adp": "ADP Temp (°F)", "t_in": "Inlet Temp (°F)", "t_out": "Outlet Temp (°F)", "BF": "Bypass Factor" }
+        }
+      },
+      "apparatusDewPointTempSensible": {
+        "title": "Inlet Dew Point (Sensible Cooling)",
+        "si": {
+          "formula": "No dehumidification. Value is inlet air's dew point. ADP is not applicable.",
+          "legend": {
+            "t_dp": "Dew Point Temp (°C)",
+            "t_in": "Inlet Temp (°C)",
+            "rh_in": "Inlet RH (%)"
+          }
+        },
+        "imperial": {
+          "formula": "No dehumidification. Value is inlet air's dew point. ADP is not applicable.",
+          "legend": {
+            "t_dp": "Dew Point Temp (°F)",
+            "t_in": "Inlet Temp (°F)",
+            "rh_in": "Inlet RH (%)"
+          }
         }
       }
     },
@@ -463,8 +517,8 @@ export const enMessages = {
       "tempRise": {
         "title": "Temperature Rise",
         "si": {
-          "formula": "Δt = Q_kW / (G * 1.02)",
-          "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)" }
+          "formula": "Δt = Q_kW / (G * Cpa_moist)",
+          "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)", "Cpa_moist": "Specific heat of moist air" }
         },
         "imperial": {
           "formula": "Δt = Q_BTUh / (1.08 * q)",
@@ -526,6 +580,9 @@ export const jaMessages = {
     "acOutletConditions": "空調器出口条件",
     "addEquipment": "機器の追加",
     "deleteAllEquipment": "すべての機器を削除",
+    "expandAll": "すべて展開",
+    "collapseAll": "すべてたたむ",
+    "toggleExpand": "展開/折りたたみを切り替え",
     "summary": "サマリー",
     "configuration": "設定",
     "noEquipmentAdded": "機器が追加されていません。",
@@ -556,13 +613,15 @@ export const jaMessages = {
     "outletAir": "出口空気",
     "up": "上へ",
     "down": "下へ",
-    "useACInlet": "空調器入口を使用",
-    "useUpstreamOutlet": "上流出口を使用",
-    "useDownstreamInlet": "下流入口を使用",
-    "useACOutlet": "空調器出口を使用",
+    "copyACInlet": "空調器入口の温湿度をコピー",
+    "copyUpstreamEquipment": "上流機器の温湿度をコピー",
+    "copyDownstreamEquipment": "下流機器の温湿度をコピー",
+    "copyACOutlet": "空調器出口の温湿度をコピー",
     "delete": "削除",
     "conditions": "条件",
     "results": "計算結果",
+    "inletLockedTooltip": "入口条件はロックされており、上流から自動更新されません。値を直接編集するか、同期ボタンをクリックしてロックを解除し、上流に追従させます。",
+    "inletUnlockedTooltip": "入口条件はロック解除されており、上流から自動更新されます。値を編集するとロックされます。",
     "warnings": {
       "burner": "出口温度は入口温度より高くする必要があります。",
       "cooling_coil_temp": "出口温度は入口温度より低くする必要があります。",
@@ -606,12 +665,12 @@ export const jaMessages = {
   "results": {
     "faceVelocity": "面速",
     "treatedAirflowPerSheet": "風量/枚",
-    "heatLoad_kcal": "熱負荷",
-    "airSideHeatLoad_kcal": "空気側熱負荷",
-    "coldWaterSideHeatLoad_kcal": "冷水側熱負荷",
+    "heatLoad": "熱負荷",
+    "airSideHeatLoad": "空気側熱負荷",
+    "coldWaterSideHeatLoad": "冷水側熱負荷",
     "chilledWaterFlow_L_min": "冷水流量",
     "dehumidification_L_min": "除湿量",
-    "hotWaterSideHeatLoad_kcal": "温水側熱負荷",
+    "hotWaterSideHeatLoad": "温水側熱負荷",
     "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
     "sprayAmount_L_min": "噴霧量",
@@ -619,10 +678,13 @@ export const jaMessages = {
     "steamAbsolutePressure": "蒸気絶対圧",
     "steamTemperature": "蒸気温度",
     "steamEnthalpy": "蒸気エンタルピー",
-    "heatGeneration_kcal": "発熱量",
+    "heatGeneration": "発熱量",
     "tempRise_deltaT_celsius": "温度上昇 ⊿T",
     "airVelocity_m_s": "風速",
-    "pressureLoss_Pa": "圧力損失"
+    "pressureLoss_Pa": "圧力損失",
+    "bypassFactor": "バイパスファクター",
+    "contactFactor": "接触係数（効率）",
+    "apparatusDewPointTemp": "装置露点温度(ADP)"
   },
   "airProperties": {
     "temperature": "温度",
@@ -640,7 +702,7 @@ export const jaMessages = {
       "kgfcm2g": "kgf/cm²G"
     },
     "si": {
-        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kcal/h",
+        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
@@ -796,12 +858,12 @@ export const jaMessages = {
       "heatLoad": {
         "title": "熱負荷",
         "si": {
-          "formula": "Q_kW = G*1.02*(t_out-t_in)/SHF",
-          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "Δt": "温度上昇 (°C)", "SHF": "顕熱比" }
+          "formula": "Q_kW = G * (h_out - h_in)",
+          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 1.08 * q * Δt / SHF",
-          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "Δt": "温度上昇 (°F)", "SHF": "顕熱比" }
+          "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
+          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       }
     },
@@ -848,6 +910,52 @@ export const jaMessages = {
         "imperial": {
           "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
           "legend": { "D_gpm": "除湿率 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+        }
+      },
+      "bypassFactor": {
+        "title": "バイパスファクター",
+        "si": {
+          "formula": "BF = (t_out - t_adp) / (t_in - t_adp)",
+          "legend": { "BF": "バイパスファクター", "t_in": "入口温度 (°C)", "t_out": "出口温度 (°C)", "t_adp": "ADP温度 (°C)" }
+        },
+        "imperial": {
+          "formula": "BF = (t_out - t_adp) / (t_in - t_adp)",
+          "legend": { "BF": "バイパスファクター", "t_in": "入口温度 (°F)", "t_out": "出口温度 (°F)", "t_adp": "ADP温度 (°F)" }
+        }
+      },
+      "contactFactor": {
+        "title": "接触係数（効率）",
+        "si": { "formula": "CF = 1 - BF", "legend": { "CF": "接触係数", "BF": "バイパスファクター" } },
+        "imperial": { "formula": "CF = 1 - BF", "legend": { "CF": "接触係数", "BF": "バイパスファクター" } }
+      },
+      "apparatusDewPointTemp": {
+        "title": "装置露点温度 (ADP)",
+        "si": {
+          "formula": "t_adp = (t_out - t_in * BF) / (1 - BF)",
+          "legend": { "t_adp": "ADP温度 (°C)", "t_in": "入口温度 (°C)", "t_out": "出口温度 (°C)", "BF": "バイパスファクター" }
+        },
+        "imperial": {
+          "formula": "t_adp = (t_out - t_in * BF) / (1 - BF)",
+          "legend": { "t_adp": "ADP温度 (°F)", "t_in": "入口温度 (°F)", "t_out": "出口温度 (°F)", "BF": "バイパスファクター" }
+        }
+      },
+      "apparatusDewPointTempSensible": {
+        "title": "入口露点温度（顕熱冷却）",
+        "si": {
+          "formula": "除湿なし。表示値は入口空気の露点温度。ADPは適用外。",
+          "legend": {
+            "t_dp": "露点温度 (°C)",
+            "t_in": "入口温度 (°C)",
+            "rh_in": "入口RH (%)"
+          }
+        },
+        "imperial": {
+          "formula": "除湿なし。表示値は入口空気の露点温度。ADPは適用外。",
+          "legend": {
+            "t_dp": "露点温度 (°F)",
+            "t_in": "入口温度 (°F)",
+            "rh_in": "入口RH (%)"
+          }
         }
       }
     },
@@ -972,8 +1080,8 @@ export const jaMessages = {
       "tempRise": {
         "title": "温度上昇",
         "si": {
-          "formula": "Δt = Q_kW / (G * 1.02)",
-          "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "熱量 (kW)", "G": "質量流量 (kg/s)" }
+          "formula": "Δt = Q_kW / (G * Cpa_moist)",
+          "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気の比熱" }
         },
         "imperial": {
           "formula": "Δt = Q_BTUh / (1.08 * q)",

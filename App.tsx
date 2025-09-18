@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
     Equipment, UnitSystem, EquipmentType, AirProperties, 
@@ -35,15 +37,14 @@ const getInitialEquipment = (): Equipment[] => {
         const { type, inlet: specificInletConfig } = setup;
         const inletAir = specificInletConfig ? calculateAirProperties(specificInletConfig.temp, specificInletConfig.rh) : acc.lastOutlet;
         const inletIsLocked = !!specificInletConfig;
-        const defaultName = get(enMessages, `equipmentNames.${type}`) || type;
         let newEquipment: Equipment = {
-            id: index, type, name: defaultName, pressureLoss: 50, inletAir: { ...inletAir },
+            id: index, type, pressureLoss: 50, inletAir: { ...inletAir },
             outletAir: { ...inletAir }, conditions: {}, results: {}, color: EQUIPMENT_COLORS[type], inletIsLocked: inletIsLocked,
         };
         switch (type) {
             case EquipmentType.FILTER: (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 }; break;
             case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, newEquipment.inletAir.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9 }; break;
-            case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 100); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, heatExchangeEfficiency: 85 }; break;
+            case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 100); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5 }; break;
             case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(30, null, newEquipment.inletAir.absHumidity); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, heatExchangeEfficiency: 85 }; break;
             case EquipmentType.ELIMINATOR: (newEquipment.conditions as EliminatorConditions) = { eliminatorType: '3-fold' }; break;
             case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
@@ -97,6 +98,11 @@ const App: React.FC = () => {
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isTwoColumnLayout, setIsTwoColumnLayout] = useState(false);
+    const [collapsedStates, setCollapsedStates] = useState<Record<number, boolean>>({});
+
+    useEffect(() => {
+        setCollapsedStates({});
+    }, [activeProjectId]);
 
     const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
     
@@ -244,16 +250,15 @@ const App: React.FC = () => {
         const { equipmentList, acInletAir } = activeProject;
         const newId = equipmentList.reduce((maxId, eq) => Math.max(eq.id, maxId), -1) + 1;
         const defaultInlet = equipmentList.length > 0 ? (equipmentList[equipmentList.length - 1].outletAir) : { ...acInletAir };
-        const defaultName = get(enMessages, `equipmentNames.${type}`) || type;
         let newEquipment: Equipment = {
-            id: newId, type, name: defaultName, pressureLoss: 50, inletAir: defaultInlet, outletAir: { ...defaultInlet },
+            id: newId, type, pressureLoss: 50, inletAir: defaultInlet, outletAir: { ...defaultInlet },
             conditions: {}, results: {}, color: EQUIPMENT_COLORS[type], inletIsLocked: false,
         };
         // Set type-specific defaults
         switch (type) {
              case EquipmentType.FILTER: (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 }; break;
              case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, defaultInlet.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9 }; break;
-             case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, heatExchangeEfficiency: 85 }; break;
+             case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5 }; break;
              case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, heatExchangeEfficiency: 85 }; break;
              case EquipmentType.ELIMINATOR: (newEquipment.conditions as EliminatorConditions) = { eliminatorType: '3-fold' }; break;
              case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
@@ -307,10 +312,17 @@ const App: React.FC = () => {
     const deleteEquipment = (id: number) => {
         if (!activeProject) return;
         updateActiveProject({ equipmentList: activeProject.equipmentList.filter(eq => eq.id !== id) });
+        setCollapsedStates(prev => {
+            const newStates = { ...prev };
+            delete newStates[id];
+            return newStates;
+        });
     };
+
     const deleteAllEquipment = () => {
         if (!activeProject) return;
         updateActiveProject({ equipmentList: [] });
+        setCollapsedStates({});
     };
 
     const moveEquipment = (id: number, direction: 'up' | 'down') => {
@@ -428,6 +440,23 @@ const App: React.FC = () => {
         else { values = { 't': { value: activeProject.acOutletAir.temp, unit: '°C' }, 'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' } }; }
         return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
     }, [activeProject?.acOutletAir, acOutletCalculated.absHumidity, locale, unitSystem, t]);
+
+    const toggleCollapse = (id: number) => {
+        setCollapsedStates(prev => ({ ...prev, [id]: !(prev[id] ?? false) }));
+    };
+
+    const collapseAll = () => {
+        if (!activeProject) return;
+        const newStates = activeProject.equipmentList.reduce((acc, eq) => {
+            acc[eq.id] = true;
+            return acc;
+        }, {} as Record<number, boolean>);
+        setCollapsedStates(newStates);
+    };
+
+    const expandAll = () => {
+        setCollapsedStates({});
+    };
 
     const psychrometricChartSection = activeProject && (
         <div id="psychrometric-chart" className="p-4 bg-white rounded-lg shadow-md">
@@ -555,7 +584,11 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        {!isTwoColumnLayout && (<div className="space-y-6">{psychrometricChartSection}</div>)}
+                        
+                        <div className={`space-y-6 ${isTwoColumnLayout ? 'lg:hidden' : ''}`}>
+                            {psychrometricChartSection}
+                        </div>
+
                         <div>
                             <Summary
                                 equipmentList={activeProject.equipmentList}
@@ -566,19 +599,45 @@ const App: React.FC = () => {
                             />
                         </div>
                         <div id="add-equipment-section">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                                 <h2 className="text-xl font-semibold">{t('app.addEquipment')}</h2>
-                                {activeProject.equipmentList.length > 0 && (<button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700 transition-colors text-sm font-medium">{t('app.deleteAllEquipment')}</button>)}
+                                {activeProject.equipmentList.length > 0 && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <button onClick={expandAll} className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-md shadow-sm hover:bg-slate-300 transition-colors text-xs font-medium">{t('app.expandAll')}</button>
+                                        <button onClick={collapseAll} className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-md shadow-sm hover:bg-slate-300 transition-colors text-xs font-medium">{t('app.collapseAll')}</button>
+                                        <button onClick={deleteAllEquipment} className="px-3 py-1.5 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700 transition-colors text-xs font-medium">{t('app.deleteAllEquipment')}</button>
+                                    </div>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">{equipmentButtons}</div>
                         </div>
                         <div className="space-y-6">
                             {activeProject.equipmentList.map((eq, index) => (
-                                <EquipmentItem key={eq.id} equipment={eq} index={index} totalEquipment={activeProject.equipmentList.length} airflow={activeProject.airflow} onUpdate={updateEquipment} onDelete={deleteEquipment} onMove={moveEquipment} onReflectUpstream={reflectUpstreamConditions} onReflectDownstream={reflectDownstreamConditions} unitSystem={unitSystem} />
+                                <EquipmentItem 
+                                    key={eq.id} 
+                                    equipment={eq} 
+                                    index={index} 
+                                    totalEquipment={activeProject.equipmentList.length} 
+                                    airflow={activeProject.airflow} 
+                                    onUpdate={updateEquipment} 
+                                    onDelete={deleteEquipment} 
+                                    onMove={moveEquipment} 
+                                    onReflectUpstream={reflectUpstreamConditions} 
+                                    onReflectDownstream={reflectDownstreamConditions} 
+                                    unitSystem={unitSystem}
+                                    isCollapsed={collapsedStates[eq.id] ?? false}
+                                    onToggleCollapse={toggleCollapse}
+                                />
                             ))}
                         </div>
                     </div>
-                    {isTwoColumnLayout && (<div className="lg:col-span-2 space-y-6 hidden lg:block"><div className="sticky top-6 space-y-6">{psychrometricChartSection}</div></div>)}
+                    {isTwoColumnLayout && (
+                        <div className="lg:col-span-2 space-y-6 hidden lg:block">
+                            <div className="sticky top-6 space-y-6">
+                                {psychrometricChartSection}
+                            </div>
+                        </div>
+                    )}
                 </div>
                 )}
                 <footer className="mt-12 pt-6 border-t border-slate-200 text-slate-500 text-xs text-left">

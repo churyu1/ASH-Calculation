@@ -32,7 +32,7 @@ const DisplayValueWithUnit: React.FC<DisplayValueWithUnitProps> = ({ value, unit
     const mainDisplay = (
         <div className={`flex items-center justify-end ${compact ? 'gap-0.5' : 'gap-1'}`}>
             <span className={`${valueClassName} ${compact ? 'text-xs' : 'font-bold'}`}>{formatNumber(displayValue)}</span>
-            {displayUnit && <span className={`${compact ? 'text-[10px] w-auto' : 'text-sm w-24'} text-left pl-1`}>{displayUnit}</span>}
+            <span className={`${compact ? 'text-[10px] w-auto' : 'text-sm w-24'} text-left pl-1`}>{displayUnit}</span>
         </div>
     );
 
