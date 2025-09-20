@@ -1,7 +1,6 @@
 
 
-import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
-// FIX: Changed d3 import from namespace to named functions to fix module resolution errors.
+import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
 import { convertValue, getPrecisionForUnitType } from '../utils/conversions.ts';
@@ -18,14 +17,13 @@ interface PsychrometricChartProps {
     onUpdate: (id: number, updates: { inlet?: AirProperties, outlet?: AirProperties }) => void;
 }
 
-const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate }) => {
+export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const { t } = useLanguage();
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const snapTargetsRef = useRef<{ points: any[]; lines: any[] }>({ points: [], lines: [] });
     const dragInProgress = useRef(false);
-    const isDraggingLine = useRef(false);
 
     useLayoutEffect(() => {
         const updateSize = () => {
@@ -536,9 +534,8 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             const path: ChartPoint[] = [];
 
             const startPoint = handleType === 'inlet' ? equipment.outletAir : equipment.inletAir;
-            const endPoint = handleType === 'inlet' ? equipment.inletAir : equipment.outletAir;
             
-            if (startPoint.temp === null || startPoint.absHumidity === null || endPoint.temp === null || endPoint.absHumidity === null) return null;
+            if (startPoint.temp === null || startPoint.absHumidity === null) return null;
 
             switch (equipment.type) {
                 case EquipmentType.HEATING_COIL: {
@@ -634,6 +631,58 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             return path;
         };
 
+        const showPreview = (equipment: Equipment, handleType: 'inlet' | 'outlet' | 'line') => {
+            previewGroup.selectAll('*').remove();
+            const pathData = generatePreviewPath(equipment, handleType === 'line' ? 'outlet' : handleType);
+            if (pathData && pathData.length > 1) {
+                const color = EQUIPMENT_HEX_COLORS[equipment.type] || defaultColor;
+                const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+                previewGroup.append("path")
+                    .datum(pathData)
+                    .attr("fill", "none")
+                    .attr("stroke", color)
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "6,6")
+                    .style("opacity", 0.6)
+                    .style("pointer-events", "none")
+                    .attr("d", lineGenerator);
+            }
+        };
+
+        const hidePreview = () => {
+            previewGroup.selectAll('*').remove();
+        };
+
+        const showPointTooltip = (event: MouseEvent, equipment: Equipment, handleType: 'inlet' | 'outlet') => {
+            const airProps = handleType === 'inlet' ? equipment.inletAir : equipment.outletAir;
+            if (airProps && airProps.temp !== null && airProps.rh !== null) {
+                const temp = convertValue(airProps.temp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
+                const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
+                const pointTypeLabel = handleType === 'inlet' ? t('chart.inlet') : t('chart.outlet');
+        
+                const line1 = `${t(`equipmentNames.${equipment.type}`)} ${pointTypeLabel}:`;
+                const line2 = `${temp}${temperatureUnit}, ${rh}%`;
+                const label = `<div>${line1}</div><div>${line2}</div>`;
+                
+                const [x, y] = pointer(event, containerRef.current);
+                tooltip.style("visibility", "visible")
+                        .html(label)
+                        .style("top", `${y + 20}px`)
+                        .style("left", `${x + 20}px`)
+                        .style("transform", "translateX(0)");
+            }
+        };
+
+        const hideTooltip = () => {
+            tooltip.style("visibility", "hidden");
+        };
+
+        const moveTooltip = (event: MouseEvent) => {
+            const [x, y] = pointer(event, containerRef.current);
+            tooltip.style("top", `${y + 20}px`).style("left", `${x + 20}px`);
+        };
+
+
         airConditionsData.forEach(eq => {
             if (!eq.inletAir || !eq.outletAir || eq.inletAir.temp === null || eq.inletAir.absHumidity === null || eq.outletAir.temp === null || eq.outletAir.absHumidity === null) return;
             
@@ -656,47 +705,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             const outletDot = svg.append("circle").attr("class", `outlet-dot-${eq.id}`).attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 4).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
             const processLine = svg.append("line").attr("class", `process-line-${eq.id}`).attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
                .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id})`).style("transition", "stroke-width 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", lineDefaultOpacity);
-
-            const midX = (xScale(inletTempSI) + xScale(outletTempSI)) / 2;
-            const midY = (yScale(inletAbsHumiditySI) + yScale(outletAbsHumiditySI)) / 2;
-            
-            const visibleHandle = svg.append("rect")
-                .attr("class", `line-handle-${eq.id}`)
-                .attr("x", midX - 3)
-                .attr("y", midY - 3)
-                .attr("width", 6)
-                .attr("height", 6)
-                .attr("fill", color)
-                .attr("stroke", themeColors.pointStroke)
-                .attr("stroke-width", 1.5)
-                .style("pointer-events", "none")
-                .style("transition", "all 0.15s ease-in-out, opacity 0.15s ease-in-out")
-                .style("opacity", handleDefaultOpacity);
-
-            const lineTooltipHitbox = svg.append("line")
-                .attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI))
-                .attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-                .attr("stroke", "transparent")
-                .attr("stroke-width", 15)
-                .on("mouseover", function() {
-                    if (dragInProgress.current) return;
-                    processLine.attr("stroke-width", 4.5).style("opacity", hoverOpacity);
-                    markerPath.style("opacity", hoverOpacity);
-                    tooltip.style("visibility", "visible").text(t(`equipmentNames.${eq.type}`));
-                })
-                .on("mousemove", function(event) {
-                    if (dragInProgress.current) return;
-                    const [x, y] = pointer(event, containerRef.current);
-                    tooltip.style("top", `${y + 20}px`)
-                           .style("left", `${x + 20}px`)
-                           .style("transform", "translateX(0)");
-                })
-                .on("mouseout", function() {
-                    if (dragInProgress.current) return;
-                    processLine.attr("stroke-width", 2.5).style("opacity", lineDefaultOpacity);
-                    markerPath.style("opacity", lineDefaultOpacity);
-                    tooltip.style("visibility", "hidden");
-                });
             
             const getCoolingCoilOutletHumidity = (t_out: number, inlet: AirProperties, conditions: CoolingCoilConditions): number => {
                 const { temp: t_in, absHumidity: x_in } = inlet;
@@ -726,28 +734,19 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
             };
 
             const pointHandleRadius = 12;
-
-            const updateHandlePositions = (inletX: number, outletX: number, inletY: number, outletY: number) => {
-                const newMidX = (inletX + outletX) / 2;
-                const newMidY = (inletY + outletY) / 2;
-                const isHovered = visibleHandle.attr('data-hovered') === 'true';
-                const size = isHovered ? 12 : 6;
-                visibleHandle.attr("x", newMidX - size/2).attr("y", newMidY - size/2);
-                svg.select(`.line-drag-handle-${eq.id}`).attr("x", newMidX - 10).attr("y", newMidY - 10);
-            };
             
             const processDrag = drag<SVGElement, unknown>()
                 .on("start", function (event) {
                     dragInProgress.current = true;
-                    const dragMode = select(this).attr('data-drag-mode');
+                    const dragMode = select(this).attr('data-drag-mode') as 'inlet' | 'outlet' | 'line';
                     select(this).property('__drag_mode__', dragMode);
                     generateSnapTargets(eq.id);
                     showWaterTempIndicator(eq);
                     
-                    if (dragMode === 'line') {
-                        isDraggingLine.current = true;
-                        visibleHandle.style("transition", "none");
-                    }
+                    hideTooltip();
+                    previewGroup.selectAll('*').remove();
+                    
+                    showPreview(eq, dragMode);
 
                     if (dragMode === 'inlet') {
                         inletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
@@ -758,7 +757,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         markerPath.style("opacity", hoverOpacity);
                         inletDot.raise().style('opacity', hoverOpacity);
                         outletDot.raise().style('opacity', hoverOpacity);
-                        visibleHandle.raise().style('opacity', hoverOpacity);
                         
                         const x1 = xScale(inletTempSI), y1 = yScale(inletAbsHumiditySI);
                         const x2 = xScale(outletTempSI), y2 = yScale(outletAbsHumiditySI);
@@ -766,21 +764,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         select(this).property('__start_pointer__', { x: event.x, y: event.y });
                         select(this).property('__start_pos__', { inletX: x1, inletY: y1, outletX: x2, outletY: y2 });
                         
-                        previewGroup.selectAll('*').remove();
-                        const pathData = generatePreviewPath(eq, 'outlet');
-                        if (pathData && pathData.length > 1) {
-                            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
-                            previewGroup.append("path")
-                                .datum(pathData)
-                                .attr("fill", "none")
-                                .attr("stroke", color)
-                                .attr("stroke-width", 2)
-                                .attr("stroke-dasharray", "6,6")
-                                .style("opacity", 0.6)
-                                .style("pointer-events", "none")
-                                .attr("d", lineGenerator);
-                        }
-
                         if (eq.type === EquipmentType.BURNER) {
                             const delta_t = outletTempSI - inletTempSI;
                             const delta_x = outletAbsHumiditySI - inletAbsHumiditySI;
@@ -795,26 +778,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                                 effectiveShf = Math.abs(total_h) < 1e-9 ? 1.0 : sensible_h / total_h;
                             }
                                 select(this).property('__effective_shf__', effectiveShf);
-                        }
-                    }
-                    
-                    if (dragMode === 'inlet' || dragMode === 'outlet') {
-                        const airProps = dragMode === 'inlet' ? eq.inletAir : eq.outletAir;
-                        if (airProps && airProps.temp !== null && airProps.rh !== null) {
-                            const temp = convertValue(airProps.temp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
-                            const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
-                            const pointTypeLabel = dragMode === 'inlet' ? t('chart.inlet') : t('chart.outlet');
-                            
-                            const line1 = `${t(`equipmentNames.${eq.type}`)} ${pointTypeLabel}:`;
-                            const line2 = `${temp}${temperatureUnit}, ${rh}%`;
-                            const label = `<div>${line1}</div><div>${line2}</div>`;
-                            
-                            const [x, y] = pointer(event.sourceEvent, containerRef.current);
-                            tooltip.style("visibility", "visible")
-                                    .html(label)
-                                    .style("top", `${y + 20}px`)
-                                    .style("left", `${x + 20}px`)
-                                    .style("transform", "translateX(0)");
                         }
                     }
                 })
@@ -877,8 +840,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         outletDot.attr("cx", newOutletX).attr("cy", newOutletY);
                         processLine.attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
                         
-                        updateHandlePositions(newInletX, newOutletX, newInletY, newOutletY);
-                        lineTooltipHitbox.attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
+                        select(this).attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
 
                         previewGroup.selectAll('*').remove();
                         const tempEqForPreview: Equipment = {
@@ -909,7 +871,6 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         const fixedPointY = parseFloat(fixedDot.attr("cy"));
                         
                         let projectedMx: number, projectedMy: number;
-                        // FIX: Declared projectedTemp in a higher scope to make it accessible in all drag scenarios.
                         let projectedTemp: number;
 
                         if (eq.type === EquipmentType.COOLING_COIL && dragMode === 'outlet') {
@@ -1187,14 +1148,10 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         if (dragMode === 'outlet') {
                             outletDot.attr("cx", finalX).attr("cy", finalY);
                             processLine.attr("x2", finalX).attr("y2", finalY);
-                            updateHandlePositions(parseFloat(inletDot.attr("cx")), finalX, parseFloat(inletDot.attr("cy")), finalY);
-                            lineTooltipHitbox.attr("x2", finalX).attr("y2", finalY);
                             select(this).property('__latest_drag_pos__', { outlet: finalPos });
                         } else { // inlet
                             inletDot.attr("cx", finalX).attr("cy", finalY);
                             processLine.attr("x1", finalX).attr("y1", finalY);
-                            updateHandlePositions(finalX, parseFloat(outletDot.attr("cx")), finalY, parseFloat(outletDot.attr("cy")));
-                            lineTooltipHitbox.attr("x1", finalX).attr("y1", finalY);
                             select(this).property('__latest_drag_pos__', { inlet: finalPos });
                         }
                     }
@@ -1206,44 +1163,27 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                     const dragMode = select(this).property('__drag_mode__');
                     const finalPos = select(this).property('__latest_drag_pos__');
                     
-                    if (dragMode === 'line') {
-                        isDraggingLine.current = false;
-                        visibleHandle.style("transition", "all 0.15s ease-in-out, opacity 0.15s ease-in-out");
-                    }
-                    
                     previewGroup.selectAll('*').remove();
                     snapHighlight.style("display", "none");
                     svg.selectAll(".snap-line-highlight").remove();
                     snapTargetsRef.current = { points: [], lines: [] };
                     
                     if (finalPos) {
-                            if (dragMode === 'line') {
+                        if (dragMode === 'line') {
                             const finalInlet = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
                             const finalOutlet = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
                             onUpdate(eq.id, { inlet: finalInlet, outlet: finalOutlet });
                         } else if (dragMode === 'outlet') {
                             let finalOutletAir: AirProperties;
-                            if (eq.type === EquipmentType.SPRAY_WASHER && 
-                                eq.inletAir.enthalpy !== null && 
-                                eq.inletAir.temp !== null &&
-                                finalPos.outlet.temp !== null && 
-                                finalPos.outlet.absHumidity !== null) 
-                            {
-                                const draggedRh = calculateRelativeHumidity(finalPos.outlet.temp, finalPos.outlet.absHumidity);
+                            if (eq.type === EquipmentType.SPRAY_WASHER) {
                                 const inletEnthalpy = eq.inletAir.enthalpy;
-                                let outletTempGuess = eq.inletAir.temp;
-
-                                for (let i = 0; i < 20; i++) {
-                                    const outletAbsHumGuess = calculateAbsoluteHumidityFromEnthalpy(outletTempGuess, inletEnthalpy);
-                                    if (outletAbsHumGuess < 0) { outletTempGuess += 0.5; continue; }
-                                    const outletRhGuess = calculateRelativeHumidity(outletTempGuess, outletAbsHumGuess);
-                                    const error = draggedRh - outletRhGuess;
-                                    if (Math.abs(error) < 0.01) break;
-                                    outletTempGuess -= error * 0.1;
+                                const finalTemp = finalPos.outlet.temp;
+                                if (inletEnthalpy !== null && finalTemp !== null) {
+                                    const finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalTemp, inletEnthalpy);
+                                    finalOutletAir = calculateAirProperties(finalTemp, null, finalAbsHumidity);
+                                } else {
+                                    finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
                                 }
-                                const finalTemp = outletTempGuess;
-                                const finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalTemp, inletEnthalpy);
-                                finalOutletAir = calculateAirProperties(finalTemp, null, finalAbsHumidity);
                             } else {
                                 finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
                             }
@@ -1263,7 +1203,7 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         processLine.attr("stroke-width", 2.5).style("opacity", lineDefaultOpacity);
                         markerPath.style("opacity", lineDefaultOpacity);
                         inletDot.style('opacity', handleDefaultOpacity);
-                        visibleHandle.style('opacity', handleDefaultOpacity);
+                        outletDot.style('opacity', handleDefaultOpacity);
                     }
 
                     // Clear all temporary properties
@@ -1275,159 +1215,94 @@ const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsDa
                         .property('__effective_shf__', null);
                 });
             
-            // Line drag handle (invisible) is available for all draggable equipment, including Fan
-            svg.append("rect")
-                .attr("class", `line-drag-handle-${eq.id}`)
-                .attr("data-drag-mode", "line")
-                .attr("x", midX - 10)
-                .attr("y", midY - 10)
-                .attr("width", 20)
-                .attr("height", 20)
-                .attr("fill", "transparent")
+            // Add handles for inlet, outlet and line
+            const lineTooltipHitbox = svg.append("line")
+                .attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI))
+                .attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
+                .attr("stroke", "transparent")
+                .attr("stroke-width", 15)
                 .style("cursor", "move")
-                .on('mouseover', () => {
+                .attr("data-drag-mode", "line")
+                .on("mouseover", function() {
                     if (dragInProgress.current) return;
-                    const currentMidX = (parseFloat(processLine.attr("x1")) + parseFloat(processLine.attr("x2"))) / 2;
-                    const currentMidY = (parseFloat(processLine.attr("y1")) + parseFloat(processLine.attr("y2"))) / 2;
-                    visibleHandle.attr('width', 12).attr('height', 12)
-                                    .attr('x', currentMidX - 6).attr('y', currentMidY - 6)
-                                    .attr('data-hovered', 'true')
-                                    .style('opacity', hoverOpacity);
-                    
-                    previewGroup.selectAll('*').remove();
-                    const pathData = generatePreviewPath(eq, 'outlet');
-                    if (pathData && pathData.length > 1) {
-                        const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
-                        previewGroup.append("path")
-                            .datum(pathData)
-                            .attr("fill", "none")
-                            .attr("stroke", color)
-                            .attr("stroke-width", 2)
-                            .attr("stroke-dasharray", "6,6")
-                            .style("opacity", 0.6)
-                            .style("pointer-events", "none")
-                            .attr("d", lineGenerator);
-                    }
-                    showWaterTempIndicator(eq);
+                    processLine.attr("stroke-width", 4.5).style("opacity", hoverOpacity);
+                    markerPath.style("opacity", hoverOpacity);
+                    tooltip.style("visibility", "visible").text(t(`equipmentNames.${eq.type}`));
+                    showPreview(eq, 'line');
                 })
-                .on('mouseout', () => {
-                    if (dragInProgress.current) return;
-                    const currentMidX = (parseFloat(processLine.attr("x1")) + parseFloat(processLine.attr("x2"))) / 2;
-                    const currentMidY = (parseFloat(processLine.attr("y1")) + parseFloat(processLine.attr("y2"))) / 2;
-                    visibleHandle.attr('width', 6).attr('height', 6)
-                                    .attr('x', currentMidX - 3).attr('y', currentMidY - 3)
-                                    .attr('data-hovered', 'false')
-                                    .style('opacity', handleDefaultOpacity);
-                    previewGroup.selectAll('*').remove();
-                    hideWaterTempIndicator();
-                })
-                .call(processDrag);
-
-            const createPointHoverHandlers = (
-                pointType: 'inlet' | 'outlet',
-                dotSelection: Selection<SVGCircleElement, unknown, null, undefined>
-            ) => ({
-                mouseover: function(event: MouseEvent) {
-                    if (dragInProgress.current) return;
-                    dotSelection.attr('r', 7).style('opacity', hoverOpacity);
-            
-                    // Preview path is only for draggable points, so check type
-                    if (eq.type !== EquipmentType.FAN) {
-                        previewGroup.selectAll('*').remove();
-                        const pathData = generatePreviewPath(eq, pointType);
-                        if (pathData && pathData.length > 1) {
-                            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
-                            previewGroup.append("path")
-                                .datum(pathData)
-                                .attr("fill", "none")
-                                .attr("stroke", color)
-                                .attr("stroke-width", 2)
-                                .attr("stroke-dasharray", "6,6")
-                                .style("opacity", 0.6)
-                                .style("pointer-events", "none")
-                                .attr("d", lineGenerator);
-                        }
-                    }
-                    
-                    const airProps = pointType === 'inlet' ? eq.inletAir : eq.outletAir;
-                    if (airProps && airProps.temp !== null && airProps.rh !== null) {
-                        const temp = convertValue(airProps.temp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
-                        const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
-                        const line1 = `${t(`equipmentNames.${eq.type}`)} ${t(`chart.${pointType}`)}:`;
-                        const line2 = `${temp}${temperatureUnit}, ${rh}%`;
-                        const label = `<div>${line1}</div><div>${line2}</div>`;
-                        
-                        const [x, y] = pointer(event, containerRef.current);
-                        tooltip.style("visibility", "visible")
-                                .html(label)
-                                .style("top", `${y + 20}px`)
-                                .style("left", `${x + 20}px`)
-                                .style("transform", "translateX(0)");
-                    }
-                    
-                    showWaterTempIndicator(eq);
-                },
-                mousemove: function(event: MouseEvent) {
+                .on("mousemove", function(event) {
                     if (dragInProgress.current) return;
                     const [x, y] = pointer(event, containerRef.current);
                     tooltip.style("top", `${y + 20}px`)
-                            .style("left", `${x + 20}px`)
-                            .style("transform", "translateX(0)");
-                },
-                mouseout: function() {
+                           .style("left", `${x + 20}px`)
+                           .style("transform", "translateX(0)");
+                })
+                .on("mouseout", function() {
                     if (dragInProgress.current) return;
-                    dotSelection.attr('r', 4).style('opacity', handleDefaultOpacity);
+                    processLine.attr("stroke-width", 2.5).style("opacity", lineDefaultOpacity);
+                    markerPath.style("opacity", lineDefaultOpacity);
                     tooltip.style("visibility", "hidden");
-                    previewGroup.selectAll('*').remove();
-                    hideWaterTempIndicator();
-                }
-            });
+                    hidePreview();
+                })
+                .call(processDrag);
 
-            const inletHoverHandlers = createPointHoverHandlers('inlet', inletDot);
-            const outletHoverHandlers = createPointHoverHandlers('outlet', outletDot);
-
-            const inletHandle = svg.append("circle")
+            svg.append("circle")
                 .attr("class", `inlet-drag-handle-${eq.id}`)
-                .attr("data-drag-mode", "inlet")
                 .attr("cx", xScale(inletTempSI))
                 .attr("cy", yScale(inletAbsHumiditySI))
                 .attr("r", pointHandleRadius)
                 .attr("fill", "transparent")
-                .on('mouseover', inletHoverHandlers.mouseover)
-                .on('mousemove', inletHoverHandlers.mousemove)
-                .on('mouseout', inletHoverHandlers.mouseout);
-
-            const outletHandle = svg.append("circle")
+                .style("cursor", "move")
+                .attr("data-drag-mode", "inlet")
+                .on("mouseover", function(event) {
+                    if (dragInProgress.current) return;
+                    inletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
+                    showPointTooltip(event, eq, 'inlet');
+                    showPreview(eq, 'inlet');
+                })
+                .on("mousemove", function(event) {
+                    if (dragInProgress.current) return;
+                    moveTooltip(event);
+                })
+                .on("mouseout", function() {
+                    if (dragInProgress.current) return;
+                    inletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
+                    hideTooltip();
+                    hidePreview();
+                })
+                .call(processDrag);
+        
+            svg.append("circle")
                 .attr("class", `outlet-drag-handle-${eq.id}`)
-                .attr("data-drag-mode", "outlet")
                 .attr("cx", xScale(outletTempSI))
                 .attr("cy", yScale(outletAbsHumiditySI))
                 .attr("r", pointHandleRadius)
                 .attr("fill", "transparent")
-                .on('mouseover', outletHoverHandlers.mouseover)
-                .on('mousemove', outletHoverHandlers.mousemove)
-                .on('mouseout', outletHoverHandlers.mouseout);
-
-            if (eq.type !== EquipmentType.FAN) {
-                inletHandle.style("cursor", "pointer").call(processDrag);
-                outletHandle.style("cursor", "pointer").call(processDrag);
-            } else {
-                inletHandle.style("cursor", "crosshair");
-                outletHandle.style("cursor", "crosshair");
-            }
+                .style("cursor", "move")
+                .attr("data-drag-mode", "outlet")
+                .on("mouseover", function(event) {
+                    if (dragInProgress.current) return;
+                    outletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
+                    showPointTooltip(event, eq, 'outlet');
+                    showPreview(eq, 'outlet');
+                })
+                .on("mousemove", function(event) {
+                    if (dragInProgress.current) return;
+                    moveTooltip(event);
+                })
+                .on("mouseout", function() {
+                    if (dragInProgress.current) return;
+                    outletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
+                    hideTooltip();
+                    hidePreview();
+                })
+                .call(processDrag);
         });
-
-    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, width, height, t, isSplitViewActive, onUpdate, findAnalyticalIntersection]);
-
+    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, width, height, margin.left, margin.top, t]);
+    
     return (
-        <div
-            ref={containerRef}
-            className="w-full relative"
-            style={{ aspectRatio: '3 / 2', minHeight: '300px' }}
-        >
-            <svg ref={svgRef} style={{ position: 'absolute', top: 0, left: 0 }}></svg>
+        <div ref={containerRef} className="w-full h-[500px] relative">
+            <svg ref={svgRef}></svg>
         </div>
     );
 };
-
-export default PsychrometricChart;

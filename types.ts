@@ -10,11 +10,9 @@ export enum EquipmentType {
     BURNER = 'burner',
     COOLING_COIL = 'cooling_coil',
     HEATING_COIL = 'heating_coil',
-    ELIMINATOR = 'eliminator',
     SPRAY_WASHER = 'spray_washer',
     STEAM_HUMIDIFIER = 'steam_humidifier',
     FAN = 'fan',
-    DAMPER = 'damper',
     CUSTOM = 'custom',
 }
 
@@ -63,10 +61,6 @@ export interface HeatingCoilConditions extends BaseConditions {
     heatExchangeEfficiency?: number;
 }
 
-export interface EliminatorConditions extends BaseConditions {
-    eliminatorType?: string;
-}
-
 export interface SprayWasherConditions extends BaseConditions {
     waterToAirRatio?: number;
 }
@@ -79,17 +73,14 @@ export interface SteamHumidifierConditions extends BaseConditions {
 export interface FanConditions extends BaseConditions {
     motorOutput?: number;
     motorEfficiency?: number;
-}
-
-export interface DamperConditions extends BaseConditions {
-    width?: number;
-    height?: number;
-    lossCoefficientK?: number;
+    totalPressure?: number;
+    fanEfficiency?: number;
+    marginFactor?: number;
 }
 
 export interface CustomConditions extends BaseConditions {}
 
-export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | EliminatorConditions | SprayWasherConditions | SteamHumidifierConditions | FanConditions | DamperConditions | CustomConditions;
+export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | SprayWasherConditions | SteamHumidifierConditions | FanConditions | CustomConditions;
 
 // Specific result interfaces
 export interface FilterResults extends BaseResults {
@@ -117,10 +108,6 @@ export interface HeatingCoilResults extends BaseResults {
     hotWaterFlow_L_min?: number;
 }
 
-export interface EliminatorResults extends BaseResults {
-    pressureLoss?: number;
-}
-
 export interface SprayWasherResults extends BaseResults {
     humidification_L_min?: number;
     sprayAmount_L_min?: number;
@@ -137,18 +124,14 @@ export interface SteamHumidifierResults extends BaseResults {
 export interface FanResults extends BaseResults {
     heatGeneration_kW?: number;
     tempRise_deltaT_celsius?: number;
-}
-
-export interface DamperResults extends BaseResults {
-    airVelocity_m_s?: number;
-    pressureLoss_Pa?: number;
+    requiredMotorPower?: number;
 }
 
 export interface CustomResults extends BaseResults {
     pressureLoss?: number;
 }
 
-export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | EliminatorResults | SprayWasherResults | SteamHumidifierResults | FanResults | DamperResults | CustomResults;
+export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | SprayWasherResults | SteamHumidifierResults | FanResults | CustomResults;
 
 // Main Equipment interface
 export interface Equipment {

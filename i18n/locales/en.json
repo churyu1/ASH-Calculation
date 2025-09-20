@@ -1,4 +1,3 @@
-
 {
   "app": {
     "title": "HVAC Calculator",
@@ -34,17 +33,15 @@
     "allProjectsSummaryTitle": "All Projects Summary",
     "noProjects": "No projects exist. Click the '+' button in the tab bar to add a new one.",
     "disclaimerTitle": "Disclaimer",
-    "disclaimerContent": [
-      "All calculation results and information provided by this application are for reference purposes only, and their completeness, accuracy, and usefulness are not guaranteed.",
-      "Users shall use this application at their own discretion and risk. Before applying the results obtained from this application to actual design, construction, or other professional work, please ensure they are verified by a qualified expert.",
-      "The developer assumes no responsibility for any damages (including but not limited to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.",
-      "This disclaimer is subject to change without notice."
-    ]
+    "disclaimerContent": "All calculation results and information provided by this application are for reference purposes only, and their completeness, accuracy, and usefulness are not guaranteed.\nUsers shall use this application at their own discretion and risk. Before applying the results obtained from this application to actual design, construction, or other professional work, please ensure they are verified by a qualified expert.\nThe developer assumes no responsibility for any damages (including but not to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.\nThis disclaimer is subject to change without notice.",
+    "select": "Select...",
+    "selectEquipment": "Select an equipment tab to see details."
   },
   "equipment": {
     "pressureLoss": "Pressure Loss",
     "inletAir": "Inlet Air",
     "outletAir": "Outlet Air",
+    "airConditions": "Air Conditions",
     "up": "Up",
     "down": "Down",
     "copyACInlet": "Copy temp/humidity from AC inlet",
@@ -54,6 +51,8 @@
     "delete": "Delete",
     "conditions": "Conditions",
     "results": "Calculation Results",
+    "noResults": "No calculated results.",
+    "referenceCalculation": "Reference Calculation",
     "inletLockedTooltip": "Inlet conditions are locked and will not update automatically from upstream. Edit values directly or click the sync button to unlock and follow upstream.",
     "inletUnlockedTooltip": "Inlet conditions are unlocked and will automatically update from upstream. Edit any value to lock it.",
     "warnings": {
@@ -68,11 +67,9 @@
     "burner": "Burner",
     "cooling_coil": "Chilled Water Coil",
     "heating_coil": "Hot Water Coil",
-    "eliminator": "Eliminator",
     "spray_washer": "Spray Washer",
     "steam_humidifier": "Steam Humidifier",
     "fan": "Fan",
-    "damper": "Damper",
     "custom": "Custom Equipment"
   },
   "conditions": {
@@ -86,15 +83,14 @@
     "heatExchangeEfficiency": "Heat Exchange Efficiency",
     "hotWaterInletTemp": "Hot Water Inlet Temp",
     "hotWaterOutletTemp": "Hot Water Outlet Temp",
-    "eliminatorType": "Eliminator Type",
-    "eliminator_3_fold": "3-Fold",
-    "eliminator_6_fold": "6-Fold",
     "humidificationEfficiency": "Humidification Efficiency",
     "waterToAirRatio": "Water-to-Air Ratio (L/G)",
     "steamGaugePressure": "Steam Gauge Pressure",
     "motorOutput": "Motor Output",
     "motorEfficiency": "Motor Efficiency",
-    "lossCoefficientK": "Loss Coefficient (K)"
+    "totalPressure": "Total Pressure",
+    "fanEfficiency": "Fan Efficiency",
+    "marginFactor": "Margin Factor"
   },
   "results": {
     "faceVelocity": "Face Velocity",
@@ -114,11 +110,10 @@
     "steamEnthalpy": "Steam Enthalpy",
     "heatGeneration": "Heat Generation",
     "tempRise_deltaT_celsius": "Temp Rise ⊿T",
-    "airVelocity_m_s": "Air Velocity",
-    "pressureLoss_Pa": "Pressure Loss",
     "bypassFactor": "Bypass Factor",
     "contactFactor": "Contact Factor (Efficiency)",
-    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)"
+    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)",
+    "requiredMotorPower": "Required Motor Power (Ref.)"
   },
   "airProperties": {
     "temperature": "Temperature",
@@ -157,6 +152,12 @@
     "acOutlet": "AC Outlet",
     "inlet": "Inlet",
     "outlet": "Outlet"
+  },
+  "adjacency": {
+    "upstreamLabel": "Upstream Equipment",
+    "downstreamLabel": "Downstream Equipment",
+    "inletAirLabel": "Inlet Air",
+    "outletAirLabel": "Outlet Air"
   },
   "summary": {
     "table": {
@@ -451,7 +452,7 @@
       "outletTemp": {
         "title": "Outlet Temperature (from RH)",
         "si": {
-          "formula": "Calculated to satisfy h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam",
+          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam",
           "legend": {
             "t_out": "Outlet Temp (°C)", "h_in": "Inlet Enthalpy (kJ/kg)", "x_in": "Inlet Abs. Hum. (g/kg)",
             "h_steam": "Steam Enthalpy (kJ/kg)", "RH_out": "Target Outlet RH (%)"
@@ -531,6 +532,37 @@
         "imperial": {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
+        }
+      },
+      "requiredMotorPower": {
+        "title": "Required Motor Power Calculation",
+        "si": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "Required Power (kW)",
+            "P_shaft": "Motor Shaft Power (kW)",
+            "Q": "Airflow (m³/min)",
+            "Pt": "Total Pressure (Pa)",
+            "ηt": "Fan Efficiency (%)",
+            "α": "Margin Factor (%)"
+          }
+        },
+        "imperial": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "Required Power (HP)",
+            "P_shaft": "Motor Shaft Power (HP)",
+            "Q": "Airflow (CFM)",
+            "Pt": "Total Pressure (in.w.g.)",
+            "ηt": "Fan Efficiency (%)",
+            "α": "Margin Factor (%)"
+          }
         }
       }
     },

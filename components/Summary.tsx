@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, EliminatorConditions, SprayWasherResults, FanConditions, FanResults, DamperResults, AirProperties } from '../types';
+import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, SprayWasherResults, FanConditions, FanResults, AirProperties } from '../types';
 import { useLanguage } from '../i18n/index.ts';
 import DisplayValueWithUnit from './DisplayValueWithUnit.tsx';
 import { convertValue, getPrecisionForUnitType, formatNumber } from '../utils/conversions.ts';
@@ -183,18 +183,6 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                         }
                                         break;
                                     }
-                                    case EquipmentType.ELIMINATOR: {
-                                        const elimCond = conditions as EliminatorConditions;
-                                        if (elimCond.eliminatorType) {
-                                            resultsParts.push(
-                                                <div key="type" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
-                                                    <span className="text-slate-600">{t('conditions.eliminatorType')}:</span>
-                                                    <span className="text-xs">{t(`conditions.eliminator_${elimCond.eliminatorType.replace('-', '_')}`)}</span>
-                                                </div>
-                                            );
-                                        }
-                                        break;
-                                    }
                                     case EquipmentType.SPRAY_WASHER: {
                                         const sprayRes = results as SprayWasherResults;
                                         if (sprayRes.humidification_L_min != null) {
@@ -288,19 +276,6 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                         }
                                         break;
                                     }
-                                    case EquipmentType.DAMPER: {
-                                        const damperRes = results as DamperResults;
-                                        if (damperRes.airVelocity_m_s != null) {
-                                            resultsParts.push(
-                                                <div key="velocity" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
-                                                    <span className="text-slate-600">{t('results.airVelocity_m_s')}:</span>
-                                                    {/* FIX: Added missing unitSystem prop to DisplayValueWithUnit. */}
-                                                    <DisplayValueWithUnit compact value={damperRes.airVelocity_m_s} unitType="velocity" unitSystem={unitSystem} />
-                                                </div>
-                                            );
-                                        }
-                                        break;
-                                    }
                                 }
 
                                 return (
@@ -319,7 +294,9 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-right border-l border-slate-200">
-                                            <DisplayValueWithUnit compact value={eq.pressureLoss} unitType="pressure" unitSystem={unitSystem} />
+                                            {eq.type !== EquipmentType.FAN ? (
+                                                <DisplayValueWithUnit compact value={eq.pressureLoss} unitType="pressure" unitSystem={unitSystem} />
+                                            ) : '-'}
                                         </td>
                                     </tr>
                                 );
@@ -357,5 +334,4 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
     );
 };
 
-// FIX: Added default export to resolve module import errors.
 export default Summary;

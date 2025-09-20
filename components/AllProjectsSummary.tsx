@@ -1,5 +1,5 @@
 import React from 'react';
-import { Project, UnitSystem } from '../types';
+import { Project, UnitSystem, EquipmentType } from '../types';
 import Summary from './Summary.tsx';
 import { useLanguage } from '../i18n/index.ts';
 
@@ -30,7 +30,7 @@ const AllProjectsSummary: React.FC<AllProjectsSummaryProps> = ({ projects, unitS
                     <h3 className="text-xl font-semibold mb-4 text-slate-700">{project.name}</h3>
                     <Summary
                         equipmentList={project.equipmentList}
-                        totalPressureLoss={project.equipmentList.reduce((sum, eq) => sum + (eq.pressureLoss || 0), 0)}
+                        totalPressureLoss={project.equipmentList.reduce((sum, eq) => eq.type !== EquipmentType.FAN ? sum + (eq.pressureLoss || 0) : sum, 0)}
                         unitSystem={unitSystem}
                         acInletAir={project.acInletAir}
                         acOutletAir={project.acOutletAir}

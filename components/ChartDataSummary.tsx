@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Equipment, UnitSystem, AirProperties } from '../types';
 import { useLanguage } from '../i18n/index.ts';
@@ -58,6 +57,11 @@ const ChartDataSummary: React.FC<ChartDataSummaryProps> = ({ equipmentList, glob
                             <td className="py-1.5 px-1 text-right font-mono border-l border-slate-300">-</td>
                             <td className="py-1.5 pl-1 text-right font-mono">-</td>
                         </tr>
+                        {equipmentList.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="text-center text-slate-500 py-2">{t('app.noEquipmentAdded')}</td>
+                          </tr>
+                        )}
                         {equipmentList.map(eq => (
                             <tr key={eq.id} className="border-b border-slate-200 last:border-b-0">
                                 <td className="py-1.5 pr-2 flex items-center gap-2">
@@ -82,11 +86,6 @@ const ChartDataSummary: React.FC<ChartDataSummaryProps> = ({ equipmentList, glob
                         </tr>
                     </tbody>
                 </table>
-                {equipmentList.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="text-center text-slate-500 py-2">{t('app.noEquipmentAdded')}</td>
-                  </tr>
-                )}
             </div>
         </div>
     );

@@ -1,4 +1,3 @@
-
 {
   "app": {
     "title": "空調器計算機",
@@ -34,17 +33,15 @@
     "allProjectsSummaryTitle": "全プロジェクト概要",
     "noProjects": "プロジェクトが存在しません。タブバーの「+」ボタンをクリックして新しいプロジェクトを追加してください。",
     "disclaimerTitle": "免責事項",
-    "disclaimerContent": [
-      "本アプリケーションが提供するすべての計算結果および情報は参考目的であり、その完全性、正確性、有用性を保証するものではありません。",
-      "ユーザーは自己の判断と責任において本アプリケーションを使用するものとします。本アプリケーションから得られた結果を実際の設計、施工、その他の専門的な業務に適用する前に、必ず資格のある専門家による検証を行ってください。",
-      "開発者は、本アプリケーションの使用に起因してユーザーまたは第三者に生じたいかなる損害（データの損失、業務の中断、逸失利益を含むがこれらに限定されない）についても、一切の責任を負いません。",
-      "この免責事項は予告なく変更されることがあります。"
-    ]
+    "disclaimerContent": "本アプリケーションが提供するすべての計算結果および情報は参考目的であり、その完全性、正確性、有用性を保証するものではありません。\nユーザーは自己の判断と責任において本アプリケーションを使用するものとします。本アプリケーションから得られた結果を実際の設計、施工、その他の専門的な業務に適用する前に、必ず資格のある専門家による検証を行ってください。\n開発者は、本アプリケーションの使用に起因してユーザーまたは第三者に生じたいかなる損害（データの損失、業務の中断、逸失利益を含むがこれらに限定されない）についても、一切の責任を負いません。\nこの免責事項は予告なく変更されることがあります。",
+    "select": "選択...",
+    "selectEquipment": "機器タブを選択して詳細を表示します。"
   },
   "equipment": {
     "pressureLoss": "圧力損失",
     "inletAir": "入口空気",
     "outletAir": "出口空気",
+    "airConditions": "空気状態",
     "up": "上へ",
     "down": "下へ",
     "copyACInlet": "空調器入口の温湿度をコピー",
@@ -54,6 +51,8 @@
     "delete": "削除",
     "conditions": "条件",
     "results": "計算結果",
+    "noResults": "計算結果はありません。",
+    "referenceCalculation": "参考計算",
     "inletLockedTooltip": "入口条件はロックされており、上流から自動更新されません。値を直接編集するか、同期ボタンをクリックしてロックを解除し、上流に追従させます。",
     "inletUnlockedTooltip": "入口条件はロック解除されており、上流から自動更新されます。値を編集するとロックされます。",
     "warnings": {
@@ -68,11 +67,9 @@
     "burner": "バーナー",
     "cooling_coil": "冷水コイル",
     "heating_coil": "温水コイル",
-    "eliminator": "エリミネーター",
     "spray_washer": "スプレーワッシャー",
     "steam_humidifier": "蒸気加湿器",
     "fan": "ファン",
-    "damper": "ダンパー",
     "custom": "カスタム機器"
   },
   "conditions": {
@@ -86,15 +83,14 @@
     "heatExchangeEfficiency": "熱交換効率",
     "hotWaterInletTemp": "温水入口温度",
     "hotWaterOutletTemp": "温水出口温度",
-    "eliminatorType": "エリミネータータイプ",
-    "eliminator_3_fold": "3回折",
-    "eliminator_6_fold": "6回折",
     "humidificationEfficiency": "加湿効率",
     "waterToAirRatio": "水空気比 (L/G)",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
     "motorEfficiency": "モーター効率",
-    "lossCoefficientK": "損失係数 (K)"
+    "totalPressure": "全圧",
+    "fanEfficiency": "送風機効率",
+    "marginFactor": "余裕率"
   },
   "results": {
     "faceVelocity": "面速",
@@ -114,11 +110,10 @@
     "steamEnthalpy": "蒸気エンタルピー",
     "heatGeneration": "発熱量",
     "tempRise_deltaT_celsius": "温度上昇 ⊿T",
-    "airVelocity_m_s": "風速",
-    "pressureLoss_Pa": "圧力損失",
     "bypassFactor": "バイパスファクター",
     "contactFactor": "接触係数（効率）",
-    "apparatusDewPointTemp": "装置露点温度(ADP)"
+    "apparatusDewPointTemp": "装置露点温度(ADP)",
+    "requiredMotorPower": "モーター所要出力(参考)"
   },
   "airProperties": {
     "temperature": "温度",
@@ -157,6 +152,12 @@
     "acOutlet": "空調器出口",
     "inlet": "入口",
     "outlet": "出口"
+  },
+  "adjacency": {
+    "upstreamLabel": "上流機器",
+    "downstreamLabel": "下流機器",
+    "inletAirLabel": "入口空気",
+    "outletAirLabel": "出口空気"
   },
   "summary": {
     "table": {
@@ -531,6 +532,37 @@
         "imperial": {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "出口温度 (°F)", "t_in": "入口温度 (°F)", "Δt": "温度上昇 (°F)" }
+        }
+      },
+      "requiredMotorPower": {
+        "title": "モーター所要出力の計算",
+        "si": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "モーター所要出力 (kW)",
+            "P_shaft": "モーター軸動力 (kW)",
+            "Q": "風量 (m³/min)",
+            "Pt": "全圧 (Pa)",
+            "ηt": "送風機効率 (%)",
+            "α": "余裕率 (%)"
+          }
+        },
+        "imperial": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "所要出力 (HP)",
+            "P_shaft": "モーター軸動力 (HP)",
+            "Q": "風量 (CFM)",
+            "Pt": "全圧 (in.w.g.)",
+            "ηt": "送風機効率 (%)",
+            "α": "余裕率 (%)"
+          }
         }
       }
     },

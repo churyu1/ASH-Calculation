@@ -1,8 +1,7 @@
-// FIX: Implemented and exported LanguageProvider, useLanguage, and get to fix module resolution errors.
-import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
-// Embed JSON content directly to avoid module resolution errors in browser-native ESM.
-export const enMessages = {
+// The JSON files are embedded directly to ensure compatibility with browser-native ESM.
+const enMessages = {
   "app": {
     "title": "HVAC Calculator",
     "description": "This is a psychrometric calculation application for air conditioners. You can freely combine equipment such as filters, coils, and fans to simulate changes in air conditions. The results are also displayed on a psychrometric chart, allowing for visual analysis.",
@@ -37,17 +36,15 @@ export const enMessages = {
     "allProjectsSummaryTitle": "All Projects Summary",
     "noProjects": "No projects exist. Click the '+' button in the tab bar to add a new one.",
     "disclaimerTitle": "Disclaimer",
-    "disclaimerContent": [
-      "All calculation results and information provided by this application are for reference purposes only, and their completeness, accuracy, and usefulness are not guaranteed.",
-      "Users shall use this application at their own discretion and risk. Before applying the results obtained from this application to actual design, construction, or other professional work, please ensure they are verified by a qualified expert.",
-      "The developer assumes no responsibility for any damages (including but not to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.",
-      "This disclaimer is subject to change without notice."
-    ]
+    "disclaimerContent": "All calculation results and information provided by this application are for reference purposes only, and their completeness, accuracy, and usefulness are not guaranteed.\nUsers shall use this application at their own discretion and risk. Before applying the results obtained from this application to actual design, construction, or other professional work, please ensure they are verified by a qualified expert.\nThe developer assumes no responsibility for any damages (including but not to data loss, business interruption, or loss of profits) incurred by the user or any third party arising from the use of this application.\nThis disclaimer is subject to change without notice.",
+    "select": "Select...",
+    "selectEquipment": "Select an equipment tab to see details."
   },
   "equipment": {
     "pressureLoss": "Pressure Loss",
     "inletAir": "Inlet Air",
     "outletAir": "Outlet Air",
+    "airConditions": "Air Conditions",
     "up": "Up",
     "down": "Down",
     "copyACInlet": "Copy temp/humidity from AC inlet",
@@ -57,6 +54,8 @@ export const enMessages = {
     "delete": "Delete",
     "conditions": "Conditions",
     "results": "Calculation Results",
+    "noResults": "No calculated results.",
+    "referenceCalculation": "Reference Calculation",
     "inletLockedTooltip": "Inlet conditions are locked and will not update automatically from upstream. Edit values directly or click the sync button to unlock and follow upstream.",
     "inletUnlockedTooltip": "Inlet conditions are unlocked and will automatically update from upstream. Edit any value to lock it.",
     "warnings": {
@@ -71,11 +70,9 @@ export const enMessages = {
     "burner": "Burner",
     "cooling_coil": "Chilled Water Coil",
     "heating_coil": "Hot Water Coil",
-    "eliminator": "Eliminator",
     "spray_washer": "Spray Washer",
     "steam_humidifier": "Steam Humidifier",
     "fan": "Fan",
-    "damper": "Damper",
     "custom": "Custom Equipment"
   },
   "conditions": {
@@ -89,15 +86,14 @@ export const enMessages = {
     "heatExchangeEfficiency": "Heat Exchange Efficiency",
     "hotWaterInletTemp": "Hot Water Inlet Temp",
     "hotWaterOutletTemp": "Hot Water Outlet Temp",
-    "eliminatorType": "Eliminator Type",
-    "eliminator_3_fold": "3-Fold",
-    "eliminator_6_fold": "6-Fold",
     "humidificationEfficiency": "Humidification Efficiency",
     "waterToAirRatio": "Water-to-Air Ratio (L/G)",
     "steamGaugePressure": "Steam Gauge Pressure",
     "motorOutput": "Motor Output",
     "motorEfficiency": "Motor Efficiency",
-    "lossCoefficientK": "Loss Coefficient (K)"
+    "totalPressure": "Total Pressure",
+    "fanEfficiency": "Fan Efficiency",
+    "marginFactor": "Margin Factor"
   },
   "results": {
     "faceVelocity": "Face Velocity",
@@ -117,11 +113,10 @@ export const enMessages = {
     "steamEnthalpy": "Steam Enthalpy",
     "heatGeneration": "Heat Generation",
     "tempRise_deltaT_celsius": "Temp Rise ⊿T",
-    "airVelocity_m_s": "Air Velocity",
-    "pressureLoss_Pa": "Pressure Loss",
     "bypassFactor": "Bypass Factor",
     "contactFactor": "Contact Factor (Efficiency)",
-    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)"
+    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)",
+    "requiredMotorPower": "Required Motor Power (Ref.)"
   },
   "airProperties": {
     "temperature": "Temperature",
@@ -160,6 +155,12 @@ export const enMessages = {
     "acOutlet": "AC Outlet",
     "inlet": "Inlet",
     "outlet": "Outlet"
+  },
+  "adjacency": {
+    "upstreamLabel": "Upstream Equipment",
+    "downstreamLabel": "Downstream Equipment",
+    "inletAirLabel": "Inlet Air",
+    "outletAirLabel": "Outlet Air"
   },
   "summary": {
     "table": {
@@ -454,7 +455,7 @@ export const enMessages = {
       "outletTemp": {
         "title": "Outlet Temperature (from RH)",
         "si": {
-          "formula": "Calculated to satisfy h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam",
+          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam",
           "legend": {
             "t_out": "Outlet Temp (°C)", "h_in": "Inlet Enthalpy (kJ/kg)", "x_in": "Inlet Abs. Hum. (g/kg)",
             "h_steam": "Steam Enthalpy (kJ/kg)", "RH_out": "Target Outlet RH (%)"
@@ -535,6 +536,37 @@ export const enMessages = {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
         }
+      },
+      "requiredMotorPower": {
+        "title": "Required Motor Power Calculation",
+        "si": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "Required Power (kW)",
+            "P_shaft": "Motor Shaft Power (kW)",
+            "Q": "Airflow (m³/min)",
+            "Pt": "Total Pressure (Pa)",
+            "ηt": "Fan Efficiency (%)",
+            "α": "Margin Factor (%)"
+          }
+        },
+        "imperial": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "Required Power (HP)",
+            "P_shaft": "Motor Shaft Power (HP)",
+            "Q": "Airflow (CFM)",
+            "Pt": "Total Pressure (in.w.g.)",
+            "ηt": "Fan Efficiency (%)",
+            "α": "Margin Factor (%)"
+          }
+        }
       }
     },
     "damper": {
@@ -563,9 +595,7 @@ export const enMessages = {
     }
   }
 };
-
-// FIX: Added missing 'jaMessages' object with Japanese translations.
-export const jaMessages = {
+const jaMessages = {
   "app": {
     "title": "空調器計算機",
     "description": "これは空調器の湿り空気線図計算アプリケーションです。フィルター、コイル、ファンなどの機器を自由に組み合わせて、空気の状態変化をシミュレーションできます。結果は湿り空気線図にも表示され、視覚的な分析が可能です。",
@@ -600,17 +630,15 @@ export const jaMessages = {
     "allProjectsSummaryTitle": "全プロジェクト概要",
     "noProjects": "プロジェクトが存在しません。タブバーの「+」ボタンをクリックして新しいプロジェクトを追加してください。",
     "disclaimerTitle": "免責事項",
-    "disclaimerContent": [
-      "本アプリケーションが提供するすべての計算結果および情報は参考目的であり、その完全性、正確性、有用性を保証するものではありません。",
-      "ユーザーは自己の判断と責任において本アプリケーションを使用するものとします。本アプリケーションから得られた結果を実際の設計、施工、その他の専門的な業務に適用する前に、必ず資格のある専門家による検証を行ってください。",
-      "開発者は、本アプリケーションの使用に起因してユーザーまたは第三者に生じたいかなる損害（データの損失、業務の中断、逸失利益を含むがこれらに限定されない）についても、一切の責任を負いません。",
-      "この免責事項は予告なく変更されることがあります。"
-    ]
+    "disclaimerContent": "本アプリケーションが提供するすべての計算結果および情報は参考目的であり、その完全性、正確性、有用性を保証するものではありません。\nユーザーは自己の判断と責任において本アプリケーションを使用するものとします。本アプリケーションから得られた結果を実際の設計、施工、その他の専門的な業務に適用する前に、必ず資格のある専門家による検証を行ってください。\n開発者は、本アプリケーションの使用に起因してユーザーまたは第三者に生じたいかなる損害（データの損失、業務の中断、逸失利益を含むがこれらに限定されない）についても、一切の責任を負いません。\nこの免責事項は予告なく変更されることがあります。",
+    "select": "選択...",
+    "selectEquipment": "機器タブを選択して詳細を表示します。"
   },
   "equipment": {
     "pressureLoss": "圧力損失",
     "inletAir": "入口空気",
     "outletAir": "出口空気",
+    "airConditions": "空気状態",
     "up": "上へ",
     "down": "下へ",
     "copyACInlet": "空調器入口の温湿度をコピー",
@@ -620,6 +648,8 @@ export const jaMessages = {
     "delete": "削除",
     "conditions": "条件",
     "results": "計算結果",
+    "noResults": "計算結果はありません。",
+    "referenceCalculation": "参考計算",
     "inletLockedTooltip": "入口条件はロックされており、上流から自動更新されません。値を直接編集するか、同期ボタンをクリックしてロックを解除し、上流に追従させます。",
     "inletUnlockedTooltip": "入口条件はロック解除されており、上流から自動更新されます。値を編集するとロックされます。",
     "warnings": {
@@ -634,11 +664,9 @@ export const jaMessages = {
     "burner": "バーナー",
     "cooling_coil": "冷水コイル",
     "heating_coil": "温水コイル",
-    "eliminator": "エリミネーター",
     "spray_washer": "スプレーワッシャー",
     "steam_humidifier": "蒸気加湿器",
     "fan": "ファン",
-    "damper": "ダンパー",
     "custom": "カスタム機器"
   },
   "conditions": {
@@ -652,15 +680,14 @@ export const jaMessages = {
     "heatExchangeEfficiency": "熱交換効率",
     "hotWaterInletTemp": "温水入口温度",
     "hotWaterOutletTemp": "温水出口温度",
-    "eliminatorType": "エリミネータータイプ",
-    "eliminator_3_fold": "3回折",
-    "eliminator_6_fold": "6回折",
     "humidificationEfficiency": "加湿効率",
     "waterToAirRatio": "水空気比 (L/G)",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
     "motorEfficiency": "モーター効率",
-    "lossCoefficientK": "損失係数 (K)"
+    "totalPressure": "全圧",
+    "fanEfficiency": "送風機効率",
+    "marginFactor": "余裕率"
   },
   "results": {
     "faceVelocity": "面速",
@@ -680,11 +707,10 @@ export const jaMessages = {
     "steamEnthalpy": "蒸気エンタルピー",
     "heatGeneration": "発熱量",
     "tempRise_deltaT_celsius": "温度上昇 ⊿T",
-    "airVelocity_m_s": "風速",
-    "pressureLoss_Pa": "圧力損失",
     "bypassFactor": "バイパスファクター",
     "contactFactor": "接触係数（効率）",
-    "apparatusDewPointTemp": "装置露点温度(ADP)"
+    "apparatusDewPointTemp": "装置露点温度(ADP)",
+    "requiredMotorPower": "モーター所要出力(参考)"
   },
   "airProperties": {
     "temperature": "温度",
@@ -723,6 +749,12 @@ export const jaMessages = {
     "acOutlet": "空調器出口",
     "inlet": "入口",
     "outlet": "出口"
+  },
+  "adjacency": {
+    "upstreamLabel": "上流機器",
+    "downstreamLabel": "下流機器",
+    "inletAirLabel": "入口空気",
+    "outletAirLabel": "出口空気"
   },
   "summary": {
     "table": {
@@ -1098,6 +1130,37 @@ export const jaMessages = {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "出口温度 (°F)", "t_in": "入口温度 (°F)", "Δt": "温度上昇 (°F)" }
         }
+      },
+      "requiredMotorPower": {
+        "title": "モーター所要出力の計算",
+        "si": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "モーター所要出力 (kW)",
+            "P_shaft": "モーター軸動力 (kW)",
+            "Q": "風量 (m³/min)",
+            "Pt": "全圧 (Pa)",
+            "ηt": "送風機効率 (%)",
+            "α": "余裕率 (%)"
+          }
+        },
+        "imperial": {
+          "formula": [
+            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
+            "P_req = P_shaft × (α/100)"
+          ],
+          "legend": {
+            "P_req": "所要出力 (HP)",
+            "P_shaft": "モーター軸動力 (HP)",
+            "Q": "風量 (CFM)",
+            "Pt": "全圧 (in.w.g.)",
+            "ηt": "送風機効率 (%)",
+            "α": "余裕率 (%)"
+          }
+        }
       }
     },
     "damper": {
@@ -1127,48 +1190,58 @@ export const jaMessages = {
   }
 };
 
-const translations: Record<string, any> = {
-    en: enMessages,
-    ja: jaMessages,
-};
-
-export function get(obj: any, path: string): any {
-    const keys = path.split('.');
-    let result = obj;
-    for (const key of keys) {
-        if (result === undefined || result === null) {
-            return undefined;
-        }
-        result = result[key];
-    }
-    return result;
-}
-
-interface LanguageContextType {
+type LanguageContextType = {
     locale: string;
     setLocale: (locale: string) => void;
-    // FIX: Changed return type of t to any to support objects and arrays in translations.
-    t: (key: string) => any;
-}
+    t: (key: string) => string;
+};
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-    const [locale, setLocale] = useState('ja');
-
-    const t = useCallback((key: string): any => {
-        const message = get(translations[locale], key);
-        // FIX: Handle cases where translation is not found, or is a falsy value like an empty string.
-        return (message !== undefined && message !== null) ? message : key;
-    }, [locale]);
-
-    const value = useMemo(() => ({ locale, setLocale, t }), [locale, t]);
-
-    // FIX: Rewrote JSX to React.createElement to resolve parsing errors in .ts file.
-    return React.createElement(LanguageContext.Provider, { value }, children);
+const getNestedValue = (obj: any, key: string): any => {
+    return key.split('.').reduce((o, i) => (o && o[i] !== undefined ? o[i] : undefined), obj);
 };
 
-export const useLanguage = () => {
+const messages: { [key: string]: any } = {
+    en: enMessages,
+    ja: jaMessages
+};
+
+export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+    const [locale, setLocale] = useState('ja'); // Default to Japanese
+
+    const t = useCallback((key: string): string => {
+        const selectedMessages = messages[locale] || messages['ja'];
+        const value = getNestedValue(selectedMessages, key);
+
+        if (value === undefined) {
+            console.warn(`Translation key not found: ${key}`);
+            const fallbackMessages = messages['en'];
+            const fallbackValue = getNestedValue(fallbackMessages, key);
+            if (fallbackValue !== undefined) {
+                 if (typeof fallbackValue === 'object' && fallbackValue !== null) {
+                    return JSON.stringify(fallbackValue);
+                 }
+                return String(fallbackValue);
+            }
+            return key;
+        }
+        
+        // If the value is an object or array (e.g., for tooltips), stringify it.
+        // This is necessary for components that expect a string prop but need complex data.
+        if (typeof value === 'object' && value !== null) {
+            return JSON.stringify(value);
+        }
+
+        return String(value);
+    }, [locale]);
+
+    // FIX: Replaced JSX with React.createElement to be compatible with a .ts file extension.
+    // This resolves parsing errors that were causing incorrect type inference for this component.
+    return React.createElement(LanguageContext.Provider, { value: { locale, setLocale, t } }, children);
+};
+
+export const useLanguage = (): LanguageContextType => {
     const context = useContext(LanguageContext);
     if (context === undefined) {
         throw new Error('useLanguage must be used within a LanguageProvider');

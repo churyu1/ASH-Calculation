@@ -225,7 +225,7 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
                     onBlur={handleBlur}
                     className={`w-24 px-2 py-1 border border-slate-300 rounded-md bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputClassName}`}
                 />
-                {displayUnit && <span className="text-sm w-24 text-left pl-1">{displayUnit}</span>}
+                <span className="text-sm w-24 text-left pl-1">{displayUnit}</span>
             </div>
             {needsConversion && secondaryDisplayValue !== null && !isNaN(secondaryDisplayValue) && (
                 <div className="w-full text-xs text-slate-500 text-right pr-[8rem] pt-0.5">
