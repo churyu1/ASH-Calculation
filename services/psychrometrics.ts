@@ -107,6 +107,23 @@ export const calculateDewPoint = (W_g_kgDA: number): number => {
     return Tdp;
 };
 
+export const calculateTempFromRhAndAbsHumidity = (RH_percent: number, W_g_kgDA: number): number | null => {
+    if (RH_percent === null || W_g_kgDA === null || RH_percent <= 0) return null;
+
+    const W_kg_kgDA = W_g_kgDA / 1000;
+    const Pv_from_W = (PSYCH_CONSTANTS.ATM_PRESSURE_PA * W_kg_kgDA) / (0.622 + W_kg_kgDA);
+
+    const Psat = (Pv_from_W / (RH_percent / 100));
+    if (Psat <= 0) return null;
+
+    // Using inverse of Magnus formula used in calculatePsat
+    const C = Math.log(Psat / 610.78);
+    if ((17.27 - C) === 0) return null; // Avoid division by zero
+    const T = (237.3 * C) / (17.27 - C);
+
+    return T;
+};
+
 export const calculateDryAirDensity = (T_celsius: number, RH_percent: number): number => {
     const Psat = calculatePsat(T_celsius);
     const Pv = (RH_percent / 100) * Psat;

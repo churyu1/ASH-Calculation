@@ -192,7 +192,7 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
 
     return (
         <div className={`flex flex-col items-end gap-1 ${containerClassName}`}>
-            <div className="flex items-center gap-1 w-full justify-end">
+            <div className="flex items-center gap-1 justify-end">
                 <button 
                     type="button" 
                     onMouseDown={handleMouseDown('dec')}
@@ -223,12 +223,12 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
                     onChange={handleInputChange}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
-                    className={`w-24 px-2 py-1 border border-slate-300 rounded-md bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputClassName}`}
+                    className={`w-20 px-2 py-1 border border-slate-300 rounded-md bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputClassName}`}
                 />
-                <span className="text-sm w-24 text-left pl-1">{displayUnit}</span>
+                <span className="text-sm w-auto text-left pl-1">{displayUnit}</span>
             </div>
             {needsConversion && secondaryDisplayValue !== null && !isNaN(secondaryDisplayValue) && (
-                <div className="w-full text-xs text-slate-500 text-right pr-[8rem] pt-0.5">
+                <div className="text-xs text-slate-500 text-right pt-0.5">
                     {unitType === 'pressure' && mmAqValue !== null ? (
                         <div className="flex flex-col items-end">
                            <span>({formatNumber(secondaryDisplayValue)} {secondaryDisplayUnit})</span>

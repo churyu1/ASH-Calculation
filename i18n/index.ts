@@ -75,6 +75,16 @@ const enMessages = {
     "fan": "Fan",
     "custom": "Custom Equipment"
   },
+  "equipmentDescriptions": {
+    "filter": "A filter cleans the air by removing dust and impurities. In this process, there is no change in the air's temperature or humidity; only pressure loss occurs.",
+    "burner": "A burner heats the air. It can add both sensible and latent heat.\n- Movement on Psychrometric Chart: Moves upwards and to the right.\n- Slope: The slope is determined by the SHF (Sensible Heat Factor). If SHF is 1.0, the process line is horizontal (sensible heat only). If SHF is less than 1.0, the slope increases (latent heat is added).",
+    "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.",
+    "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).",
+    "spray_washer": "A spray washer adiabatically humidifies and cools the air by spraying water.\n- Movement on Psychrometric Chart: Moves upwards and to the left along a constant enthalpy line.\n- Process: The enthalpy remains nearly constant during this process.",
+    "steam_humidifier": "A steam humidifier adds moisture and heat to the air by directly injecting steam.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
+    "fan": "A fan moves the air. Due to motor and fan efficiencies, some energy is converted into heat, slightly warming the air. This is a sensible heat only process.\n- Movement on Psychrometric Chart: Moves slightly horizontally to the right (absolute humidity remains constant).",
+    "custom": "Custom equipment allows users to freely set the inlet and outlet air conditions. This enables specific calculations or simulations of equipment not on the list."
+  },
   "conditions": {
     "width": "Width",
     "height": "Height",
@@ -90,10 +100,7 @@ const enMessages = {
     "waterToAirRatio": "Water-to-Air Ratio (L/G)",
     "steamGaugePressure": "Steam Gauge Pressure",
     "motorOutput": "Motor Output",
-    "motorEfficiency": "Motor Efficiency",
-    "totalPressure": "Total Pressure",
-    "fanEfficiency": "Fan Efficiency",
-    "marginFactor": "Margin Factor"
+    "motorEfficiency": "Motor Efficiency"
   },
   "results": {
     "faceVelocity": "Face Velocity",
@@ -115,8 +122,7 @@ const enMessages = {
     "tempRise_deltaT_celsius": "Temp Rise ⊿T",
     "bypassFactor": "Bypass Factor",
     "contactFactor": "Contact Factor (Efficiency)",
-    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)",
-    "requiredMotorPower": "Required Motor Power (Ref.)"
+    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)"
   },
   "airProperties": {
     "temperature": "Temperature",
@@ -134,14 +140,14 @@ const enMessages = {
       "kgfcm2g": "kgf/cm²G"
     },
     "si": {
-        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
+        "airflow": "m³/min", "temperature": "℃", "temperature_delta": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
         "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
     },
     "imperial": {
-        "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
+        "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
@@ -536,37 +542,6 @@ const enMessages = {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
         }
-      },
-      "requiredMotorPower": {
-        "title": "Required Motor Power Calculation",
-        "si": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "Required Power (kW)",
-            "P_shaft": "Motor Shaft Power (kW)",
-            "Q": "Airflow (m³/min)",
-            "Pt": "Total Pressure (Pa)",
-            "ηt": "Fan Efficiency (%)",
-            "α": "Margin Factor (%)"
-          }
-        },
-        "imperial": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "Required Power (HP)",
-            "P_shaft": "Motor Shaft Power (HP)",
-            "Q": "Airflow (CFM)",
-            "Pt": "Total Pressure (in.w.g.)",
-            "ηt": "Fan Efficiency (%)",
-            "α": "Margin Factor (%)"
-          }
-        }
       }
     },
     "damper": {
@@ -669,6 +644,16 @@ const jaMessages = {
     "fan": "ファン",
     "custom": "カスタム機器"
   },
+  "equipmentDescriptions": {
+    "filter": "フィルターは空気をろ過し、塵や不純物を除去します。このプロセスでは、空気の温度や湿度に変化はなく、圧力損失のみが発生します。",
+    "burner": "バーナーは空気を加熱します。顕熱と潜熱の両方を加えることができます。\n・空気線図上の動き: 右肩上がりに変化します。\n・傾き: 傾きはSHF(顕熱比)によって決まります。SHFが1.0の場合、プロセスラインは水平(顕熱のみ)になり、SHFが1.0未満の場合、傾きは大きくなります(潜熱が加わる)。",
+    "cooling_coil": "冷水コイルは空気を冷却・除湿します。\n・空気線図上の動き: 左下方向に変化します。\n・プロセス: 空気の状態は、入口空気点と装置露点温度(ADP)を結ぶ線に沿って変化します。バイパスファクター(BF)は、コイルを通過せずに状態が変化しない空気の割合を示します。",
+    "heating_coil": "温水コイルは空気を加熱します。このプロセスは顕熱のみを加えます。\n・空気線図上の動き: 水平右方向に変化します(絶対湿度は一定)。",
+    "spray_washer": "スプレーワッシャーは、水を噴霧して空気を断熱的に加湿・冷却します。\n・空気線図上の動き: 等エンタルピー線に沿って左上方向に変化します。\n・プロセス: このプロセスではエンタルピーがほぼ一定に保たれます。",
+    "steam_humidifier": "蒸気加湿器は、蒸気を直接吹き込むことで空気を加湿・加熱します。\n・空気線図上の動き: 右上方向に変化します。",
+    "fan": "ファンは空気を送風します。モーターと送風機の効率により、エネルギーの一部が熱に変換され、空気をわずかに加熱します。これは顕熱のみのプロセスです。\n・空気線図上の動き: 水平右方向にわずかに変化します(絶対湿度は一定)。",
+    "custom": "カスタム機器では、入口と出口の空気条件をユーザーが自由に設定できます。これにより、特定の計算や、リストにない機器のシミュレーションが可能です。"
+  },
   "conditions": {
     "width": "幅",
     "height": "高さ",
@@ -684,10 +669,7 @@ const jaMessages = {
     "waterToAirRatio": "水空気比 (L/G)",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
-    "motorEfficiency": "モーター効率",
-    "totalPressure": "全圧",
-    "fanEfficiency": "送風機効率",
-    "marginFactor": "余裕率"
+    "motorEfficiency": "モーター効率"
   },
   "results": {
     "faceVelocity": "面速",
@@ -709,8 +691,7 @@ const jaMessages = {
     "tempRise_deltaT_celsius": "温度上昇 ⊿T",
     "bypassFactor": "バイパスファクター",
     "contactFactor": "接触係数（効率）",
-    "apparatusDewPointTemp": "装置露点温度(ADP)",
-    "requiredMotorPower": "モーター所要出力(参考)"
+    "apparatusDewPointTemp": "装置露点温度(ADP)"
   },
   "airProperties": {
     "temperature": "温度",
@@ -728,14 +709,14 @@ const jaMessages = {
       "kgfcm2g": "kgf/cm²G"
     },
     "si": {
-        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
+        "airflow": "m³/min", "temperature": "℃", "temperature_delta": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
         "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
     },
     "imperial": {
-        "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
+        "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
@@ -1129,37 +1110,6 @@ const jaMessages = {
         "imperial": {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "出口温度 (°F)", "t_in": "入口温度 (°F)", "Δt": "温度上昇 (°F)" }
-        }
-      },
-      "requiredMotorPower": {
-        "title": "モーター所要出力の計算",
-        "si": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "モーター所要出力 (kW)",
-            "P_shaft": "モーター軸動力 (kW)",
-            "Q": "風量 (m³/min)",
-            "Pt": "全圧 (Pa)",
-            "ηt": "送風機効率 (%)",
-            "α": "余裕率 (%)"
-          }
-        },
-        "imperial": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "所要出力 (HP)",
-            "P_shaft": "モーター軸動力 (HP)",
-            "Q": "風量 (CFM)",
-            "Pt": "全圧 (in.w.g.)",
-            "ηt": "送風機効率 (%)",
-            "α": "余裕率 (%)"
-          }
         }
       }
     },

@@ -73,9 +73,6 @@ export interface SteamHumidifierConditions extends BaseConditions {
 export interface FanConditions extends BaseConditions {
     motorOutput?: number;
     motorEfficiency?: number;
-    totalPressure?: number;
-    fanEfficiency?: number;
-    marginFactor?: number;
 }
 
 export interface CustomConditions extends BaseConditions {}
@@ -124,7 +121,6 @@ export interface SteamHumidifierResults extends BaseResults {
 export interface FanResults extends BaseResults {
     heatGeneration_kW?: number;
     tempRise_deltaT_celsius?: number;
-    requiredMotorPower?: number;
 }
 
 export interface CustomResults extends BaseResults {
@@ -137,6 +133,7 @@ export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResult
 export interface Equipment {
     id: number;
     type: EquipmentType;
+    name?: string;
     pressureLoss: number | null;
     inletAir: AirProperties;
     outletAir: AirProperties;
@@ -144,10 +141,11 @@ export interface Equipment {
     results: EquipmentResults;
     color: string;
     inletIsLocked?: boolean;
+    outletIsLocked?: boolean;
 }
 
 export type UnitType = 
-    | 'airflow' | 'temperature' | 'length' | 'pressure' | 'heat_load' | 'water_flow'
+    | 'airflow' | 'temperature' | 'temperature_delta' | 'length' | 'pressure' | 'heat_load' | 'water_flow'
     | 'abs_humidity' | 'enthalpy' | 'motor_power' | 'velocity' | 'airflow_per_sheet'
     | 'rh' | 'sheets' | 'shf' | 'efficiency' | 'k_value' | 'water_to_air_ratio'
     | 'area' | 'density' | 'steam_pressure' | 'steam_enthalpy' | 'steam_flow';

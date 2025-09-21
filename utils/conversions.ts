@@ -9,6 +9,7 @@ const UNIT_CONVERSIONS = {
     toImperial: {
         airflow: (m3min: number) => m3min * 35.3147, // m³/min to CFM
         temperature: (c: number) => (c * 9/5) + 32, // Celsius to Fahrenheit
+        temperature_delta: (c: number) => c * 9/5,
         length: (mm: number) => mm * 0.0393701, // mm to inches
         pressure: (pa: number) => pa * 0.00401463, // Pa to in.w.g.
         heat_load: (kw: number) => kw * 3412.142, // kW to BTU/h
@@ -28,6 +29,7 @@ const UNIT_CONVERSIONS = {
     toSI: {
         airflow: (cfm: number) => cfm / 35.3147, // CFM to m³/min
         temperature: (f: number) => (f - 32) * 5/9, // Fahrenheit to Celsius
+        temperature_delta: (f: number) => f * 5/9,
         length: (inch: number) => inch / 0.0393701, // inches to mm
         pressure: (inwg: number) => inwg / 0.00401463, // in.w.g. to Pa
         heat_load: (btuh: number) => btuh / 3412.142, // BTU/h to kW
@@ -96,7 +98,8 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
 
     if (unitSystem === UnitSystem.IMPERIAL) {
         switch (unitType) {
-            case 'temperature': return 1;
+            case 'temperature':
+            case 'temperature_delta': return 1;
             case 'length': return 3;
             case 'airflow': return 0;
             case 'pressure': return 2;
@@ -116,7 +119,8 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
         }
     } else { // SI system
         switch (unitType) {
-            case 'temperature': return 1;
+            case 'temperature':
+            case 'temperature_delta': return 1;
             case 'length': return 0;
             case 'airflow': return 0;
             case 'pressure': return 1;

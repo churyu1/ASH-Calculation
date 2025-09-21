@@ -87,10 +87,7 @@
     "waterToAirRatio": "水空気比 (L/G)",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
-    "motorEfficiency": "モーター効率",
-    "totalPressure": "全圧",
-    "fanEfficiency": "送風機効率",
-    "marginFactor": "余裕率"
+    "motorEfficiency": "モーター効率"
   },
   "results": {
     "faceVelocity": "面速",
@@ -112,8 +109,7 @@
     "tempRise_deltaT_celsius": "温度上昇 ⊿T",
     "bypassFactor": "バイパスファクター",
     "contactFactor": "接触係数（効率）",
-    "apparatusDewPointTemp": "装置露点温度(ADP)",
-    "requiredMotorPower": "モーター所要出力(参考)"
+    "apparatusDewPointTemp": "装置露点温度(ADP)"
   },
   "airProperties": {
     "temperature": "温度",
@@ -131,14 +127,14 @@
       "kgfcm2g": "kgf/cm²G"
     },
     "si": {
-        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
+        "airflow": "m³/min", "temperature": "℃", "temperature_delta": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
         "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
     },
     "imperial": {
-        "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
+        "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
@@ -532,37 +528,6 @@
         "imperial": {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "出口温度 (°F)", "t_in": "入口温度 (°F)", "Δt": "温度上昇 (°F)" }
-        }
-      },
-      "requiredMotorPower": {
-        "title": "モーター所要出力の計算",
-        "si": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "モーター所要出力 (kW)",
-            "P_shaft": "モーター軸動力 (kW)",
-            "Q": "風量 (m³/min)",
-            "Pt": "全圧 (Pa)",
-            "ηt": "送風機効率 (%)",
-            "α": "余裕率 (%)"
-          }
-        },
-        "imperial": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "所要出力 (HP)",
-            "P_shaft": "モーター軸動力 (HP)",
-            "Q": "風量 (CFM)",
-            "Pt": "全圧 (in.w.g.)",
-            "ηt": "送風機効率 (%)",
-            "α": "余裕率 (%)"
-          }
         }
       }
     },

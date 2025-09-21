@@ -87,10 +87,7 @@
     "waterToAirRatio": "Water-to-Air Ratio (L/G)",
     "steamGaugePressure": "Steam Gauge Pressure",
     "motorOutput": "Motor Output",
-    "motorEfficiency": "Motor Efficiency",
-    "totalPressure": "Total Pressure",
-    "fanEfficiency": "Fan Efficiency",
-    "marginFactor": "Margin Factor"
+    "motorEfficiency": "Motor Efficiency"
   },
   "results": {
     "faceVelocity": "Face Velocity",
@@ -112,8 +109,7 @@
     "tempRise_deltaT_celsius": "Temp Rise ⊿T",
     "bypassFactor": "Bypass Factor",
     "contactFactor": "Contact Factor (Efficiency)",
-    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)",
-    "requiredMotorPower": "Required Motor Power (Ref.)"
+    "apparatusDewPointTemp": "Apparatus Dew Point (ADP)"
   },
   "airProperties": {
     "temperature": "Temperature",
@@ -131,14 +127,14 @@
       "kgfcm2g": "kgf/cm²G"
     },
     "si": {
-        "airflow": "m³/min", "temperature": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
+        "airflow": "m³/min", "temperature": "℃", "temperature_delta": "℃", "length": "mm", "pressure": "Pa", "heat_load": "kW",
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
         "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
     },
     "imperial": {
-        "airflow": "CFM", "temperature": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
+        "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
@@ -532,37 +528,6 @@
         "imperial": {
           "formula": "t_out = t_in + Δt",
           "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
-        }
-      },
-      "requiredMotorPower": {
-        "title": "Required Motor Power Calculation",
-        "si": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / (60 × 1000)) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "Required Power (kW)",
-            "P_shaft": "Motor Shaft Power (kW)",
-            "Q": "Airflow (m³/min)",
-            "Pt": "Total Pressure (Pa)",
-            "ηt": "Fan Efficiency (%)",
-            "α": "Margin Factor (%)"
-          }
-        },
-        "imperial": {
-          "formula": [
-            "P_shaft = ((Q × Pt) / 6356) / (ηt/100)",
-            "P_req = P_shaft × (α/100)"
-          ],
-          "legend": {
-            "P_req": "Required Power (HP)",
-            "P_shaft": "Motor Shaft Power (HP)",
-            "Q": "Airflow (CFM)",
-            "Pt": "Total Pressure (in.w.g.)",
-            "ηt": "Fan Efficiency (%)",
-            "α": "Margin Factor (%)"
-          }
         }
       }
     },

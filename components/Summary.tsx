@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, SprayWasherResults, FanConditions, FanResults, AirProperties } from '../types';
 import { useLanguage } from '../i18n/index.ts';
@@ -29,19 +30,19 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
 
     return (
         <div id="summary-section" className="p-4 bg-white rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">{t('app.summary')}</h2>
+            
             {(equipmentList.length > 0 || acInletAir || acOutletAir) ? (
                  <div className="overflow-x-auto relative shadow-md sm:rounded-lg">
                     <table className="w-full text-sm text-left text-slate-500">
                         <thead className="text-xs text-slate-700 uppercase bg-slate-200">
                             <tr>
-                                <th rowSpan={2} className="px-6 py-3 align-bottom">
+                                <th rowSpan={2} className="px-6 py-3 align-bottom border-r border-slate-300">
                                     {t('summary.table.equipment')}
                                 </th>
-                                <th colSpan={2} className="px-6 py-3 text-center border-b border-l border-slate-300">
+                                <th colSpan={2} className="px-6 py-3 text-center">
                                     {t('summary.table.inlet')}
                                 </th>
-                                <th colSpan={2} className="px-6 py-3 text-center border-b border-l border-slate-300">
+                                <th colSpan={2} className="px-6 py-3 text-center border-l border-slate-300">
                                     {t('summary.table.outlet')}
                                 </th>
                                 <th rowSpan={2} className="px-6 py-3 align-bottom text-center border-l border-slate-300">
@@ -51,25 +52,25 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                     {t('summary.table.pressureLoss')}
                                 </th>
                             </tr>
-                            <tr>
+                            <tr className="border-b border-slate-300">
                                 <th className="px-4 py-2 text-right font-medium">{t('summary.table.temp')} ({tempUnit})</th>
-                                <th className="px-4 py-2 text-right font-medium">{t('summary.table.rh')} ({rhUnit})</th>
+                                <th className="px-4 py-2 text-right font-medium border-l border-slate-300">{t('summary.table.rh')} ({rhUnit})</th>
                                 <th className="px-4 py-2 text-right font-medium border-l border-slate-300">{t('summary.table.temp')} ({tempUnit})</th>
-                                <th className="px-4 py-2 text-right font-medium">{t('summary.table.rh')} ({rhUnit})</th>
+                                <th className="px-4 py-2 text-right font-medium border-l border-slate-300">{t('summary.table.rh')} ({rhUnit})</th>
                             </tr>
                         </thead>
                         <tbody>
                             {acInletAir && (
                                 <tr className="bg-green-100 border-b font-semibold text-green-800">
-                                    <th scope="row" className="px-6 py-4 whitespace-nowrap">
+                                    <th scope="row" className="px-6 py-4 whitespace-nowrap border-r border-slate-300">
                                         {t('chart.acInlet')}
                                     </th>
-                                    <td className="px-4 py-4 text-right border-l border-slate-200">{formatValue(acInletAir.temp, 'temperature')}</td>
-                                    <td className="px-4 py-4 text-right">{formatValue(acInletAir.rh, 'rh')}</td>
-                                    <td className="px-4 py-4 text-right border-l border-slate-200">-</td>
-                                    <td className="px-4 py-4 text-right">-</td>
-                                    <td className="px-6 py-4 border-l border-slate-200">-</td>
-                                    <td className="px-6 py-4 border-l border-slate-200 text-right">-</td>
+                                    <td className="px-4 py-4 text-right">{formatValue(acInletAir.temp, 'temperature')}</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-300">{formatValue(acInletAir.rh, 'rh')}</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-300">-</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-300">-</td>
+                                    <td className="px-6 py-4 border-l border-slate-300">-</td>
+                                    <td className="px-6 py-4 border-l border-slate-300 text-right">-</td>
                                 </tr>
                             )}
                             {equipmentList.map((eq) => {
@@ -280,20 +281,22 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
 
                                 return (
                                     <tr key={eq.id} className="bg-white border-b">
-                                        <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap flex items-center gap-2">
-                                            <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: EQUIPMENT_HEX_COLORS[eq.type] }}></span>
-                                            {t(`equipmentNames.${eq.type}`)}
+                                        <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap border-r border-slate-300">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: EQUIPMENT_HEX_COLORS[eq.type] }}></span>
+                                                {eq.name || t(`equipmentNames.${eq.type}`)}
+                                            </div>
                                         </th>
-                                        <td className="px-4 py-4 text-right border-l border-slate-200">{formatValue(eq.inletAir.temp, 'temperature')}</td>
-                                        <td className="px-4 py-4 text-right">{formatValue(eq.inletAir.rh, 'rh')}</td>
-                                        <td className="px-4 py-4 text-right border-l border-slate-200">{formatValue(eq.outletAir.temp, 'temperature')}</td>
-                                        <td className="px-4 py-4 text-right">{formatValue(eq.outletAir.rh, 'rh')}</td>
-                                        <td className="px-6 py-4 border-l border-slate-200">
+                                        <td className="px-4 py-4 text-right">{formatValue(eq.inletAir.temp, 'temperature')}</td>
+                                        <td className="px-4 py-4 text-right border-l border-slate-300">{formatValue(eq.inletAir.rh, 'rh')}</td>
+                                        <td className="px-4 py-4 text-right border-l border-slate-300">{formatValue(eq.outletAir.temp, 'temperature')}</td>
+                                        <td className="px-4 py-4 text-right border-l border-slate-300">{formatValue(eq.outletAir.rh, 'rh')}</td>
+                                        <td className="px-6 py-4 border-l border-slate-300">
                                             <div className="flex flex-col items-start gap-1">
                                                 {resultsParts.length > 0 ? resultsParts : '-'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right border-l border-slate-200">
+                                        <td className="px-6 py-4 text-right border-l border-slate-300">
                                             {eq.type !== EquipmentType.FAN ? (
                                                 <DisplayValueWithUnit compact value={eq.pressureLoss} unitType="pressure" unitSystem={unitSystem} />
                                             ) : '-'}
@@ -303,21 +306,21 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                             })}
                             {acOutletAir && (
                                 <tr className="bg-red-100 border-b font-semibold text-red-800">
-                                    <th scope="row" className="px-6 py-4 whitespace-nowrap">
+                                    <th scope="row" className="px-6 py-4 whitespace-nowrap border-r border-slate-300">
                                         {t('chart.acOutlet')}
                                     </th>
-                                    <td className="px-4 py-4 text-right border-l border-slate-200">-</td>
                                     <td className="px-4 py-4 text-right">-</td>
-                                    <td className="px-4 py-4 text-right border-l border-slate-200">{formatValue(acOutletAir.temp, 'temperature')}</td>
-                                    <td className="px-4 py-4 text-right">{formatValue(acOutletAir.rh, 'rh')}</td>
-                                    <td className="px-6 py-4 border-l border-slate-200">-</td>
-                                    <td className="px-6 py-4 border-l border-slate-200 text-right">-</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-300">-</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-300">{formatValue(acOutletAir.temp, 'temperature')}</td>
+                                    <td className="px-4 py-4 text-right border-l border-slate-300">{formatValue(acOutletAir.rh, 'rh')}</td>
+                                    <td className="px-6 py-4 border-l border-slate-300">-</td>
+                                    <td className="px-6 py-4 border-l border-slate-300 text-right">-</td>
                                 </tr>
                             )}
                             {equipmentList.length > 0 && (
                                 <tr className="bg-slate-200 font-bold text-slate-800">
-                                    <td colSpan={6} className="px-6 py-4 text-right">{t('summary.table.totalPressureLoss')}</td>
-                                    <td className="px-6 py-4 text-right border-l border-slate-300">
+                                    <td colSpan={6} className="px-6 py-4 text-right border-r border-slate-300">{t('summary.table.totalPressureLoss')}</td>
+                                    <td className="px-6 py-4 text-right">
                                         <DisplayValueWithUnit value={totalPressureLoss} unitType="pressure" unitSystem={unitSystem} />
                                     </td>
                                 </tr>

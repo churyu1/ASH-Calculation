@@ -32,7 +32,7 @@ const DisplayValueWithUnit: React.FC<DisplayValueWithUnitProps> = ({ value, unit
     const mainDisplay = (
         <div className={`flex items-center justify-end ${compact ? 'gap-0.5' : 'gap-1'}`}>
             <span className={`${valueClassName} ${compact ? 'text-xs' : 'font-bold'}`}>{formatNumber(displayValue)}</span>
-            <span className={`${compact ? 'text-[10px] w-auto' : 'text-sm w-24'} text-left pl-1`}>{displayUnit}</span>
+            <span className={`${compact ? 'text-[10px] w-auto' : 'text-sm w-auto'} text-left pl-1`}>{displayUnit}</span>
         </div>
     );
 
@@ -40,7 +40,7 @@ const DisplayValueWithUnit: React.FC<DisplayValueWithUnitProps> = ({ value, unit
         <div className="flex flex-col items-end gap-0">
             {tooltipContent ? <Tooltip content={tooltipContent}>{mainDisplay}</Tooltip> : mainDisplay}
             {needsConversion && !compact && secondaryDisplayValue !== null && !isNaN(secondaryDisplayValue) && (
-                <div className="w-full text-xs text-slate-500 text-right pr-[6.5rem] pt-0.5">
+                <div className="text-xs text-slate-500 text-right pt-0.5">
                     {unitType === 'pressure' && mmAqValue !== null ? (
                         <div className="flex flex-col items-end">
                             <span>({formatNumber(secondaryDisplayValue)} {secondaryDisplayUnit})</span>

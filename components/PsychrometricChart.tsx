@@ -53,10 +53,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         };
     }, []);
 
-    const margin = { top: 20, right: 50, bottom: 60, left: 60 };
-    const width = dimensions.width > (margin.left + margin.right) ? dimensions.width - margin.left - margin.right : 0;
-    const height = dimensions.height > (margin.top + margin.bottom) ? dimensions.height - margin.top - margin.bottom : 0;
-
     const findAnalyticalIntersection = (
         lineEq: { type: EquipmentType; fixedPoint: AirProperties; conditions: any; },
         curveEq: { type: EquipmentType; enthalpy: number | null; },
@@ -124,13 +120,72 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
 
     useEffect(() => {
-        if (!svgRef.current || !containerRef.current || width <= 0 || height <= 0) return;
+        const { width: containerWidth, height: containerHeight } = dimensions;
+        if (!svgRef.current || !containerRef.current || containerWidth <= 0 || containerHeight <= 0) return;
+
+        const uniqueSuffix = Math.random().toString(36).substring(2, 9);
+        const uniqueEquipmentTypesOnChart = Array.from(new Set(
+            airConditionsData
+                .filter(eq =>
+                    ![EquipmentType.FILTER].includes(eq.type) &&
+                    eq.inletAir.temp !== null &&
+                    eq.outletAir.temp !== null
+                )
+                .map(eq => eq.type)
+        ));
+
+        const fixedHorizontalMargin = { left: 60, right: 50 };
+        const chartAreaWidth = containerWidth - fixedHorizontalMargin.left - fixedHorizontalMargin.right;
+        
+        let legendHeight = 0;
+        if (uniqueEquipmentTypesOnChart.length > 0 && chartAreaWidth > 0) {
+            const legendLineHeight = 18;
+            const legendItemSpacing = 15;
+            let legendXOffset = 0;
+            let legendLines = 1;
+
+            const tempSvg = select(document.body).append('svg').attr('class', 'temp-text-measurement').style('position', 'absolute').style('visibility', 'hidden');
+
+            uniqueEquipmentTypesOnChart.forEach(type => {
+                const name = t(`equipmentNames.${type}`);
+                const textEl = tempSvg.append('text').style('font-size', '12px').text(name);
+                const textWidth = textEl.node()?.getBBox().width ?? 0;
+                textEl.remove();
+                
+                const itemWidth = 15 + 5 + textWidth; // rect width + padding + text width
+
+                if (legendXOffset > 0 && legendXOffset + itemWidth + legendItemSpacing > chartAreaWidth) {
+                    legendXOffset = 0;
+                    legendLines++;
+                }
+                legendXOffset += itemWidth + legendItemSpacing;
+            });
+
+            tempSvg.remove();
+            legendHeight = legendLines * legendLineHeight;
+        }
+
+        const calculatedMarginTop = 15 + legendHeight + 15; // top padding + legend height + bottom padding
+        const margin = {
+            top: Math.max(60, calculatedMarginTop),
+            right: fixedHorizontalMargin.right,
+            bottom: 60,
+            left: fixedHorizontalMargin.left
+        };
+
+        const width = chartAreaWidth;
+        const height = containerHeight - margin.top - margin.bottom;
+
+        const svgSelection = select(svgRef.current);
+        svgSelection.selectAll("*").remove();
+
+        if (width <= 0 || height <= 0) return;
         
         const isNarrow = width < 500;
         const numTicksX = Math.max(4, Math.round(width / 80));
-        const showYAxisMeta = !isSplitViewActive && !isNarrow;
-        const rhLinesToLabel = (isSplitViewActive || isNarrow) ? [20, 40, 60, 80, 100] : [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-        const showEnthalpyLabels = !isSplitViewActive && width > 600;
+        const showYAxisMeta = !isNarrow;
+        const rhLinesToLabel = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+        const showEnthalpyLabels = width > 600;
         const enthalpyLines = width < 400 ? [20, 60, 100] : (width < 600 ? [0, 20, 40, 60, 80, 100, 120] : [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
 
 
@@ -151,8 +206,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         const absHumidityUnit = t(`units.${unitSystem}.abs_humidity`);
         const enthalpyUnit = t(`units.${unitSystem}.enthalpy`);
 
-        const svgSelection = select(svgRef.current);
-        svgSelection.selectAll("*").remove();
         select(containerRef.current).select(".chart-tooltip").remove();
 
         const tooltip = select(containerRef.current)
@@ -176,6 +229,57 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         
         const previewGroup = svg.append("g").attr("class", "drag-preview-group");
         const tempIndicatorGroup = svg.append("g").attr("class", "temp-indicator-group");
+
+        if (uniqueEquipmentTypesOnChart.length > 0) {
+            const legendGroup = svg.append("g")
+                .attr("class", "chart-legend")
+                .attr("transform", `translate(0, -${margin.top - 15})`);
+        
+            let legendXOffset = 0;
+            let legendYOffset = 0;
+            const legendLineHeight = 18;
+            const legendItemSpacing = 15;
+        
+            uniqueEquipmentTypesOnChart.forEach(type => {
+                const color = EQUIPMENT_HEX_COLORS[type];
+                const name = t(`equipmentNames.${type}`);
+        
+                // Create a dummy text element to measure its width
+                const tempText = svg.append("text").text(name).style("font-size", "12px").style("opacity", 0);
+                const textWidth = tempText.node()?.getBBox().width ?? 0;
+                tempText.remove(); // Remove the dummy element
+        
+                // Calculate the full width of the legend item (rect + padding + text)
+                const itemWidth = 15 + 5 + textWidth; 
+        
+                // Check if the item needs to wrap to the next line
+                if (legendXOffset > 0 && legendXOffset + itemWidth + legendItemSpacing > width) {
+                    legendXOffset = 0;
+                    legendYOffset += legendLineHeight;
+                }
+        
+                const itemGroup = legendGroup.append("g")
+                    .attr("transform", `translate(${legendXOffset}, ${legendYOffset})`);
+        
+                itemGroup.append("rect")
+                    .attr("width", 15)
+                    .attr("height", 10)
+                    .attr("y", -5)
+                    .attr("fill", color)
+                    .attr("rx", 2);
+        
+                itemGroup.append("text")
+                    .attr("x", 20)
+                    .attr("y", 4)
+                    .text(name)
+                    .style("font-size", "12px")
+                    .attr("fill", themeColors.axisLabel)
+                    .attr("text-anchor", "start");
+                
+                // Update the x-offset for the next item
+                legendXOffset += itemWidth + legendItemSpacing;
+            });
+        }
 
         const xScale = scaleLinear().domain([-20, 60]).range([0, width]);
         const yScale = scaleLinear().domain([0, 30]).range([height, 0]);
@@ -372,9 +476,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         const defaultColor = '#2563eb';
 
         const rhLines = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-        let lastRhLabelY: number | null = null;
-        const MIN_RH_LABEL_Y_SPACING = 18; // Minimum vertical pixel spacing for RH labels
-
+        
         rhLines.forEach(rh => {
             const lineData: ChartPoint[] = [];
             for (let T = -20; T <= 60; T += 1) {
@@ -389,25 +491,47 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             
             if (lineData.length > 0 && rhLinesToLabel.includes(rh)) {
                 let labelPoint: ChartPoint | null = null;
+                let labelPointIndex = -1;
                 for (let i = lineData.length - 1; i >= 0; i--) {
                     const point = lineData[i];
                     if (xScale(point.temp) < width - 10) { 
                         labelPoint = point;
+                        labelPointIndex = i;
                         break;
                     }
                 }
                  if (!labelPoint && lineData.length > 0) {
                     labelPoint = lineData[lineData.length - 1];
+                    labelPointIndex = lineData.length - 1;
                  }
 
                 if (labelPoint) {
-                    const currentLabelY = yScale(labelPoint.absHumidity);
-                    if (lastRhLabelY === null || Math.abs(currentLabelY - lastRhLabelY) > MIN_RH_LABEL_Y_SPACING) {
-                         svg.append("text").attr("x", xScale(labelPoint.temp) + 5).attr("y", currentLabelY)
-                           .attr("dominant-baseline", "middle")
-                           .text(`${rh}%`).attr("font-size", "11px").attr("fill", themeColors.rhLabel);
-                        lastRhLabelY = currentLabelY;
+                    let angleDeg = 0;
+                    if (labelPointIndex > 0) {
+                        const prevPoint = lineData[labelPointIndex - 1];
+                        const p_label = { x: xScale(labelPoint.temp), y: yScale(labelPoint.absHumidity) };
+                        const p_prev = { x: xScale(prevPoint.temp), y: yScale(prevPoint.absHumidity) };
+                        const angleRad = Math.atan2(p_label.y - p_prev.y, p_label.x - p_prev.x);
+                        angleDeg = angleRad * 180 / Math.PI;
                     }
+
+                    const labelX = xScale(labelPoint.temp);
+                    const labelY = yScale(labelPoint.absHumidity);
+                    
+                    const textEl = svg.append("text")
+                       .attr("transform", `translate(${labelX}, ${labelY}) rotate(${angleDeg})`)
+                       .attr("dx", "5")
+                       .attr("dy", "-3")
+                       .attr("text-anchor", "start")
+                       .attr("dominant-baseline", "middle")
+                       .text(`${rh}%`)
+                       .attr("font-size", "11px")
+                       .attr("fill", themeColors.rhLabel);
+                    
+                    textEl.clone(true).lower()
+                          .attr('stroke', themeColors.halo)
+                          .attr('stroke-width', 3)
+                          .attr('stroke-linejoin', 'round');
                 }
             }
         });
@@ -469,17 +593,20 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     }
 
                     if (foundPosition) {
-                        const textElement = svg.append("text")
-                           .attr("transform", `translate(${xPos}, ${yPos}) rotate(${angleDeg})`)
-                           .attr("dominant-baseline", "middle")
-                           .attr("fill", themeColors.enthalpyLabel)
-                           .attr("font-size", "11px")
-                           .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)} ${enthalpyUnit}`);
-                        
-                        if (onLeftBorder) {
-                            textElement.attr("text-anchor", "start").attr("dy", "-0.5em");
-                        } else {
-                            textElement.attr("text-anchor", "start").attr("dy", "-0.7em");
+                        // Hide labels for 110 and 120 to prevent overlap
+                        if (h < 110) {
+                            const textElement = svg.append("text")
+                               .attr("transform", `translate(${xPos}, ${yPos}) rotate(${angleDeg})`)
+                               .attr("dominant-baseline", "middle")
+                               .attr("fill", themeColors.enthalpyLabel)
+                               .attr("font-size", "11px")
+                               .text(`${convertValue(h, 'enthalpy', UnitSystem.SI, unitSystem)?.toFixed(0)} ${enthalpyUnit}`);
+                            
+                            if (onLeftBorder) {
+                                textElement.attr("text-anchor", "start").attr("dy", "-0.5em");
+                            } else {
+                                textElement.attr("text-anchor", "start").attr("dy", "-0.7em");
+                            }
                         }
                     }
                 }
@@ -660,7 +787,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 const rh = airProps.rh.toFixed(getPrecisionForUnitType('rh', unitSystem));
                 const pointTypeLabel = handleType === 'inlet' ? t('chart.inlet') : t('chart.outlet');
         
-                const line1 = `${t(`equipmentNames.${equipment.type}`)} ${pointTypeLabel}:`;
+                const equipmentName = equipment.name || t(`equipmentNames.${equipment.type}`);
+                const line1 = `${equipmentName} ${pointTypeLabel}:`;
                 const line2 = `${temp}${temperatureUnit}, ${rh}%`;
                 const label = `<div>${line1}</div><div>${line2}</div>`;
                 
@@ -695,7 +823,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             const hoverOpacity = 1.0;
 
             const marker = defs.append("marker")
-                .attr("id", `arrow-${eq.id}`)
+                .attr("id", `arrow-${eq.id}-${uniqueSuffix}`)
                 .attr("viewBox", "0 -5 10 10").attr("refX", 8).attr("refY", 0)
                 .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto-start-reverse");
             
@@ -704,7 +832,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             const inletDot = svg.append("circle").attr("class", `inlet-dot-${eq.id}`).attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 4).attr("fill", "#16a34a").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
             const outletDot = svg.append("circle").attr("class", `outlet-dot-${eq.id}`).attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 4).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
             const processLine = svg.append("line").attr("class", `process-line-${eq.id}`).attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-               .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id})`).style("transition", "stroke-width 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", lineDefaultOpacity);
+               .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id}-${uniqueSuffix})`).style("transition", "stroke-width 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", lineDefaultOpacity);
             
             const getCoolingCoilOutletHumidity = (t_out: number, inlet: AirProperties, conditions: CoolingCoilConditions): number => {
                 const { temp: t_in, absHumidity: x_in } = inlet;
@@ -873,7 +1001,11 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         let projectedMx: number, projectedMy: number;
                         let projectedTemp: number;
 
-                        if (eq.type === EquipmentType.COOLING_COIL && dragMode === 'outlet') {
+                        if (eq.type === EquipmentType.CUSTOM) {
+                            projectedMx = mx;
+                            projectedMy = my;
+                            projectedTemp = xScale.invert(mx);
+                        } else if (eq.type === EquipmentType.COOLING_COIL && dragMode === 'outlet') {
                             const inletProps = {
                                 temp: xScale.invert(fixedPointX),
                                 absHumidity: yScale.invert(fixedPointY)
@@ -1129,7 +1261,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const rhString = finalRh.toFixed(getPrecisionForUnitType('rh', unitSystem));
                         const pointTypeLabel = dragMode === 'inlet' ? t('chart.inlet') : t('chart.outlet');
                         
-                        const line1 = `${t(`equipmentNames.${eq.type}`)} ${pointTypeLabel}:`;
+                        const equipmentName = eq.name || t(`equipmentNames.${eq.type}`);
+                        const line1 = `${equipmentName} ${pointTypeLabel}:`;
                         const line2 = `${tempString}${temperatureUnit}, ${rhString}%`;
                         const label = `<div>${line1}</div><div>${line2}</div>`;
 
@@ -1227,8 +1360,10 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     if (dragInProgress.current) return;
                     processLine.attr("stroke-width", 4.5).style("opacity", hoverOpacity);
                     markerPath.style("opacity", hoverOpacity);
-                    tooltip.style("visibility", "visible").text(t(`equipmentNames.${eq.type}`));
+                    const equipmentName = eq.name || t(`equipmentNames.${eq.type}`);
+                    tooltip.style("visibility", "visible").text(equipmentName);
                     showPreview(eq, 'line');
+                    showWaterTempIndicator(eq);
                 })
                 .on("mousemove", function(event) {
                     if (dragInProgress.current) return;
@@ -1243,6 +1378,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     markerPath.style("opacity", lineDefaultOpacity);
                     tooltip.style("visibility", "hidden");
                     hidePreview();
+                    hideWaterTempIndicator();
                 })
                 .call(processDrag);
 
@@ -1259,6 +1395,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     inletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
                     showPointTooltip(event, eq, 'inlet');
                     showPreview(eq, 'inlet');
+                    showWaterTempIndicator(eq);
                 })
                 .on("mousemove", function(event) {
                     if (dragInProgress.current) return;
@@ -1269,6 +1406,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     inletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
                     hideTooltip();
                     hidePreview();
+                    hideWaterTempIndicator();
                 })
                 .call(processDrag);
         
@@ -1285,6 +1423,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     outletDot.raise().attr('r', 8).style('opacity', hoverOpacity);
                     showPointTooltip(event, eq, 'outlet');
                     showPreview(eq, 'outlet');
+                    showWaterTempIndicator(eq);
                 })
                 .on("mousemove", function(event) {
                     if (dragInProgress.current) return;
@@ -1295,13 +1434,14 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     outletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
                     hideTooltip();
                     hidePreview();
+                    hideWaterTempIndicator();
                 })
                 .call(processDrag);
         });
-    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, width, height, margin.left, margin.top, t]);
+    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, dimensions, t]);
     
     return (
-        <div ref={containerRef} className="w-full h-[500px] relative">
+        <div ref={containerRef} className="w-full h-[350px] sm:h-[450px] lg:h-[500px] relative">
             <svg ref={svgRef}></svg>
         </div>
     );
