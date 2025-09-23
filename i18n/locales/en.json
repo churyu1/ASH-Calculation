@@ -75,8 +75,8 @@
   "equipmentDescriptions": {
     "filter": "A filter cleans the air by removing dust and impurities. In this process, there is no change in the air's temperature or humidity; only pressure loss occurs.",
     "burner": "A burner heats the air. It can add both sensible and latent heat.\n- Movement on Psychrometric Chart: Moves upwards and to the right.\n- Slope: The slope is determined by the SHF (Sensible Heat Factor). If SHF is 1.0, the process line is horizontal (sensible heat only). If SHF is less than 1.0, the slope increases (latent heat is added).",
-    "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.\n- Coil Efficiency: This parameter accounts for heat gain from the ambient air into the chilled water through the coil casing. An efficiency of less than 100% will result in the water-side heat load being greater than the air-side heat load.",
-    "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).\n- Coil Efficiency: This parameter accounts for heat loss from the coil casing to the ambient air. An efficiency of less than 100% means the hot water must release more heat than the air gains.",
+    "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.\n- Heat Exchange Efficiency: This parameter accounts for heat gain from the ambient air into the chilled water through the coil casing. An efficiency of less than 100% will result in the water-side heat load being greater than the air-side heat load.",
+    "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).\n- Heat Exchange Efficiency: This parameter accounts for heat loss from the coil casing to the ambient air. An efficiency of less than 100% means the hot water must release more heat than the air gains.",
     "spray_washer": "A spray washer adiabatically humidifies and cools the air by spraying water.\n- Movement on Psychrometric Chart: Moves upwards and to the left along a constant enthalpy line.\n- Process: The enthalpy remains nearly constant during this process.",
     "steam_humidifier": "A steam humidifier adds moisture and heat to the air by directly injecting steam.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
     "fan": "A fan moves the air. Due to motor and fan efficiencies, some energy is converted into heat, slightly warming the air. This is a sensible heat only process.\n- Movement on Psychrometric Chart: Moves slightly horizontally to the right (absolute humidity remains constant).",
@@ -91,7 +91,7 @@
     "lowerHeatingValue": "Lower Heating Value",
     "chilledWaterInletTemp": "Chilled Water Inlet Temp",
     "chilledWaterOutletTemp": "Chilled Water Outlet Temp",
-    "coilEfficiency": "Coil Efficiency (%)",
+    "coilEfficiency": "Heat Exchange Efficiency (%)",
     "hotWaterInletTemp": "Hot Water Inlet Temp",
     "hotWaterOutletTemp": "Hot Water Outlet Temp",
     "humidificationEfficiency": "Humidification Efficiency",
@@ -358,22 +358,22 @@
         "title": "Water-Side Heat Load (Heating)",
         "si": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Coil Efficiency (accounts for heat loss, %)" }
+          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Heat Exchange Efficiency (accounts for heat loss, %)" }
         },
         "imperial": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Coil Efficiency (accounts for heat loss, %)" }
+          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Heat Exchange Efficiency (accounts for heat loss, %)" }
         }
       },
       "waterSideHeatLoad_cooling": {
         "title": "Water-Side Heat Load (Cooling)",
         "si": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Coil Efficiency (accounts for heat gain, %)" }
+          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Heat Exchange Efficiency (accounts for heat gain, %)" }
         },
         "imperial": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Coil Efficiency (accounts for heat gain, %)" }
+          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Heat Exchange Efficiency (accounts for heat gain, %)" }
         }
       },
       "waterFlow": {
