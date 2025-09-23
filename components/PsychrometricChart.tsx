@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
@@ -288,8 +285,13 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: Explicitly type 'd' as 'any' to bypass strict type inference issues in the build environment with d3.
-            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            // FIX: To definitively resolve persistent build failures caused by d3.js type inference issues,
+            // the `d` parameter is explicitly typed as `any`. This is a robust, standard practice for
+            // unblocking builds when TypeScript struggles with complex library types.
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => {
+                const val = convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem);
+                return val !== null ? val.toFixed(getPrecisionForUnitType('temperature', unitSystem)) : "";
+            }))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
         xAxis.selectAll("line").style("stroke", themeColors.axis);
@@ -299,12 +301,12 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
-            // FIX: Explicitly type 'd' as 'any' to bypass strict type inference issues in the build environment with d3.
-            .call(axisLeft(yScale).ticks(6).tickFormat((d: any) =>
-                showYAxisMeta
-                    ? `${convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
-                    : ''
-            ));
+            // FIX: Explicitly typing `d` as `any` is also applied here for consistency and to prevent build errors.
+            .call(axisLeft(yScale).ticks(6).tickFormat((d: any) => {
+                if (!showYAxisMeta) return '';
+                const val = convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem);
+                return val !== null ? val.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem)) : '';
+            }));
             
         yAxis.selectAll("path").style("stroke", themeColors.axis);
         yAxis.selectAll("line").style("stroke", themeColors.axis);

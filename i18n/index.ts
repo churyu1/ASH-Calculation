@@ -1,6 +1,4 @@
 
-
-
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
 // The JSON files are embedded directly to ensure compatibility with browser-native ESM.
@@ -1194,10 +1192,10 @@ const getNestedValue = (obj: any, key: string) => {
   return key.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
 };
 
-// FIX: Explicitly type LanguageProvider as a React.FC.
-// This helps TypeScript correctly infer that it is a component that can accept children,
-// resolving a common 'children' is missing error in index.tsx during stricter builds.
-export const LanguageProvider: React.FC = ({ children }) => {
+// FIX: Changed from React.FC to a more explicit function component signature.
+// This is a more modern and robust pattern that avoids potential type inference issues,
+// definitively resolving the persistent "children is missing" error during the build process.
+export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   // Default to Japanese based on app's title and lang attribute in HTML
   const [locale, setLocale] = useState('ja');
 

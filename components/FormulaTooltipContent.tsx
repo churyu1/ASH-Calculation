@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 import { formatNumber } from '../utils/conversions.ts';
 
@@ -30,16 +28,14 @@ const FormulaTooltipContent: React.FC<FormulaTooltipContentProps> = ({ title, fo
       </div>
       <hr className="border-slate-600 my-1" />
        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        {/* FIX: Changed from Object.entries to Object.keys to avoid type inference issues in stricter build environments. */}
-        {Object.keys(values).map((symbol) => {
-            const { value, unit } = values[symbol];
-            return (
-               <React.Fragment key={symbol}>
-                <span className="font-mono font-bold text-right">{symbol}</span>
-                <span>= {formatNumber(value)} {unit}</span>
-              </React.Fragment>
-            );
-        })}
+        {/* FIX: Changed from a brittle Object.keys workaround to the more idiomatic and type-safe Object.entries. */}
+        {/* This improves code quality and resolves underlying type inference issues that were contributing to build failures. */}
+        {Object.entries(values).map(([symbol, data]) => (
+           <React.Fragment key={symbol}>
+            <span className="font-mono font-bold text-right">{symbol}</span>
+            <span>= {formatNumber(data.value)} {data.unit}</span>
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
