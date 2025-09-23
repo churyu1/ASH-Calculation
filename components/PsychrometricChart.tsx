@@ -286,9 +286,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: The type of 'd' from d3's tickFormat can be `number | { valueOf(): number }`.
-            // Using `Number(d)` handles both cases safely, resolving potential type inference issues.
-            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            // FIX: Explicitly type 'd' as 'any' to avoid TS build errors from d3's complex type inference.
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
         xAxis.selectAll("line").style("stroke", themeColors.axis);
@@ -298,10 +297,9 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
-            .call(axisLeft(yScale).ticks(6).tickFormat(d =>
+            .call(axisLeft(yScale).ticks(6).tickFormat((d: any) =>
                 showYAxisMeta
-                    // FIX: The type of 'd' from d3's tickFormat can be `number | { valueOf(): number }`.
-                    // Using `Number(d)` handles both cases safely, resolving potential type inference issues.
+                    // FIX: Explicitly type 'd' as 'any' to avoid TS build errors from d3's complex type inference.
                     ? `${convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
                     : ''
             ));
