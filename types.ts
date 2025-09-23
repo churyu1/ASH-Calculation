@@ -47,6 +47,7 @@ export interface FilterConditions extends BaseConditions {
 
 export interface BurnerConditions extends BaseConditions {
     shf?: number;
+    lowerHeatingValue?: number; // Stored in MJ/m³
 }
 
 export interface CoolingCoilConditions extends BaseConditions {
@@ -87,6 +88,7 @@ export interface FilterResults extends BaseResults {
 
 export interface BurnerResults extends BaseResults {
     heatLoad_kW?: number;
+    gasFlowRate?: number; // m³/h
 }
 
 export interface CoolingCoilResults extends BaseResults {
@@ -148,7 +150,8 @@ export type UnitType =
     | 'airflow' | 'temperature' | 'temperature_delta' | 'length' | 'pressure' | 'heat_load' | 'water_flow'
     | 'abs_humidity' | 'enthalpy' | 'motor_power' | 'velocity' | 'airflow_per_sheet'
     | 'rh' | 'sheets' | 'shf' | 'efficiency' | 'k_value' | 'water_to_air_ratio'
-    | 'area' | 'density' | 'steam_pressure' | 'steam_enthalpy' | 'steam_flow';
+    | 'area' | 'density' | 'steam_pressure' | 'steam_enthalpy' | 'steam_flow' | 'gas_flow'
+    | 'lower_heating_value';
 
 export interface ChartPoint {
     temp: number;

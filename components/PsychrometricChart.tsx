@@ -286,7 +286,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            .call(axisBottom(xScale).ticks(numTicksX).tickFormat(d => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            // FIX: Explicitly type the 'd' parameter in tickFormat as 'any' to resolve a TypeScript inference issue.
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
         xAxis.selectAll("line").style("stroke", themeColors.axis);
@@ -687,14 +688,22 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const inletDewPoint = calculateDewPoint(x_in);
 
                         for (let t_out = T_in; t_out >= minOutletTemp; t_out -= 0.5) {
-                             let x_out: number;
-                            if (t_out >= inletDewPoint || BF >= 1.0) {
-                                x_out = x_in;
-                            } else {
-                                const t_adp = (t_out - T_in * BF) / (1 - BF);
+                            let x_out: number;
+                            
+                            let t_adp: number | undefined;
+                            if (BF < 1.0 && (T_in - t_out) > 0.01) {
+                                t_adp = (t_out - T_in * BF) / (1 - BF);
+                            }
+                
+                            if (t_adp !== undefined && t_adp < inletDewPoint) {
+                                // Dehumidification process
                                 const x_adp = calculateAbsoluteHumidity(t_adp, 100);
                                 x_out = x_adp * (1 - BF) + x_in * BF;
+                            } else {
+                                // Sensible cooling only
+                                x_out = x_in;
                             }
+
                             const saturationHumidity = calculateAbsoluteHumidity(t_out, 100);
                             if (x_out > saturationHumidity) {
                                 x_out = saturationHumidity;
@@ -843,21 +852,28 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             
                 const inletDewPoint = calculateDewPoint(x_in);
             
-                if (t_out >= inletDewPoint || BF >= 1.0) {
-                    return x_in; // Sensible cooling only
+                let outletAbsHum: number;
+                let t_adp: number | undefined;
+            
+                if (BF < 1.0 && (t_in - t_out) > 0.01) {
+                    t_adp = (t_out - t_in * BF) / (1 - BF);
+                }
+                
+                if (t_adp !== undefined && t_adp < inletDewPoint) {
+                    // Dehumidification process
+                    const x_adp = calculateAbsoluteHumidity(t_adp, 100);
+                    outletAbsHum = x_adp * (1 - BF) + x_in * BF;
+                } else {
+                    // Sensible cooling only
+                    outletAbsHum = x_in;
                 }
             
-                // Dehumidifying
-                const t_adp = (t_out - t_in * BF) / (1 - BF);
-                const x_adp = calculateAbsoluteHumidity(t_adp, 100);
-                const outletAbsHum = x_adp * (1 - BF) + x_in * BF;
-
                 // Correct for supersaturation which can occur due to the linear mixing model approximation
                 const saturationHumidityAtOutlet = calculateAbsoluteHumidity(t_out, 100);
                 if (outletAbsHum > saturationHumidityAtOutlet) {
                     return saturationHumidityAtOutlet;
                 }
-
+            
                 return outletAbsHum;
             };
 
@@ -889,7 +905,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const x1 = xScale(inletTempSI), y1 = yScale(inletAbsHumiditySI);
                         const x2 = xScale(outletTempSI), y2 = yScale(outletAbsHumiditySI);
                         
-                        select(this).property('__start_pointer__', { x: event.x, y: event.y });
+                        const [startX, startY] = pointer(event.sourceEvent, svg.node());
+                        select(this).property('__start_pointer__', { x: startX, y: startY });
                         select(this).property('__start_pos__', { inletX: x1, inletY: y1, outletX: x2, outletY: y2 });
                         
                         if (eq.type === EquipmentType.BURNER) {
@@ -911,7 +928,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 })
                 .on("drag", function (event) {
                     const dragMode = select(this).property('__drag_mode__');
-                    const [mx, my] = pointer(event, svg.node());
+                    const [mx, my] = pointer(event.sourceEvent, svg.node());
                     
                     svg.selectAll(".snap-line-highlight").remove();
 
@@ -920,7 +937,9 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const startPos = select(this).property('__start_pos__');
                         if (!startPointer || !startPos) return;
 
-                        const dx = event.x - startPointer.x, dy = event.y - startPointer.y;
+                        const [currentX, currentY] = pointer(event.sourceEvent, svg.node());
+                        const dx = currentX - startPointer.x;
+                        const dy = currentY - startPointer.y;
                         let finalDx = dx, finalDy = dy;
                         
                         const proposedInletX = startPos.inletX + dx, proposedInletY = startPos.inletY + dy;
@@ -1266,7 +1285,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const line2 = `${tempString}${temperatureUnit}, ${rhString}%`;
                         const label = `<div>${line1}</div><div>${line2}</div>`;
 
-                        const [cursorX, cursorY] = pointer(event, containerRef.current);
+                        const [cursorX, cursorY] = pointer(event.sourceEvent, containerRef.current);
                         tooltip.style("visibility", "visible")
                                 .html(label)
                                 .style("top", `${cursorY + 20}px`)

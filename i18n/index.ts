@@ -1,9 +1,10 @@
+
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
 // The JSON files are embedded directly to ensure compatibility with browser-native ESM.
 const enMessages = {
   "app": {
-    "title": "HVAC Calculator",
+    "title": "Psychrometric Chart with Drag-and-Drop",
     "description": "This is a psychrometric calculation application for air conditioners. You can freely combine equipment such as filters, coils, and fans to simulate changes in air conditions. The results are also displayed on a psychrometric chart, allowing for visual analysis.",
     "instructionsTitle": "How to Use",
     "instructions": "1. Set the system airflow and the inlet/outlet conditions for the entire air conditioner.\n2. Add necessary equipment from the 'Add Equipment' section.\n3. Configure the conditions for each piece of equipment. The air state will be automatically calculated and passed downstream.\n4. Drag the points and lines on the psychrometric chart to intuitively adjust the air conditions.",
@@ -91,6 +92,7 @@ const enMessages = {
     "thickness": "Thickness",
     "sheets": "Sheets",
     "shf": "SHF (Sensible Heat Factor)",
+    "lowerHeatingValue": "Lower Heating Value",
     "chilledWaterInletTemp": "Chilled Water Inlet Temp",
     "chilledWaterOutletTemp": "Chilled Water Outlet Temp",
     "heatExchangeEfficiency": "Heat Exchange Efficiency",
@@ -106,6 +108,7 @@ const enMessages = {
     "faceVelocity": "Face Velocity",
     "treatedAirflowPerSheet": "Airflow/Sheet",
     "heatLoad": "Heat Load",
+    "gasFlowRate": "Gas Flow Rate",
     "airSideHeatLoad": "Air-Side Heat Load",
     "coldWaterSideHeatLoad": "Chilled Water Side Heat Load",
     "chilledWaterFlow_L_min": "Chilled Water Flow",
@@ -144,14 +147,16 @@ const enMessages = {
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
-        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
+        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h", "gas_flow": "m³/h",
+        "lower_heating_value": "MJ/m³"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
-        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
+        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h", "gas_flow": "ft³/h",
+        "lower_heating_value": "BTU/ft³"
     }
   },
   "chart": {
@@ -308,6 +313,36 @@ const enMessages = {
         "imperial": {
           "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
           "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
+        }
+      },
+      "gasFlowRate": {
+        "title": "Gas Flow Rate",
+        "si": {
+          "formula": "V = (Q_kW * 3.6) / H_l",
+          "legend": {
+            "V": "Flow Rate (m³/h)",
+            "Q_kW": "Heat Load (kW)",
+            "H_l": "Lower Heating Value (MJ/m³)"
+          }
+        },
+        "imperial": {
+          "formula": "V = Q_BTUh / H_l",
+          "legend": {
+            "V": "Flow Rate (ft³/h)",
+            "Q_BTUh": "Heat Load (BTU/h)",
+            "H_l": "Lower Heating Value (BTU/ft³)"
+          }
+        }
+      },
+      "heatingValueReference": {
+        "title": "Heating Value Reference",
+        "gasType": "Gas Type",
+        "hhv": "HHV",
+        "lhv": "LHV",
+        "gases": {
+          "natural_gas": "Natural Gas (13A)",
+          "city_gas": "City Gas (4B)",
+          "lpg": "LPG (Propane)"
         }
       }
     },
@@ -510,39 +545,39 @@ const enMessages = {
       }
     },
     "fan": {
-      "heatGeneration": {
-        "title": "Heat Generation",
-        "si": {
-          "formula": "Q_kW = P_kW * (1 - η/100)",
-          "legend": { "Q": "Heat (kW)", "P": "Motor Power (kW)", "η": "Efficiency (%)" }
+        "heatGeneration": {
+            "title": "Heat Generation",
+            "si": {
+                "formula": "Q_kW = P * (1 - η / 100)",
+                "legend": { "Q_kW": "Heat (kW)", "P": "Motor Power (kW)", "η": "Efficiency (%)" }
+            },
+            "imperial": {
+                "formula": "Q_BTUh = P_HP * 2545 * (1 - η / 100)",
+                "legend": { "Q_BTUh": "Heat (BTU/h)", "P_HP": "Motor Power (HP)", "η": "Efficiency (%)" }
+            }
         },
-        "imperial": {
-          "formula": "Q_BTUh = P_HP * 2545 * (1 - η/100)",
-          "legend": { "Q": "Heat (BTU/h)", "P": "Motor Power (HP)", "η": "Efficiency (%)" }
-        }
-      },
-      "tempRise": {
-        "title": "Temperature Rise",
-        "si": {
-          "formula": "Δt = Q_kW / (G * Cpa_moist)",
-          "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)", "Cpa_moist": "Specific heat of moist air" }
+        "tempRise": {
+            "title": "Temperature Rise",
+            "si": {
+                "formula": "Δt = Q_kW / (G * Cpa_moist)",
+                "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)", "Cpa_moist": "Specific heat of moist air" }
+            },
+            "imperial": {
+                "formula": "Δt = Q_BTUh / (1.08 * q)",
+                "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
+            }
         },
-        "imperial": {
-          "formula": "Δt = Q_BTUh / (1.08 * q)",
-          "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
+        "outletTemp": {
+            "title": "Outlet Temperature",
+            "si": {
+                "formula": "t_out = t_in + Δt",
+                "legend": { "t_out": "Outlet Temp (°C)", "t_in": "Inlet Temp (°C)", "Δt": "Temp Rise (°C)" }
+            },
+            "imperial": {
+                "formula": "t_out = t_in + Δt",
+                "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
+            }
         }
-      },
-      "outletTemp": {
-        "title": "Outlet Temperature",
-        "si": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "Outlet Temp (°C)", "t_in": "Inlet Temp (°C)", "Δt": "Temp Rise (°C)" }
-        },
-        "imperial": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
-        }
-      }
     },
     "damper": {
       "airVelocity": {
@@ -572,7 +607,7 @@ const enMessages = {
 };
 const jaMessages = {
   "app": {
-    "title": "空調器計算機",
+    "title": "ドラッグして空気線図",
     "description": "これは空調器の湿り空気線図計算アプリケーションです。フィルター、コイル、ファンなどの機器を自由に組み合わせて、空気の状態変化をシミュレーションできます。結果は湿り空気線図にも表示され、視覚的な分析が可能です。",
     "instructionsTitle": "使い方",
     "instructions": "1. システムの風量と空調器全体の入口・出口条件を設定します。\n2. 「機器の追加」セクションから必要な機器を追加します。\n3. 各機器の条件を設定します。空気の状態は自動的に計算され、下流に引き継がれます。\n4. 湿り空気線図上の点や線をドラッグして、直感的に空気の状態を調整します。",
@@ -660,6 +695,7 @@ const jaMessages = {
     "thickness": "厚さ",
     "sheets": "枚数",
     "shf": "SHF (顕熱比)",
+    "lowerHeatingValue": "低位発熱量",
     "chilledWaterInletTemp": "冷水入口温度",
     "chilledWaterOutletTemp": "冷水出口温度",
     "heatExchangeEfficiency": "熱交換効率",
@@ -674,12 +710,13 @@ const jaMessages = {
   "results": {
     "faceVelocity": "面速",
     "treatedAirflowPerSheet": "風量/枚",
-    "heatLoad": "熱負荷",
-    "airSideHeatLoad": "空気側熱負荷",
-    "coldWaterSideHeatLoad": "冷水側熱負荷",
+    "heatLoad": "加熱量",
+    "gasFlowRate": "ガス流量",
+    "airSideHeatLoad": "空気側熱量",
+    "coldWaterSideHeatLoad": "冷水側熱量",
     "chilledWaterFlow_L_min": "冷水流量",
     "dehumidification_L_min": "除湿量",
-    "hotWaterSideHeatLoad": "温水側熱負荷",
+    "hotWaterSideHeatLoad": "温水側熱量",
     "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
     "sprayAmount_L_min": "噴霧量",
@@ -713,14 +750,16 @@ const jaMessages = {
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
-        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
+        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h", "gas_flow": "m³/h",
+        "lower_heating_value": "MJ/m³"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
-        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
+        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h", "gas_flow": "ft³/h",
+        "lower_heating_value": "BTU/ft³"
     }
   },
   "chart": {
@@ -746,9 +785,9 @@ const jaMessages = {
       "rh": "RH",
       "keyResults": "主要結果",
       "burnerLoad": "バーナー負荷",
-      "coolingLoad": "冷水側熱負荷",
+      "coolingLoad": "冷水側熱量",
       "coolingFlow": "冷水流量",
-      "heatingLoad": "温水側熱負荷",
+      "heatingLoad": "温水側熱量",
       "heatingFlow": "温水流量",
       "steamFlow": "蒸気量",
       "pressureLoss": "圧力損失",
@@ -756,13 +795,13 @@ const jaMessages = {
     }
   },
   "fab": {
-    "toggleToSplitView": "分割ビューに切り替え",
-    "toggleToSingleView": "シングルビューに切り替え"
+    "toggleToSplitView": "分割表示に切り替え",
+    "toggleToSingleView": "単一表示に切り替え"
   },
   "tooltips": {
     "airProperties": {
       "absHumidityFromTRh": {
-        "title": "絶対湿度 (T, RHより)",
+        "title": "絶対湿度 (T, RHから)",
         "si": {
           "formula": [
             "P_v = P_sat(t) * (rh / 100)",
@@ -770,7 +809,7 @@ const jaMessages = {
           ],
           "legend": {
             "x": "絶対湿度 (g/kg)", "t": "温度 (°C)", "rh": "相対湿度 (%)",
-            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
+            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気分圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
           }
         },
         "imperial": {
@@ -781,12 +820,12 @@ const jaMessages = {
           ],
           "legend": {
             "x": "絶対湿度 (gr/lb)", "t_f": "温度 (°F)", "rh": "相対湿度 (%)",
-            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
+            "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気分圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
           }
         }
       },
       "enthalpyFromTX": {
-        "title": "エンタルピー (T, xより)",
+        "title": "エンタルピー (T, xから)",
         "si": {
           "formula": "h = 1.006*t + (x/1000)*(2501 + 1.86*t)",
           "legend": { "h": "エンタルピー (kJ/kg)", "t": "温度 (°C)", "x": "絶対湿度 (g/kg)" }
@@ -797,7 +836,7 @@ const jaMessages = {
         }
       },
       "rhFromTX": {
-        "title": "相対湿度 (T, xより)",
+        "title": "相対湿度 (T, xから)",
         "si": {
           "formula": [
             "P_v = (P_atm * (x/1000)) / (0.622 + (x/1000))",
@@ -805,7 +844,7 @@ const jaMessages = {
           ],
           "legend": {
             "rh": "相対湿度 (%)", "t": "温度 (°C)", "x": "絶対湿度 (g/kg)",
-            "P_v": "水蒸気圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
+            "P_v": "水蒸気分圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
           }
         },
         "imperial": {
@@ -816,12 +855,12 @@ const jaMessages = {
           ],
           "legend": {
             "rh": "相対湿度 (%)", "t_f": "温度 (°F)", "x": "絶対湿度 (gr/lb)",
-            "P_v": "水蒸気圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
+            "P_v": "水蒸気分圧 (Pa)", "P_sat": "飽和水蒸気圧 (Pa)"
           }
         }
       },
       "absHumidityFromTH": {
-        "title": "絶対湿度 (T, hより)",
+        "title": "絶対湿度 (T, hから)",
         "si": {
           "formula": "x = 1000*(h - 1.006*t) / (2501 + 1.86*t)",
           "legend": { "x": "絶対湿度 (g/kg)", "h": "エンタルピー (kJ/kg)", "t": "温度 (°C)" }
@@ -856,73 +895,103 @@ const jaMessages = {
         }
       },
       "airflowPerSheet": {
-        "title": "シートあたりの風量",
+        "title": "枚あたり風量",
         "si": {
           "formula": "q_sheet = q / n",
-          "legend": { "q_sheet": "風量/枚 (m³/min)", "q": "総風量 (m³/min)", "n": "枚数" }
+          "legend": { "q_sheet": "枚あたり風量 (m³/min)", "q": "総風量 (m³/min)", "n": "枚数" }
         },
         "imperial": {
           "formula": "q_sheet = q / n",
-          "legend": { "q_sheet": "風量/枚 (CFM)", "q": "総風量 (CFM)", "n": "枚数" }
+          "legend": { "q_sheet": "枚あたり風量 (CFM)", "q": "総風量 (CFM)", "n": "枚数" }
         }
       }
     },
     "burner": {
       "heatLoad": {
-        "title": "熱負荷",
+        "title": "加熱量",
         "si": {
           "formula": "Q_kW = G * (h_out - h_in)",
-          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
+          "legend": { "Q": "加熱量 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
           "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
-          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "legend": { "Q": "加熱量 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+        }
+      },
+      "gasFlowRate": {
+        "title": "ガス流量",
+        "si": {
+          "formula": "V = (Q_kW * 3.6) / H_l",
+          "legend": {
+            "V": "流量 (m³/h)",
+            "Q_kW": "加熱量 (kW)",
+            "H_l": "低位発熱量 (MJ/m³)"
+          }
+        },
+        "imperial": {
+          "formula": "V = Q_BTUh / H_l",
+          "legend": {
+            "V": "流量 (ft³/h)",
+            "Q_BTUh": "加熱量 (BTU/h)",
+            "H_l": "低位発熱量 (BTU/ft³)"
+          }
+        }
+      },
+      "heatingValueReference": {
+        "title": "発熱量参考値",
+        "gasType": "ガス種",
+        "hhv": "高位",
+        "lhv": "低位",
+        "gases": {
+          "natural_gas": "天然ガス (13A)",
+          "city_gas": "都市ガス (4B)",
+          "lpg": "LPガス (プロパン)"
         }
       }
     },
     "coil": {
       "airSideHeatLoad": {
-        "title": "空気側熱負荷",
+        "title": "空気側熱量",
         "si": {
           "formula": "Q_kW = G * |h_in - h_out|",
-          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
+          "legend": { "Q": "熱量 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
           "formula": "Q_BTUh = 4.5 * q * |h_in - h_out|",
-          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "legend": { "Q": "熱量 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
       "waterSideHeatLoad": {
-        "title": "水側熱負荷",
+        "title": "水側熱量",
         "si": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "水負荷 (kW)", "Q_air": "空気負荷 (kW)", "η": "効率 (%)" }
+          "legend": { "Q_water": "水側熱量 (kW)", "Q_air": "空気側熱量 (kW)", "η": "効率 (%)" }
         },
         "imperial": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "水負荷 (BTU/h)", "Q_air": "空気負荷 (BTU/h)", "η": "効率 (%)" }
+          "legend": { "Q_water": "水側熱量 (BTU/h)", "Q_air": "空気側熱量 (BTU/h)", "η": "効率 (%)" }
         }
       },
       "waterFlow": {
         "title": "水流量",
         "si": {
           "formula": "L = (Q_kW * 60) / (4.186 * Δt_w)",
-          "legend": { "L": "流量 (L/min)", "Q_kW": "負荷 (kW)", "Δt_w": "水温差 (°C)" }
+          "legend": { "L": "流量 (L/min)", "Q_kW": "熱量 (kW)", "Δt_w": "水温差 (°C)" }
         },
         "imperial": {
           "formula": "GPM = Q_BTUh / (500 * Δt_w)",
-          "legend": { "GPM": "流量 (GPM)", "Q_BTUh": "負荷 (BTU/h)", "Δt_w": "水温差 (°F)" }
+          "legend": { "GPM": "流量 (GPM)", "Q_BTUh": "熱量 (BTU/h)", "Δt_w": "水温差 (°F)" }
         }
       },
       "dehumidification": {
         "title": "除湿量",
         "si": {
           "formula": "D = (G * |x_in - x_out| / 1000) * 60",
-          "legend": { "D": "除湿率 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+          "legend": { "D": "除湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
-          "legend": { "D_gpm": "除湿率 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "legend": { "D_gpm": "除湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "bypassFactor": {
@@ -937,9 +1006,9 @@ const jaMessages = {
         }
       },
       "contactFactor": {
-        "title": "接触係数（効率）",
-        "si": { "formula": "CF = 1 - BF", "legend": { "CF": "接触係数", "BF": "バイパスファクター" } },
-        "imperial": { "formula": "CF = 1 - BF", "legend": { "CF": "接触係数", "BF": "バイパスファクター" } }
+        "title": "コンタクトファクター (効率)",
+        "si": { "formula": "CF = 1 - BF", "legend": { "CF": "コンタクトファクター", "BF": "バイパスファクター" } },
+        "imperial": { "formula": "CF = 1 - BF", "legend": { "CF": "コンタクトファクター", "BF": "バイパスファクター" } }
       },
       "apparatusDewPointTemp": {
         "title": "装置露点温度 (ADP)",
@@ -953,9 +1022,9 @@ const jaMessages = {
         }
       },
       "apparatusDewPointTempSensible": {
-        "title": "入口露点温度（顕熱冷却）",
+        "title": "入口露点温度 (顕熱冷却)",
         "si": {
-          "formula": "除湿なし。表示値は入口空気の露点温度。ADPは適用外。",
+          "formula": "除湿なし。値は入口空気の露点温度です。ADPは適用されません。",
           "legend": {
             "t_dp": "露点温度 (°C)",
             "t_in": "入口温度 (°C)",
@@ -963,7 +1032,7 @@ const jaMessages = {
           }
         },
         "imperial": {
-          "formula": "除湿なし。表示値は入口空気の露点温度。ADPは適用外。",
+          "formula": "除湿なし。値は入口空気の露点温度です。ADPは適用されません。",
           "legend": {
             "t_dp": "露点温度 (°F)",
             "t_in": "入口温度 (°F)",
@@ -977,22 +1046,22 @@ const jaMessages = {
         "title": "加湿量",
         "si": {
           "formula": "M = (G * (x_out - x_in) / 1000) * 60",
-          "legend": { "M": "加湿率 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+          "legend": { "M": "加湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "M_gpm = (q*4.5*(x_out-x_in))/(7000*8.34)",
-          "legend": { "M_gpm": "加湿率 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "legend": { "M_gpm": "加湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "sprayAmount": {
         "title": "噴霧量",
         "si": {
           "formula": "S = G * (L/G) * 60",
-          "legend": { "S": "量 (L/min)", "G": "質量流量 (kg/s)", "L/G": "水空気比" }
+          "legend": { "S": "噴霧量 (L/min)", "G": "質量流量 (kg/s)", "L/G": "水空気比" }
         },
         "imperial": {
           "formula": "S_gpm = (q * ρ * (L/G)) / 8.34",
-          "legend": { "S_gpm": "量 (GPM)", "q": "風量 (CFM)", "ρ": "空気密度 (~0.075 lb/ft³)", "L/G": "水空気比" }
+          "legend": { "S_gpm": "噴霧量 (GPM)", "q": "風量 (CFM)", "ρ": "空気密度 (~0.075 lb/ft³)", "L/G": "水空気比" }
         }
       },
       "humidificationEfficiency": {
@@ -1007,9 +1076,9 @@ const jaMessages = {
         }
       },
       "outletTemp": {
-        "title": "出口温度 (RHより)",
+        "title": "出口温度 (RHから)",
         "si": {
-          "formula": "一定エンタルピー(h_in)でRH_outに一致するように計算。",
+          "formula": "等エンタルピー線(h_in)上でRH_outと一致するよう計算されます。",
           "legend": {
             "t_out": "出口温度 (°C)",
             "h_in": "入口エンタルピー (kJ/kg)",
@@ -1017,7 +1086,7 @@ const jaMessages = {
           }
         },
         "imperial": {
-          "formula": "一定エンタルピー(h_in)でRH_outに一致するように計算。",
+          "formula": "等エンタルピー線(h_in)上でRH_outと一致するよう計算されます。",
           "legend": {
             "t_out": "出口温度 (°F)",
             "h_in": "入口エンタルピー (BTU/lb)",
@@ -1028,16 +1097,16 @@ const jaMessages = {
     },
     "steam_humidifier": {
       "outletTemp": {
-        "title": "出口温度 (RHより)",
+        "title": "出口温度 (RHから)",
         "si": {
-          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam を満たすように計算。",
+          "formula": "h_out - (x_out/1000)*h_steam = h_in - (x_in/1000)*h_steam",
           "legend": {
             "t_out": "出口温度 (°C)", "h_in": "入口エンタルピー (kJ/kg)", "x_in": "入口絶対湿度 (g/kg)",
             "h_steam": "蒸気エンタルピー (kJ/kg)", "RH_out": "目標出口RH (%)"
           }
         },
         "imperial": {
-          "formula": "目標のRH_outに対するエンタルピーバランスを満たすように計算。",
+          "formula": "エンタルピーバランスが目標RH_outで満たされるように計算されます。",
           "legend": {
             "t_out": "出口温度 (°F)", "h_in": "入口エンタルピー (BTU/lb)", "x_in": "入口絶対湿度 (gr/lb)",
             "h_steam": "蒸気エンタルピー (BTU/lb)", "RH_out": "目標出口RH (%)"
@@ -1048,153 +1117,109 @@ const jaMessages = {
         "title": "必要蒸気量",
         "si": {
           "formula": "M = G * (x_out - x_in) / 1000 * 3600",
-          "legend": { "M": "流量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
+          "legend": { "M": "蒸気量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
-          "legend": { "M_lbh": "流量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "legend": { "M_lbh": "蒸気量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "steamAbsolutePressure": {
-        "title": "蒸気絶対圧",
+        "title": "蒸気絶対圧力",
         "si": {
           "formula": "P_abs = P_gauge + P_atm",
-          "legend": { "P_abs": "絶対圧 (kPa)", "P_gauge": "ゲージ圧 (kPa)", "P_atm": "大気圧 (101.325 kPa)" }
+          "legend": { "P_abs": "絶対圧力 (kPa)", "P_gauge": "ゲージ圧力 (kPa)", "P_atm": "大気圧 (101.325 kPa)" }
         },
         "imperial": {
           "formula": "P_abs = P_gauge + P_atm",
-          "legend": { "P_abs": "絶対圧 (psi)", "P_gauge": "ゲージ圧 (psi)", "P_atm": "大気圧 (14.7 psi)" }
+          "legend": { "P_abs": "絶対圧力 (psi)", "P_gauge": "ゲージ圧力 (psi)", "P_atm": "大気圧 (14.7 psi)" }
         }
       },
       "steamProperties": {
-        "title": "蒸気特性 (圧力より)",
+        "title": "蒸気特性 (圧力から)",
         "si": {
-          "formula": "絶対圧に基づき蒸気表から内挿計算。",
-          "legend": { "T_steam": "蒸気温度 (°C)", "h_steam": "蒸気エンタルピー (kcal/kg)", "P_abs": "絶対圧 (kPa)" }
+          "formula": "絶対圧力に基づき蒸気表から線形補間により計算されます。",
+          "legend": { "T_steam": "蒸気温度 (°C)", "h_steam": "蒸気エンタルピー (kcal/kg)", "P_abs": "絶対圧力 (kPa)" }
         },
         "imperial": {
-          "formula": "絶対圧に基づき蒸気表から内挿計算。",
-          "legend": { "T_steam": "蒸気温度 (°F)", "h_steam": "蒸気エンタルピー (BTU/lb)", "P_abs": "絶対圧 (psi)" }
+          "formula": "絶対圧力に基づき蒸気表から線形補間により計算されます。",
+          "legend": { "T_steam": "蒸気温度 (°F)", "h_steam": "蒸気エンタルピー (BTU/lb)", "P_abs": "絶対圧力 (psi)" }
         }
       }
     },
     "fan": {
-      "heatGeneration": {
-        "title": "発熱量",
-        "si": {
-          "formula": "Q_kW = P_kW * (1 - η/100)",
-          "legend": { "Q": "熱量 (kW)", "P": "モーター出力 (kW)", "η": "効率 (%)" }
+        "heatGeneration": {
+            "title": "発熱量",
+            "si": {
+                "formula": "Q_kW = P * (1 - η / 100)",
+                "legend": { "Q_kW": "発熱量 (kW)", "P": "モーター出力 (kW)", "η": "モーター効率 (%)" }
+            },
+            "imperial": {
+                "formula": "Q_BTUh = P_HP * 2545 * (1 - η / 100)",
+                "legend": { "Q_BTUh": "発熱量 (BTU/h)", "P_HP": "モーター出力 (HP)", "η": "モーター効率 (%)" }
+            }
         },
-        "imperial": {
-          "formula": "Q_BTUh = P_HP * 2545 * (1 - η/100)",
-          "legend": { "Q": "熱量 (BTU/h)", "P": "モーター出力 (HP)", "η": "効率 (%)" }
+        "tempRise": {
+            "title": "温度上昇",
+            "si": {
+                "formula": "Δt = Q_kW / (G * Cpa_moist)",
+                "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "発熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気比熱 (~1.02 kJ/kg·K)" }
+            },
+            "imperial": {
+                "formula": "Δt = Q_BTUh / (1.08 * q)",
+                "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "発熱量 (BTU/h)", "q": "風量 (CFM)" }
+            }
         }
-      },
-      "tempRise": {
-        "title": "温度上昇",
-        "si": {
-          "formula": "Δt = Q_kW / (G * Cpa_moist)",
-          "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気の比熱" }
-        },
-        "imperial": {
-          "formula": "Δt = Q_BTUh / (1.08 * q)",
-          "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "熱量 (BTU/h)", "q": "風量 (CFM)" }
-        }
-      },
-      "outletTemp": {
-        "title": "出口温度",
-        "si": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "出口温度 (°C)", "t_in": "入口温度 (°C)", "Δt": "温度上昇 (°C)" }
-        },
-        "imperial": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "出口温度 (°F)", "t_in": "入口温度 (°F)", "Δt": "温度上昇 (°F)" }
-        }
-      }
-    },
-    "damper": {
-      "airVelocity": {
-        "title": "風速",
-        "si": {
-          "formula": "v = (q / 60) / A",
-          "legend": { "v": "速度 (m/s)", "q": "風量 (m³/min)", "A": "面積 (m²)" }
-        },
-        "imperial": {
-          "formula": "v = q / A",
-          "legend": { "v": "速度 (fpm)", "q": "風量 (CFM)", "A": "面積 (ft²)" }
-        }
-      },
-      "pressureLoss": {
-        "title": "圧力損失",
-        "si": {
-          "formula": "ΔP = K * 0.5 * ρ * v²",
-          "legend": { "ΔP": "圧力損失 (Pa)", "K": "K係数", "ρ": "密度 (kg/m³)", "v": "速度 (m/s)" }
-        },
-        "imperial": {
-          "formula": "ΔP = K * (v / 4005)²",
-          "legend": { "ΔP": "圧力損失 (in.w.g.)", "K": "K係数", "v": "速度 (fpm)" }
-        }
-      }
     }
   }
 };
 
+const messages: { [key: string]: any } = {
+  en: enMessages,
+  ja: jaMessages,
+};
+
+// Update the type of 't' to return 'any' to accommodate strings, objects, and arrays from JSON.
 type LanguageContextType = {
-    locale: string;
-    setLocale: (locale: string) => void;
-    t: (key: string) => string;
+  locale: string;
+  setLocale: (locale: string) => void;
+  t: (key: string) => any;
 };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const getNestedValue = (obj: any, key: string): any => {
-    return key.split('.').reduce((o, i) => (o && o[i] !== undefined ? o[i] : undefined), obj);
+const getNestedValue = (obj: any, key: string) => {
+  return key.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
 };
 
-const messages: { [key: string]: any } = {
-    en: enMessages,
-    ja: jaMessages
-};
+// Change component to use React.createElement to avoid JSX syntax in a .ts file.
+// FIX: Explicitly type LanguageProvider as a React.FC to help TypeScript's JSX type inference.
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Default to Japanese based on app's title and lang attribute in HTML
+  const [locale, setLocale] = useState('ja');
 
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-    const [locale, setLocale] = useState('ja'); // Default to Japanese
+  const t = useCallback((key: string) => {
+    let message = getNestedValue(messages[locale], key);
 
-    const t = useCallback((key: string): string => {
-        const selectedMessages = messages[locale] || messages['ja'];
-        const value = getNestedValue(selectedMessages, key);
-
-        if (value === undefined) {
-            console.warn(`Translation key not found: ${key}`);
-            const fallbackMessages = messages['en'];
-            const fallbackValue = getNestedValue(fallbackMessages, key);
-            if (fallbackValue !== undefined) {
-                 if (typeof fallbackValue === 'object' && fallbackValue !== null) {
-                    return JSON.stringify(fallbackValue);
-                 }
-                return String(fallbackValue);
-            }
-            return key;
-        }
-        
-        // If the value is an object or array (e.g., for tooltips), stringify it.
-        // This is necessary for components that expect a string prop but need complex data.
-        if (typeof value === 'object' && value !== null) {
-            return JSON.stringify(value);
-        }
-
-        return String(value);
-    }, [locale]);
-
-    // FIX: Replaced JSX with React.createElement to be compatible with a .ts file extension.
-    // This resolves parsing errors that were causing incorrect type inference for this component.
-    return React.createElement(LanguageContext.Provider, { value: { locale, setLocale, t } }, children);
-};
-
-export const useLanguage = (): LanguageContextType => {
-    const context = useContext(LanguageContext);
-    if (context === undefined) {
-        throw new Error('useLanguage must be used within a LanguageProvider');
+    // Fallback to English if the message is not found in the current locale
+    if (message === undefined) {
+      message = getNestedValue(messages['en'], key);
     }
-    return context;
+
+    // Return the message if it was found (even if it's an empty string ""), otherwise return the key
+    return message !== undefined ? message : key;
+  }, [locale]);
+  
+  const value = { locale, setLocale, t };
+
+  return React.createElement(LanguageContext.Provider, { value }, children);
+};
+
+// Add explicit return type to the hook.
+export const useLanguage = (): LanguageContextType => {
+  const context = useContext(LanguageContext);
+  if (context === undefined) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
 };

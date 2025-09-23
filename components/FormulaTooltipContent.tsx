@@ -28,10 +28,11 @@ const FormulaTooltipContent: React.FC<FormulaTooltipContentProps> = ({ title, fo
       </div>
       <hr className="border-slate-600 my-1" />
        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        {Object.entries(values).map(([symbol, { value, unit }]) => (
+        {/* FIX: Use Object.keys to avoid type inference issues with Object.entries */}
+        {Object.keys(values).map((symbol) => (
            <React.Fragment key={symbol}>
             <span className="font-mono font-bold text-right">{symbol}</span>
-            <span>= {formatNumber(value)} {unit}</span>
+            <span>= {formatNumber(values[symbol].value)} {values[symbol].unit}</span>
           </React.Fragment>
         ))}
       </div>

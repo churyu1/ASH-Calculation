@@ -84,7 +84,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
       {/* The tooltip is rendered here but positioned relative to the viewport */}
       <div
         ref={tooltipRef}
-        className="fixed z-50 p-3 bg-slate-800 text-white text-sm rounded-lg shadow-xl max-w-xs transition-opacity duration-200"
+        className="fixed z-50 p-3 bg-slate-800 text-white text-sm rounded-lg shadow-xl max-w-sm transition-opacity duration-200"
         style={{
           visibility: 'hidden',
           opacity: 0,

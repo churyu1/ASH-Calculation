@@ -60,3 +60,17 @@ export const MOTOR_OUTPUT_CONVERSIONS: { hp: string; kw: number }[] = [
     { hp: '400', kw: 300 },
     { hp: '500', kw: 370 },
 ];
+
+// Conversion factor from MJ/m³ to BTU/ft³ is approx 26.8222
+export const MAJOR_GAS_HEATING_VALUES = {
+    si: [
+        { name: 'natural_gas', hhv: 50.0, lhv: 45.0 },
+        { name: 'city_gas', hhv: 19.3, lhv: 17.2 },
+        { name: 'lpg', hhv: 101.0, lhv: 93.2 },
+    ],
+    imperial: [
+        { name: 'natural_gas', hhv: 1341, lhv: 1207 },
+        { name: 'city_gas', hhv: 518, lhv: 461 },
+        { name: 'lpg', hhv: 2709, lhv: 2500 },
+    ]
+};

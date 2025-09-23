@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "空調器計算機",
+    "title": "ドラッグして空気線図",
     "description": "これは空調器の湿り空気線図計算アプリケーションです。フィルター、コイル、ファンなどの機器を自由に組み合わせて、空気の状態変化をシミュレーションできます。結果は湿り空気線図にも表示され、視覚的な分析が可能です。",
     "instructionsTitle": "使い方",
     "instructions": "1. システムの風量と空調器全体の入口・出口条件を設定します。\n2. 「機器の追加」セクションから必要な機器を追加します。\n3. 各機器の条件を設定します。空気の状態は自動的に計算され、下流に引き継がれます。\n4. 湿り空気線図上の点や線をドラッグして、直感的に空気の状態を調整します。",
@@ -72,12 +72,23 @@
     "fan": "ファン",
     "custom": "カスタム機器"
   },
+  "equipmentDescriptions": {
+    "filter": "フィルターは空気をろ過し、塵や不純物を除去します。このプロセスでは、空気の温度や湿度に変化はなく、圧力損失のみが発生します。",
+    "burner": "バーナーは空気を加熱します。顕熱と潜熱の両方を加えることができます。\n・空気線図上の動き: 右肩上がりに変化します。\n・傾き: 傾きはSHF(顕熱比)によって決まります。SHFが1.0の場合、プロセスラインは水平(顕熱のみ)になり、SHFが1.0未満の場合、傾きは大きくなります(潜熱が加わる)。",
+    "cooling_coil": "冷水コイルは空気を冷却・除湿します。\n・空気線図上の動き: 左下方向に変化します。\n・プロセス: 空気の状態は、入口空気点と装置露点温度(ADP)を結ぶ線に沿って変化します。バイパスファクター(BF)は、コイルを通過せずに状態が変化しない空気の割合を示します。",
+    "heating_coil": "温水コイルは空気を加熱します。このプロセスは顕熱のみを加えます。\n・空気線図上の動き: 水平右方向に変化します(絶対湿度は一定)。",
+    "spray_washer": "スプレーワッシャーは、水を噴霧して空気を断熱的に加湿・冷却します。\n・空気線図上の動き: 等エンタルピー線に沿って左上方向に変化します。\n・プロセス: このプロセスではエンタルピーがほぼ一定に保たれます。",
+    "steam_humidifier": "蒸気加湿器は、蒸気を直接吹き込むことで空気を加湿・加熱します。\n・空気線図上の動き: 右上方向に変化します。",
+    "fan": "ファンは空気を送風します。モーターと送風機の効率により、エネルギーの一部が熱に変換され、空気をわずかに加熱します。これは顕熱のみのプロセスです。\n・空気線図上の動き: 水平右方向にわずかに変化します(絶対湿度は一定)。",
+    "custom": "カスタム機器では、入口と出口の空気条件をユーザーが自由に設定できます。これにより、特定の計算や、リストにない機器のシミュレーションが可能です。"
+  },
   "conditions": {
     "width": "幅",
     "height": "高さ",
     "thickness": "厚さ",
     "sheets": "枚数",
     "shf": "SHF (顕熱比)",
+    "lowerHeatingValue": "低位発熱量",
     "chilledWaterInletTemp": "冷水入口温度",
     "chilledWaterOutletTemp": "冷水出口温度",
     "heatExchangeEfficiency": "熱交換効率",
@@ -93,6 +104,7 @@
     "faceVelocity": "面速",
     "treatedAirflowPerSheet": "風量/枚",
     "heatLoad": "熱負荷",
+    "gasFlowRate": "ガス流量",
     "airSideHeatLoad": "空気側熱負荷",
     "coldWaterSideHeatLoad": "冷水側熱負荷",
     "chilledWaterFlow_L_min": "冷水流量",
@@ -131,14 +143,16 @@
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
-        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
+        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h", "gas_flow": "m³/h",
+        "lower_heating_value": "MJ/m³"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
-        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
+        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h", "gas_flow": "ft³/h",
+        "lower_heating_value": "BTU/ft³"
     }
   },
   "chart": {
@@ -274,7 +288,7 @@
         }
       },
       "airflowPerSheet": {
-        "title": "シートあたりの風量",
+        "title": "枚あたり風量",
         "si": {
           "formula": "q_sheet = q / n",
           "legend": { "q_sheet": "風量/枚 (m³/min)", "q": "総風量 (m³/min)", "n": "枚数" }
@@ -295,6 +309,36 @@
         "imperial": {
           "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
           "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+        }
+      },
+      "gasFlowRate": {
+        "title": "ガス流量",
+        "si": {
+          "formula": "V = (Q_kW * 3.6) / H_l",
+          "legend": {
+            "V": "流量 (m³/h)",
+            "Q_kW": "熱負荷 (kW)",
+            "H_l": "低位発熱量 (MJ/m³)"
+          }
+        },
+        "imperial": {
+          "formula": "V = Q_BTUh / H_l",
+          "legend": {
+            "V": "流量 (ft³/h)",
+            "Q_BTUh": "熱負荷 (BTU/h)",
+            "H_l": "低位発熱量 (BTU/ft³)"
+          }
+        }
+      },
+      "heatingValueReference": {
+        "title": "発熱量参考値",
+        "gasType": "ガス種",
+        "hhv": "高位発熱量",
+        "lhv": "低位発熱量",
+        "gases": {
+          "natural_gas": "天然ガス (13A)",
+          "city_gas": "都市ガス (4B)",
+          "lpg": "LPガス (プロパン)"
         }
       }
     },
@@ -497,63 +541,28 @@
       }
     },
     "fan": {
-      "heatGeneration": {
-        "title": "発熱量",
-        "si": {
-          "formula": "Q_kW = P_kW * (1 - η/100)",
-          "legend": { "Q": "熱量 (kW)", "P": "モーター出力 (kW)", "η": "効率 (%)" }
+        "heatGeneration": {
+            "title": "発熱量",
+            "si": {
+                "formula": "Q_kW = P * (1 - η / 100)",
+                "legend": { "Q_kW": "発熱量 (kW)", "P": "モーター出力 (kW)", "η": "モーター効率 (%)" }
+            },
+            "imperial": {
+                "formula": "Q_BTUh = P_HP * 2545 * (1 - η / 100)",
+                "legend": { "Q_BTUh": "発熱量 (BTU/h)", "P_HP": "モーター出力 (HP)", "η": "モーター効率 (%)" }
+            }
         },
-        "imperial": {
-          "formula": "Q_BTUh = P_HP * 2545 * (1 - η/100)",
-          "legend": { "Q": "熱量 (BTU/h)", "P": "モーター出力 (HP)", "η": "効率 (%)" }
+        "tempRise": {
+            "title": "温度上昇",
+            "si": {
+                "formula": "Δt = Q_kW / (G * Cpa_moist)",
+                "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "発熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気比熱 (~1.02 kJ/kg·K)" }
+            },
+            "imperial": {
+                "formula": "Δt = Q_BTUh / (1.08 * q)",
+                "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "発熱量 (BTU/h)", "q": "風量 (CFM)" }
+            }
         }
-      },
-      "tempRise": {
-        "title": "温度上昇",
-        "si": {
-          "formula": "Δt = Q_kW / (G * Cpa_moist)",
-          "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気の比熱" }
-        },
-        "imperial": {
-          "formula": "Δt = Q_BTUh / (1.08 * q)",
-          "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "熱量 (BTU/h)", "q": "風量 (CFM)" }
-        }
-      },
-      "outletTemp": {
-        "title": "出口温度",
-        "si": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "出口温度 (°C)", "t_in": "入口温度 (°C)", "Δt": "温度上昇 (°C)" }
-        },
-        "imperial": {
-          "formula": "t_out = t_in + Δt",
-          "legend": { "t_out": "出口温度 (°F)", "t_in": "入口温度 (°F)", "Δt": "温度上昇 (°F)" }
-        }
-      }
-    },
-    "damper": {
-      "airVelocity": {
-        "title": "風速",
-        "si": {
-          "formula": "v = (q / 60) / A",
-          "legend": { "v": "速度 (m/s)", "q": "風量 (m³/min)", "A": "面積 (m²)" }
-        },
-        "imperial": {
-          "formula": "v = q / A",
-          "legend": { "v": "速度 (fpm)", "q": "風量 (CFM)", "A": "面積 (ft²)" }
-        }
-      },
-      "pressureLoss": {
-        "title": "圧力損失",
-        "si": {
-          "formula": "ΔP = K * 0.5 * ρ * v²",
-          "legend": { "ΔP": "圧力損失 (Pa)", "K": "K係数", "ρ": "密度 (kg/m³)", "v": "速度 (m/s)" }
-        },
-        "imperial": {
-          "formula": "ΔP = K * (v / 4005)²",
-          "legend": { "ΔP": "圧力損失 (in.w.g.)", "K": "K係数", "v": "速度 (fpm)" }
-        }
-      }
     }
   }
 }

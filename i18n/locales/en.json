@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "HVAC Calculator",
+    "title": "Psychrometric Chart with Drag-and-Drop",
     "description": "This is a psychrometric calculation application for air conditioners. You can freely combine equipment such as filters, coils, and fans to simulate changes in air conditions. The results are also displayed on a psychrometric chart, allowing for visual analysis.",
     "instructionsTitle": "How to Use",
     "instructions": "1. Set the system airflow and the inlet/outlet conditions for the entire air conditioner.\n2. Add necessary equipment from the 'Add Equipment' section.\n3. Configure the conditions for each piece of equipment. The air state will be automatically calculated and passed downstream.\n4. Drag the points and lines on the psychrometric chart to intuitively adjust the air conditions.",
@@ -72,12 +72,23 @@
     "fan": "Fan",
     "custom": "Custom Equipment"
   },
+  "equipmentDescriptions": {
+    "filter": "A filter cleans the air by removing dust and impurities. In this process, there is no change in the air's temperature or humidity; only pressure loss occurs.",
+    "burner": "A burner heats the air. It can add both sensible and latent heat.\n- Movement on Psychrometric Chart: Moves upwards and to the right.\n- Slope: The slope is determined by the SHF (Sensible Heat Factor). If SHF is 1.0, the process line is horizontal (sensible heat only). If SHF is less than 1.0, the slope increases (latent heat is added).",
+    "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.",
+    "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).",
+    "spray_washer": "A spray washer adiabatically humidifies and cools the air by spraying water.\n- Movement on Psychrometric Chart: Moves upwards and to the left along a constant enthalpy line.\n- Process: The enthalpy remains nearly constant during this process.",
+    "steam_humidifier": "A steam humidifier adds moisture and heat to the air by directly injecting steam.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
+    "fan": "A fan moves the air. Due to motor and fan efficiencies, some energy is converted into heat, slightly warming the air. This is a sensible heat only process.\n- Movement on Psychrometric Chart: Moves slightly horizontally to the right (absolute humidity remains constant).",
+    "custom": "Custom equipment allows users to freely set the inlet and outlet air conditions. This enables specific calculations or simulations of equipment not on the list."
+  },
   "conditions": {
     "width": "Width",
     "height": "Height",
     "thickness": "Thickness",
     "sheets": "Sheets",
     "shf": "SHF (Sensible Heat Factor)",
+    "lowerHeatingValue": "Lower Heating Value",
     "chilledWaterInletTemp": "Chilled Water Inlet Temp",
     "chilledWaterOutletTemp": "Chilled Water Outlet Temp",
     "heatExchangeEfficiency": "Heat Exchange Efficiency",
@@ -93,6 +104,7 @@
     "faceVelocity": "Face Velocity",
     "treatedAirflowPerSheet": "Airflow/Sheet",
     "heatLoad": "Heat Load",
+    "gasFlowRate": "Gas Flow Rate",
     "airSideHeatLoad": "Air-Side Heat Load",
     "coldWaterSideHeatLoad": "Chilled Water Side Heat Load",
     "chilledWaterFlow_L_min": "Chilled Water Flow",
@@ -131,14 +143,16 @@
         "water_flow": "L/min", "abs_humidity": "g/kg(DA)", "enthalpy": "kJ/kg(DA)", "motor_power": "kW",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
-        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h"
+        "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h", "gas_flow": "m³/h",
+        "lower_heating_value": "MJ/m³"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
         "water_flow": "GPM", "abs_humidity": "gr/lb(DA)", "enthalpy": "BTU/lb(DA)", "motor_power": "HP",
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
-        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h"
+        "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h", "gas_flow": "ft³/h",
+        "lower_heating_value": "BTU/ft³"
     }
   },
   "chart": {
@@ -295,6 +309,36 @@
         "imperial": {
           "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
           "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
+        }
+      },
+      "gasFlowRate": {
+        "title": "Gas Flow Rate",
+        "si": {
+          "formula": "V = (Q_kW * 3.6) / H_l",
+          "legend": {
+            "V": "Flow Rate (m³/h)",
+            "Q_kW": "Heat Load (kW)",
+            "H_l": "Lower Heating Value (MJ/m³)"
+          }
+        },
+        "imperial": {
+          "formula": "V = Q_BTUh / H_l",
+          "legend": {
+            "V": "Flow Rate (ft³/h)",
+            "Q_BTUh": "Heat Load (BTU/h)",
+            "H_l": "Lower Heating Value (BTU/ft³)"
+          }
+        }
+      },
+      "heatingValueReference": {
+        "title": "Heating Value Reference",
+        "gasType": "Gas Type",
+        "hhv": "HHV",
+        "lhv": "LHV",
+        "gases": {
+          "natural_gas": "Natural Gas (13A)",
+          "city_gas": "City Gas (4B)",
+          "lpg": "LPG (Propane)"
         }
       }
     },

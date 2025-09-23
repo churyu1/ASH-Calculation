@@ -24,6 +24,7 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
 
     const [inputValue, setInputValue] = useState('');
     const isFocused = useRef(false);
+    const inputRef = useRef<HTMLInputElement>(null);
     
     // Refs for continuous change
     const intervalRef = useRef<number | null>(null);
@@ -121,10 +122,11 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
                 newValue = Math.max(minInDisplayUnits, newValue);
             }
         }
-
-        const formattedNewValue = formatNumberForInput(newValue, unitType, unitSystem);
-        setInputValue(formattedNewValue);
-        commitValueToParent(formattedNewValue);
+        
+        // Key fix: ONLY commit to parent. Do not set local state.
+        // The parent's state change will flow back down as a prop, and the useEffect
+        // will update the local inputValue because isFocused.current is now false.
+        commitValueToParent(formatNumberForInput(newValue, unitType, unitSystem));
 
     }, [commitValueToParent, maxInDisplayUnits, minInDisplayUnits, needsConversion, stepInDisplayUnits, unitSystem, unitType]);
 
@@ -153,11 +155,21 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
     
     const handleMouseDown = (direction: 'inc' | 'dec') => (e: React.MouseEvent) => {
         e.preventDefault();
+        // Key fix: Forcefully remove focus from the text input and update the internal focus state.
+        // This ensures the component will accept prop updates from the parent.
+        if (document.activeElement === inputRef.current) {
+            inputRef.current?.blur();
+        }
+        isFocused.current = false;
         startContinuousChange(direction);
     };
     
     const handleTouchStart = (direction: 'inc' | 'dec') => (e: React.TouchEvent) => {
         e.preventDefault();
+        if (document.activeElement === inputRef.current) {
+            inputRef.current?.blur();
+        }
+        isFocused.current = false;
         startContinuousChange(direction);
     };
 
@@ -218,6 +230,7 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
                     +
                 </button>
                 <input
+                    ref={inputRef}
                     type="text"
                     value={inputValue}
                     onChange={handleInputChange}

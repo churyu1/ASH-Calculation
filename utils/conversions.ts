@@ -24,6 +24,8 @@ const UNIT_CONVERSIONS = {
         steam_pressure: (kpa: number) => kpa / 6.89476, // kPa to psi
         steam_enthalpy: (kcal_kg: number) => kcal_kg * 1.7989, // kcal/kg to BTU/lb
         steam_flow: (kgh: number) => kgh * 2.20462, // kg/h to lb/h
+        gas_flow: (m3h: number) => m3h * 35.3147, // m³/h to ft³/h
+        lower_heating_value: (mj_m3: number) => mj_m3 * 26.8222, // MJ/m³ to BTU/ft³
     },
     // Conversion from Imperial unit to SI base unit
     toSI: {
@@ -44,6 +46,8 @@ const UNIT_CONVERSIONS = {
         steam_pressure: (psi: number) => psi * 6.89476, // psi to kPa
         steam_enthalpy: (btu_lb: number) => btu_lb / 1.7989, // BTU/lb to kcal/kg
         steam_flow: (lbh: number) => lbh / 2.20462, // lb/h to kg/h
+        gas_flow: (ft3h: number) => ft3h / 35.3147, // ft³/h to m³/h
+        lower_heating_value: (btu_ft3: number) => btu_ft3 / 26.8222, // BTU/ft³ to MJ/m³
     },
 };
 
@@ -115,6 +119,8 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'steam_pressure': return 1;
             case 'steam_enthalpy': return 1;
             case 'steam_flow': return 1;
+            case 'gas_flow': return 1;
+            case 'lower_heating_value': return 0;
             default: return 2;
         }
     } else { // SI system
@@ -139,6 +145,8 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'steam_pressure': return 0;
             case 'steam_enthalpy': return 1;
             case 'steam_flow': return 1;
+            case 'gas_flow': return 3;
+            case 'lower_heating_value': return 1;
             default: return 2;
         }
     }

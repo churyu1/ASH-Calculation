@@ -9,12 +9,13 @@ import {
     SteamPressureUnit
 } from '../types';
 import { calculateAirProperties, calculatePsat, PSYCH_CONSTANTS, calculateSteamProperties } from '../services/psychrometrics.ts';
-import { MOTOR_OUTPUT_CONVERSIONS } from '../constants.ts';
+import { MOTOR_OUTPUT_CONVERSIONS, MAJOR_GAS_HEATING_VALUES } from '../constants.ts';
 import { useLanguage } from '../i18n/index.ts';
 import NumberInputWithControls from './NumberInputWithControls.tsx';
 import DisplayValueWithUnit from './DisplayValueWithUnit.tsx';
 import { formatNumber, convertValue, convertSteamPressure, formatNumberForInput, findMotorHp } from '../utils/conversions.ts';
 import FormulaTooltipContent from './FormulaTooltipContent.tsx';
+import Tooltip from './Tooltip.tsx';
 
 interface EquipmentItemProps {
     equipment: Equipment;
@@ -116,6 +117,36 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     };
 
     // Tooltip Memos
+    const lowerHeatingValueTooltip = useMemo(() => {
+        const formulaPath = 'tooltips.burner.heatingValueReference';
+        const unit = t(`units.${unitSystem}.lower_heating_value`);
+        const values = MAJOR_GAS_HEATING_VALUES[unitSystem];
+
+        return (
+            <div className="flex flex-col gap-2">
+                <h4 className="font-bold text-base text-blue-300">{t(`${formulaPath}.title`)}</h4>
+                <table className="w-full text-left text-xs">
+                    <thead>
+                        <tr className="border-b border-slate-600">
+                            <th className="py-1 pr-2 font-semibold text-slate-300 whitespace-nowrap">{t(`${formulaPath}.gasType`)}</th>
+                            <th className="py-1 px-2 text-right font-semibold text-slate-300 whitespace-nowrap">{`${t(`${formulaPath}.hhv`)} (${unit})`}</th>
+                            <th className="py-1 pl-2 text-right font-semibold text-slate-300 whitespace-nowrap">{`${t(`${formulaPath}.lhv`)} (${unit})`}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {values.map(gas => (
+                            <tr key={gas.name} className="border-t border-slate-700">
+                                <td className="py-1 pr-2 whitespace-nowrap text-slate-100">{t(`${formulaPath}.gases.${gas.name}`)}</td>
+                                <td className="py-1 px-2 text-right font-mono text-slate-100">{formatNumber(gas.hhv)}</td>
+                                <td className="py-1 pl-2 text-right font-mono text-slate-100">{formatNumber(gas.lhv)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    }, [unitSystem, t, locale]);
+
     const filterFaceVelocityTooltip = useMemo(() => {
         if (type !== EquipmentType.FILTER || airflow === null) return null;
         const { width = 0, height = 0, sheets = 1 } = conditions as FilterConditions;
@@ -125,7 +156,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'q': { value: airflow, unit: t('units.si.airflow') },
             'a_total': { value: total_area_m2, unit: t('units.si.area') }
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, airflow, conditions, unitSystem, t, locale]);
 
     const filterAirflowPerSheetTooltip = useMemo(() => {
@@ -136,7 +167,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'q': { value: airflow, unit: t('units.si.airflow') },
             'n': { value: sheets, unit: t('units.si.sheets') }
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, airflow, conditions, unitSystem, t, locale]);
 
     const burnerHeatLoadTooltip = useMemo(() => {
@@ -148,9 +179,25 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'h_out': { value: outletAir.enthalpy, unit: t('units.si.enthalpy') },
             'q': { value: airflow, unit: t('units.si.airflow') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, unitSystem, t, locale]);
     
+    const burnerGasFlowTooltip = useMemo(() => {
+        if (type !== EquipmentType.BURNER) return null;
+        const { heatLoad_kW } = results as BurnerResults;
+        const { lowerHeatingValue } = conditions as BurnerConditions;
+        if (heatLoad_kW === null || heatLoad_kW === undefined) return null;
+        
+        const formulaPath = 'tooltips.burner.gasFlowRate';
+        
+        const values: Record<string, { value: number | null | undefined; unit: string; }> = {
+            'Q_kW': { value: heatLoad_kW, unit: t('units.si.heat_load') },
+            'Q_BTUh': { value: convertValue(heatLoad_kW, 'heat_load', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.heat_load') },
+            'H_l': { value: unitSystem === UnitSystem.SI ? lowerHeatingValue : convertValue(lowerHeatingValue ?? null, 'lower_heating_value', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.lower_heating_value`) },
+        };
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
+    }, [type, results, conditions, unitSystem, t, locale]);
+
     const coilAirSideHeatLoadTooltip = useMemo(() => {
         if (![EquipmentType.COOLING_COIL, EquipmentType.HEATING_COIL].includes(type) || massFlowRateDA_kg_s === 0 || inletAir.enthalpy === null || outletAir.enthalpy === null) return null;
         const formulaPath = 'tooltips.coil.airSideHeatLoad';
@@ -160,7 +207,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'h_out': { value: outletAir.enthalpy, unit: t('units.si.enthalpy') },
             'q': { value: airflow, unit: t('units.si.airflow') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, unitSystem, t, locale]);
     
     const coolingCoilWaterSideHeatLoadTooltip = useMemo(() => {
@@ -189,7 +236,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'Q_air': { value: airSideHeatLoad_kW, unit: t('units.si.heat_load') },
             'η': { value: heatExchangeEfficiency, unit: t('units.si.efficiency') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, conditions, results, unitSystem, t, locale]);
 
     const coilWaterFlowTooltip = useMemo(() => {
@@ -211,7 +258,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'Δt_w': { value: waterTempDiff, unit: t('units.si.temperature') },
             'Q_BTUh': { value: convertValue(Q_kW, 'heat_load', UnitSystem.SI, unitSystem), unit: t('units.imperial.heat_load') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, conditions, results, unitSystem, t, locale]);
 
     const coilDehumidificationTooltip = useMemo(() => {
@@ -223,7 +270,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'x_out': { value: outletAir.absHumidity, unit: t('units.si.abs_humidity') },
             'q': { value: airflow, unit: t('units.si.airflow') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, unitSystem, t, locale]);
 
     const coilBypassFactorTooltip = useMemo(() => {
@@ -236,7 +283,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             't_out': { value: outletAir.temp, unit: t('units.si.temperature') },
             't_adp': { value: apparatusDewPointTemp, unit: t('units.si.temperature') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, inletAir.temp, outletAir.temp, results, unitSystem, t, locale]);
 
     const coilContactFactorTooltip = useMemo(() => {
@@ -245,7 +292,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         if (bypassFactor === undefined || bypassFactor === null) return null;
         const formulaPath = 'tooltips.coil.contactFactor';
         const values = { 'BF': { value: bypassFactor / 100, unit: '' } };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, results, unitSystem, t, locale]);
 
     const coilAdpTooltip = useMemo(() => {
@@ -260,7 +307,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'BF': { value: bypassFactor / 100, unit: '' },
             'rh_in': { value: inletAir.rh, unit: t('units.si.rh') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, inletAir, outletAir, conditions, results, unitSystem, t, locale]);
     
     const sprayWasherHumidificationTooltip = useMemo(() => {
@@ -272,7 +319,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'x_out': { value: outletAir.absHumidity, unit: t('units.si.abs_humidity') },
             'q': { value: airflow, unit: t('units.si.airflow') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, unitSystem, t, locale]);
 
     const sprayWasherSprayAmountTooltip = useMemo(() => {
@@ -285,7 +332,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'q': { value: airflow, unit: t('units.si.airflow') },
             'ρ': { value: currentInletAirCalculated.density, unit: t('units.si.density') }
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, massFlowRateDA_kg_s, conditions, airflow, currentInletAirCalculated.density, unitSystem, t, locale]);
 
     const sprayWasherEfficiencyTooltip = useMemo(() => {
@@ -297,7 +344,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'x_out': { value: outletAir.absHumidity, unit: t('units.si.abs_humidity') },
             'η': { value: humidificationEfficiency, unit: t('units.si.efficiency') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, inletAir.absHumidity, outletAir.absHumidity, results, unitSystem, t, locale]);
 
     const steamHumidifierRequiredSteamTooltip = useMemo(() => {
@@ -309,7 +356,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'x_out': { value: outletAir.absHumidity, unit: t('units.si.abs_humidity') },
             'q': { value: airflow, unit: t('units.si.airflow') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, unitSystem, t, locale]);
 
     const steamHumidifierPressureTooltip = useMemo(() => {
@@ -320,7 +367,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'P_gauge': { value: steamGaugePressure, unit: 'kPaG' },
             'P_atm': { value: PSYCH_CONSTANTS.ATM_PRESSURE_PA / 1000, unit: 'kPa' },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, conditions, unitSystem, t, locale]);
 
     const steamHumidifierPropertiesTooltip = useMemo(() => {
@@ -331,7 +378,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const values = {
             'P_abs': { value: steamAbsolutePressure, unit: t('units.si.steam_pressure') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, results, unitSystem, t, locale]);
 
     const fanHeatGenerationTooltip = useMemo(() => {
@@ -343,7 +390,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'η': { value: motorEfficiency, unit: t('units.si.efficiency') },
             'P_HP': { value: convertValue(motorOutput, 'motor_power', UnitSystem.SI, unitSystem), unit: t('units.imperial.motor_power') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, conditions, unitSystem, t, locale]);
 
     const fanTempRiseTooltip = useMemo(() => {
@@ -358,7 +405,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'Q_BTUh': { value: convertValue(heatGeneration_kW, 'heat_load', UnitSystem.SI, unitSystem), unit: t('units.imperial.heat_load') },
             'q': { value: airflow, unit: t('units.si.airflow') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, results, massFlowRateDA_kg_s, inletAir.absHumidity, airflow, unitSystem, t, locale]);
 
     const inletAbsHumidityTooltip = useMemo(() => {
@@ -377,7 +424,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'rh': { value: rh, unit: t('units.imperial.rh') },
             'P_v': { value: P_v, unit: 'Pa' },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [inletAir.temp, inletAir.rh, unitSystem, t, locale]);
 
     const inletEnthalpyTooltip = useMemo(() => {
@@ -391,7 +438,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             't': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.temperature') },
             'x': { value: convertValue(absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.abs_humidity') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [inletAir.temp, inletAir.absHumidity, unitSystem, t, locale]);
 
     const outletAbsHumidityTooltip = useMemo(() => {
@@ -410,7 +457,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'rh': { value: rh, unit: t('units.imperial.rh') },
             'P_v': { value: P_v, unit: 'Pa' },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [outletAir.temp, outletAir.rh, unitSystem, t, locale]);
 
     const outletEnthalpyTooltip = useMemo(() => {
@@ -424,7 +471,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             't': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.temperature') },
             'x': { value: convertValue(absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.abs_humidity') },
         };
-        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={JSON.parse(t(`${formulaPath}.${unitSystem}.legend`))} values={values} />;
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [outletAir.temp, outletAir.absHumidity, unitSystem, t, locale]);
 
 
@@ -483,11 +530,12 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                 <div className="flex items-center gap-2">
                      <button
                         onClick={() => setIsDescriptionVisible(!isDescriptionVisible)}
-                        className="p-1.5 rounded-md bg-slate-200 text-slate-600 hover:bg-slate-300"
+                        className="p-1.5 rounded-md bg-slate-200 text-slate-600 hover:bg-slate-300 transition-transform duration-300"
+                        style={{ transform: isDescriptionVisible ? 'rotate(180deg)' : 'rotate(0deg)' }}
                         title={t('app.toggleExpand')}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                     <button onClick={() => onDelete(id)} className="p-1.5 rounded-md bg-red-500 text-white hover:bg-red-600">
@@ -495,11 +543,11 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                     </button>
                 </div>
             </div>
-            {isDescriptionVisible && (
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-slate-700">
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isDescriptionVisible ? 'max-h-96 pt-0 pb-4' : 'max-h-0'}`}>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-slate-700">
                     <p className="whitespace-pre-wrap">{t(`equipmentDescriptions.${type}`)}</p>
                 </div>
-            )}
+            </div>
             <>
                 {type === EquipmentType.FILTER ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
@@ -553,10 +601,22 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                             <h3 className="font-semibold mb-2">{t('equipment.conditions')}</h3>
                             <div className="space-y-3">
                                 {type === EquipmentType.BURNER && (
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-sm text-slate-700 block">{t('conditions.shf')}</label>
-                                        <NumberInputWithControls value={(conditions as BurnerConditions).shf ?? null} onChange={(val) => handleConditionChange('shf', val)} unitType="shf" unitSystem={unitSystem} min={0} max={1} step={0.01}/>
-                                    </div>
+                                    <>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-sm text-slate-700 block">{t('conditions.shf')}</label>
+                                            <NumberInputWithControls value={(conditions as BurnerConditions).shf ?? null} onChange={(val) => handleConditionChange('shf', val)} unitType="shf" unitSystem={unitSystem} min={0} max={1} step={0.01}/>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-sm text-slate-700 block">
+                                                <Tooltip content={lowerHeatingValueTooltip}>
+                                                    <span className="border-b border-dashed border-slate-500 cursor-help">
+                                                        {t('conditions.lowerHeatingValue')}
+                                                    </span>
+                                                </Tooltip>
+                                            </label>
+                                            <NumberInputWithControls value={(conditions as BurnerConditions).lowerHeatingValue ?? null} onChange={(val) => handleConditionChange('lowerHeatingValue', val)} unitType="lower_heating_value" unitSystem={unitSystem} step={0.1}/>
+                                        </div>
+                                    </>
                                 )}
                                 {type === EquipmentType.COOLING_COIL && (
                                     <>
@@ -626,7 +686,10 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                         <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
                             <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
                             <div className="space-y-2">
-                                {type === EquipmentType.BURNER && (<div className="flex justify-between items-center"><span className="text-sm">{t('results.heatLoad')}</span><DisplayValueWithUnit value={(results as BurnerResults).heatLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={burnerHeatLoadTooltip} /></div>)}
+                                {type === EquipmentType.BURNER && (<>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('results.heatLoad')}</span><DisplayValueWithUnit value={(results as BurnerResults).heatLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={burnerHeatLoadTooltip} /></div>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('results.gasFlowRate')}</span><DisplayValueWithUnit value={(results as BurnerResults).gasFlowRate} unitType="gas_flow" unitSystem={unitSystem} tooltipContent={burnerGasFlowTooltip} /></div>
+                                </>)}
                                 {type === EquipmentType.COOLING_COIL && (<>
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('results.airSideHeatLoad')}</span><DisplayValueWithUnit value={(results as CoolingCoilResults).airSideHeatLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={coilAirSideHeatLoadTooltip} /></div>
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('results.coldWaterSideHeatLoad')}</span><DisplayValueWithUnit value={(results as CoolingCoilResults).coldWaterSideHeatLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={coolingCoilWaterSideHeatLoadTooltip} /></div>

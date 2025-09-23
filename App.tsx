@@ -261,11 +261,9 @@ const AdjacencyInfoPanel: React.FC<{
 
     const upstreamEquipment = selectedIndex > 0 ? equipmentList[selectedIndex - 1] : null;
     const downstreamEquipment = selectedIndex < equipmentList.length - 1 ? equipmentList[selectedIndex + 1] : null;
-
-    const selectedEquipment = equipmentList[selectedIndex];
     
     const upstreamOutletAir = upstreamEquipment ? upstreamEquipment.outletAir : { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
-    const downstreamInletAir = selectedEquipment.outletAir;
+    const downstreamInletAir = downstreamEquipment ? downstreamEquipment.inletAir : { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
 
     const renderInfo = (
         positionLabel: string,
@@ -362,7 +360,7 @@ const runFullCalculation = (
                         newResults = { faceVelocity, treatedAirflowPerSheet: airflowPerSheet } as FilterResults;
                         break;
                     case EquipmentType.BURNER: {
-                        const { shf = 1.0 } = currentEq.conditions as BurnerConditions;
+                        const { shf = 1.0, lowerHeatingValue } = currentEq.conditions as BurnerConditions;
                         const userOutletTemp = currentEq.outletAir.temp;
                         if (userOutletTemp !== null) {
                             const delta_t = userOutletTemp - inletTemp;
@@ -375,36 +373,59 @@ const runFullCalculation = (
 
                             if (newOutletAir.enthalpy !== null) {
                                 const totalHeat_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
-                                newResults = { heatLoad_kW: totalHeat_kW } as BurnerResults;
+                                const heatingValue = lowerHeatingValue; // This is in MJ/m³
+                                let gasFlowRate: number | undefined = undefined;
+                                if (heatingValue && heatingValue > 0 && totalHeat_kW > 0) {
+                                    // Convert kW to MJ/h (1 kW = 3.6 MJ/h)
+                                    const heatLoad_MJ_h = totalHeat_kW * 3.6;
+                                    gasFlowRate = heatLoad_MJ_h / heatingValue; // Result is in m³/h
+                                }
+                                newResults = { heatLoad_kW: totalHeat_kW, gasFlowRate } as BurnerResults;
                             }
                         }
                         break;
                     }
                     case EquipmentType.COOLING_COIL: {
-                        const { chilledWaterOutletTemp = 14, bypassFactor = 5 } = currentEq.conditions as CoolingCoilConditions;
+                        const { chilledWaterInletTemp = 7, chilledWaterOutletTemp = 14, bypassFactor = 5 } = currentEq.conditions as CoolingCoilConditions;
                         const BF = bypassFactor / 100;
                         const userOutletTemp = currentEq.outletAir.temp;
 
                         if (userOutletTemp !== null) {
-                            const clampedOutletTemp = Math.min(inletTemp, userOutletTemp);
+                            // Calculate the physically possible minimum outlet temperature.
+                            // This is a mix of the chilled water temperature (for the air that contacts the coil)
+                            // and the inlet air temperature (for the bypassed air).
+                            const minAchievableOutletTemp = (chilledWaterInletTemp * (1 - BF)) + (inletTemp * BF);
+
+                            // Clamp the user's desired outlet temperature. It cannot be colder than what's physically possible.
+                            let clampedOutletTemp = userOutletTemp;
+                            if (clampedOutletTemp < minAchievableOutletTemp) {
+                                clampedOutletTemp = minAchievableOutletTemp;
+                            }
+                            // Also ensure it's not warmer than the inlet (for a cooling process)
+                             if (clampedOutletTemp > inletTemp) {
+                                clampedOutletTemp = inletTemp;
+                            }
+
                             const inletDewPointTemp = calculateDewPoint(inletAbsHum);
                             
                             let T_adp: number | undefined = undefined;
                             let outletAbsHum: number;
                             
-                            if (clampedOutletTemp >= inletDewPointTemp || BF >= 1.0) {
-                                outletAbsHum = inletAbsHum;
-                                T_adp = inletDewPointTemp;
-                            } else {
-                                if (BF < 1.0 && (inletTemp - clampedOutletTemp > 0.01)) {
-                                    T_adp = (clampedOutletTemp - inletTemp * BF) / (1 - BF);
-                                    const x_adp = calculateAbsoluteHumidity(T_adp, 100);
-                                    outletAbsHum = x_adp * (1 - BF) + inletAbsHum * BF;
-                                } else {
-                                    outletAbsHum = inletAbsHum;
-                                    T_adp = inletDewPointTemp;
-                                }
+                            // Calculate the theoretical ADP required to achieve the outlet temperature
+                            if (BF < 1.0 && (inletTemp - clampedOutletTemp) > 0.01) {
+                                T_adp = (clampedOutletTemp - inletTemp * BF) / (1 - BF);
                             }
+
+                            // Dehumidification occurs if the effective coil surface temperature (ADP) is below the inlet air's dew point.
+                            if (T_adp !== undefined && T_adp < inletDewPointTemp) {
+                                // Dehumidification process
+                                const x_adp = calculateAbsoluteHumidity(T_adp, 100);
+                                outletAbsHum = x_adp * (1 - BF) + inletAbsHum * BF;
+                            } else {
+                                // Sensible cooling only
+                                outletAbsHum = inletAbsHum;
+                            }
+                            
                             newOutletAir = calculateAirProperties(clampedOutletTemp, null, outletAbsHum);
 
                             const saturationHumidityAtOutlet = calculateAbsoluteHumidity(clampedOutletTemp, 100);
@@ -415,10 +436,10 @@ const runFullCalculation = (
                             if (newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (inletEnthalpy - newOutletAir.enthalpy);
                                 const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - newOutletAir.absHumidity) / 1000;
-                                const { chilledWaterInletTemp = 7 } = currentEq.conditions as CoolingCoilConditions;
+                                
                                 const waterTempDiff = chilledWaterOutletTemp - chilledWaterInletTemp;
                                 const chilledWaterFlow_L_min = waterTempDiff > 0 ? (airSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
-
+                                
                                 newResults = {
                                     airSideHeatLoad_kW,
                                     coldWaterSideHeatLoad_kW: airSideHeatLoad_kW,
@@ -806,7 +827,7 @@ const App: React.FC = () => {
             // Set type-specific defaults
             switch (type) {
                  case EquipmentType.FILTER: (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 }; break;
-                 case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, defaultInlet.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9 }; break;
+                 case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, defaultInlet.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9, lowerHeatingValue: 45.0 }; break;
                  case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5 }; break;
                  case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, heatExchangeEfficiency: 85 }; break;
                  case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
@@ -970,7 +991,7 @@ const App: React.FC = () => {
             'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' }
         };
-        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={JSON.parse(t(formulaPath + '.' + unitSystem + '.legend'))} values={values} />;
+        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [activeProject?.acInletAir, locale, unitSystem, t]);
 
     const acInletEnthalpyTooltip = useMemo(() => {
@@ -983,7 +1004,7 @@ const App: React.FC = () => {
             't': { value: activeProject.acInletAir.temp, unit: '°C' },
             'x': { value: activeProject.acInletAir.absHumidity, unit: 'g/kg(DA)' }
         };
-        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={JSON.parse(t(formulaPath + '.' + unitSystem + '.legend'))} values={values} />;
+        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [activeProject?.acInletAir, locale, unitSystem, t]);
     
     const acOutletCalculated = useMemo(() => calculateAirProperties(activeProject?.acOutletAir.temp ?? null, activeProject?.acOutletAir.rh ?? null), [activeProject?.acOutletAir]);
@@ -1003,7 +1024,7 @@ const App: React.FC = () => {
             'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' }
         };
-        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={JSON.parse(t(formulaPath + '.' + unitSystem + '.legend'))} values={values} />;
+        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [activeProject?.acOutletAir, locale, unitSystem, t]);
 
     const acOutletEnthalpyTooltip = useMemo(() => {
@@ -1016,7 +1037,7 @@ const App: React.FC = () => {
             't': { value: activeProject.acOutletAir.temp, unit: '°C' },
             'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
-        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={JSON.parse(t(formulaPath + '.' + unitSystem + '.legend'))} values={values} />;
+        return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [activeProject?.acOutletAir, acOutletCalculated.absHumidity, locale, unitSystem, t]);
 
     const selectedEquipment = useMemo(() => activeProject?.equipmentList.find(eq => eq.id === selectedEquipmentId), [activeProject, selectedEquipmentId]);
