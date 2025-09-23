@@ -239,7 +239,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             const legendLineHeight = 18;
             const legendItemSpacing = 15;
         
-            uniqueEquipmentTypesOnChart.forEach(type => {
+            // FIX: Explicitly type the 'type' parameter in the forEach loop to resolve a TypeScript error where it was being inferred as 'unknown'.
+            uniqueEquipmentTypesOnChart.forEach((type: EquipmentType) => {
                 const color = EQUIPMENT_HEX_COLORS[type];
                 const name = t(`equipmentNames.${type}`);
         
