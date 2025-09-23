@@ -33,7 +33,8 @@ const FormulaTooltipContent: React.FC<FormulaTooltipContentProps> = ({ title, fo
         {Object.entries(values).map(([symbol, data]) => (
            <React.Fragment key={symbol}>
             <span className="font-mono font-bold text-right">{symbol}</span>
-            <span>= {formatNumber(data.value)} {data.unit}</span>
+            {/* FIX: Cast 'data' to resolve properties 'value' and 'unit' not existing on type 'unknown'. */}
+            <span>= {formatNumber((data as any).value)} {(data as any).unit}</span>
           </React.Fragment>
         ))}
       </div>

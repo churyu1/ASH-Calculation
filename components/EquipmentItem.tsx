@@ -212,29 +212,26 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     
     const coolingCoilWaterSideHeatLoadTooltip = useMemo(() => {
         if (type !== EquipmentType.COOLING_COIL) return null;
+        const { coilEfficiency = 85 } = conditions as CoolingCoilConditions;
         const { airSideHeatLoad_kW } = results as CoolingCoilResults;
         if (airSideHeatLoad_kW === null || airSideHeatLoad_kW === undefined) return null;
-        const title = t('results.coldWaterSideHeatLoad');
-        const formula = "Q_water = Q_air";
-        const legend = {
-            "Q_water": `${t('results.coldWaterSideHeatLoad')} (${t(`units.${unitSystem}.heat_load`)})`,
-            "Q_air": `${t('results.airSideHeatLoad')} (${t(`units.${unitSystem}.heat_load`)})`,
-        };
+        const formulaPath = 'tooltips.coil.waterSideHeatLoad_cooling';
         const values = {
-            'Q_air': { value: airSideHeatLoad_kW, unit: t(`units.${unitSystem}.heat_load`) },
+            'Q_air': { value: airSideHeatLoad_kW, unit: t('units.si.heat_load') },
+            'η': { value: coilEfficiency, unit: t('units.si.efficiency') },
         };
-        return <FormulaTooltipContent title={title} formula={formula} legend={legend} values={values} />;
-    }, [type, results, unitSystem, t, locale]);
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
+    }, [type, conditions, results, unitSystem, t, locale]);
 
     const heatingCoilWaterSideHeatLoadTooltip = useMemo(() => {
         if (type !== EquipmentType.HEATING_COIL) return null;
-        const { heatExchangeEfficiency = 85 } = conditions as HeatingCoilConditions;
+        const { coilEfficiency = 85 } = conditions as HeatingCoilConditions;
         const { airSideHeatLoad_kW } = results as HeatingCoilResults;
         if (airSideHeatLoad_kW === null || airSideHeatLoad_kW === undefined) return null;
-        const formulaPath = 'tooltips.coil.waterSideHeatLoad';
+        const formulaPath = 'tooltips.coil.waterSideHeatLoad_heating';
         const values = {
             'Q_air': { value: airSideHeatLoad_kW, unit: t('units.si.heat_load') },
-            'η': { value: heatExchangeEfficiency, unit: t('units.si.efficiency') },
+            'η': { value: coilEfficiency, unit: t('units.si.efficiency') },
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, conditions, results, unitSystem, t, locale]);
@@ -623,13 +620,14 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                         <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.chilledWaterInletTemp')}</label><NumberInputWithControls value={(conditions as CoolingCoilConditions).chilledWaterInletTemp ?? null} onChange={(val) => handleConditionChange('chilledWaterInletTemp', val)} unitType="temperature" unitSystem={unitSystem} /></div>
                                         <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.chilledWaterOutletTemp')}</label><NumberInputWithControls value={(conditions as CoolingCoilConditions).chilledWaterOutletTemp ?? null} onChange={(val) => handleConditionChange('chilledWaterOutletTemp', val)} unitType="temperature" unitSystem={unitSystem} /></div>
                                         <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('results.bypassFactor')}</label><NumberInputWithControls value={(conditions as CoolingCoilConditions).bypassFactor ?? null} onChange={(val) => handleConditionChange('bypassFactor', val)} unitType="efficiency" unitSystem={unitSystem} min={0} max={100} /></div>
+                                        <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.coilEfficiency')}</label><NumberInputWithControls value={(conditions as CoolingCoilConditions).coilEfficiency ?? null} onChange={(val) => handleConditionChange('coilEfficiency', val)} unitType="efficiency" unitSystem={unitSystem} min={0} max={100}/></div>
                                     </>
                                 )}
                                 {type === EquipmentType.HEATING_COIL && (
                                     <>
                                         <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.hotWaterInletTemp')}</label><NumberInputWithControls value={(conditions as HeatingCoilConditions).hotWaterInletTemp ?? null} onChange={(val) => handleConditionChange('hotWaterInletTemp', val)} unitType="temperature" unitSystem={unitSystem} /></div>
                                         <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.hotWaterOutletTemp')}</label><NumberInputWithControls value={(conditions as HeatingCoilConditions).hotWaterOutletTemp ?? null} onChange={(val) => handleConditionChange('hotWaterOutletTemp', val)} unitType="temperature" unitSystem={unitSystem} /></div>
-                                        <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.heatExchangeEfficiency')}</label><NumberInputWithControls value={(conditions as HeatingCoilConditions).heatExchangeEfficiency ?? null} onChange={(val) => handleConditionChange('heatExchangeEfficiency', val)} unitType="efficiency" unitSystem={unitSystem} /></div>
+                                        <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.coilEfficiency')}</label><NumberInputWithControls value={(conditions as HeatingCoilConditions).coilEfficiency ?? null} onChange={(val) => handleConditionChange('coilEfficiency', val)} unitType="efficiency" unitSystem={unitSystem} /></div>
                                     </>
                                 )}
                                 {type === EquipmentType.SPRAY_WASHER && (

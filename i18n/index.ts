@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
 // The JSON files are embedded directly to ensure compatibility with browser-native ESM.
@@ -79,8 +78,8 @@ const enMessages = {
   "equipmentDescriptions": {
     "filter": "A filter cleans the air by removing dust and impurities. In this process, there is no change in the air's temperature or humidity; only pressure loss occurs.",
     "burner": "A burner heats the air. It can add both sensible and latent heat.\n- Movement on Psychrometric Chart: Moves upwards and to the right.\n- Slope: The slope is determined by the SHF (Sensible Heat Factor). If SHF is 1.0, the process line is horizontal (sensible heat only). If SHF is less than 1.0, the slope increases (latent heat is added).",
-    "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.",
-    "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).",
+    "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.\n- Heat Exchange Efficiency: This parameter accounts for heat gain from the ambient air into the chilled water through the coil casing. An efficiency of less than 100% will result in the water-side heat load being greater than the air-side heat load.",
+    "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).\n- Heat Exchange Efficiency: This parameter accounts for heat loss from the coil casing to the ambient air. An efficiency of less than 100% means the hot water must release more heat than the air gains.",
     "spray_washer": "A spray washer adiabatically humidifies and cools the air by spraying water.\n- Movement on Psychrometric Chart: Moves upwards and to the left along a constant enthalpy line.\n- Process: The enthalpy remains nearly constant during this process.",
     "steam_humidifier": "A steam humidifier adds moisture and heat to the air by directly injecting steam.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
     "fan": "A fan moves the air. Due to motor and fan efficiencies, some energy is converted into heat, slightly warming the air. This is a sensible heat only process.\n- Movement on Psychrometric Chart: Moves slightly horizontally to the right (absolute humidity remains constant).",
@@ -95,7 +94,7 @@ const enMessages = {
     "lowerHeatingValue": "Lower Heating Value",
     "chilledWaterInletTemp": "Chilled Water Inlet Temp",
     "chilledWaterOutletTemp": "Chilled Water Outlet Temp",
-    "heatExchangeEfficiency": "Heat Exchange Efficiency",
+    "coilEfficiency": "Heat Exchange Efficiency (%)",
     "hotWaterInletTemp": "Hot Water Inlet Temp",
     "hotWaterOutletTemp": "Hot Water Outlet Temp",
     "humidificationEfficiency": "Humidification Efficiency",
@@ -107,7 +106,7 @@ const enMessages = {
   "results": {
     "faceVelocity": "Face Velocity",
     "treatedAirflowPerSheet": "Airflow/Sheet",
-    "heatLoad": "Heat Load",
+    "heatLoad": "Burner Heat Load",
     "gasFlowRate": "Gas Flow Rate",
     "airSideHeatLoad": "Air-Side Heat Load",
     "coldWaterSideHeatLoad": "Chilled Water Side Heat Load",
@@ -305,7 +304,7 @@ const enMessages = {
     },
     "burner": {
       "heatLoad": {
-        "title": "Heat Load",
+        "title": "Burner Heat Load",
         "si": {
           "formula": "Q_kW = G * (h_out - h_in)",
           "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "h_in": "Inlet Enthalpy (kJ/kg)", "h_out": "Outlet Enthalpy (kJ/kg)" }
@@ -358,15 +357,26 @@ const enMessages = {
           "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
         }
       },
-      "waterSideHeatLoad": {
-        "title": "Water-Side Heat Load",
+      "waterSideHeatLoad_heating": {
+        "title": "Water-Side Heat Load (Heating)",
         "si": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Efficiency (%)" }
+          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Heat Exchange Efficiency (accounts for heat loss, %)" }
         },
         "imperial": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Efficiency (%)" }
+          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Heat Exchange Efficiency (accounts for heat loss, %)" }
+        }
+      },
+      "waterSideHeatLoad_cooling": {
+        "title": "Water-Side Heat Load (Cooling)",
+        "si": {
+          "formula": "Q_water = Q_air / (η / 100)",
+          "legend": { "Q_water": "Water Load (kW)", "Q_air": "Air Load (kW)", "η": "Heat Exchange Efficiency (accounts for heat gain, %)" }
+        },
+        "imperial": {
+          "formula": "Q_water = Q_air / (η / 100)",
+          "legend": { "Q_water": "Water Load (BTU/h)", "Q_air": "Air Load (BTU/h)", "η": "Heat Exchange Efficiency (accounts for heat gain, %)" }
         }
       },
       "waterFlow": {
@@ -545,39 +555,39 @@ const enMessages = {
       }
     },
     "fan": {
-        "heatGeneration": {
-            "title": "Heat Generation",
-            "si": {
-                "formula": "Q_kW = P * (1 - η / 100)",
-                "legend": { "Q_kW": "Heat (kW)", "P": "Motor Power (kW)", "η": "Efficiency (%)" }
-            },
-            "imperial": {
-                "formula": "Q_BTUh = P_HP * 2545 * (1 - η / 100)",
-                "legend": { "Q_BTUh": "Heat (BTU/h)", "P_HP": "Motor Power (HP)", "η": "Efficiency (%)" }
-            }
+      "heatGeneration": {
+        "title": "Heat Generation",
+        "si": {
+          "formula": "Q_kW = P_kW * (1 - η/100)",
+          "legend": { "Q": "Heat (kW)", "P": "Motor Power (kW)", "η": "Efficiency (%)" }
         },
-        "tempRise": {
-            "title": "Temperature Rise",
-            "si": {
-                "formula": "Δt = Q_kW / (G * Cpa_moist)",
-                "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)", "Cpa_moist": "Specific heat of moist air" }
-            },
-            "imperial": {
-                "formula": "Δt = Q_BTUh / (1.08 * q)",
-                "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
-            }
-        },
-        "outletTemp": {
-            "title": "Outlet Temperature",
-            "si": {
-                "formula": "t_out = t_in + Δt",
-                "legend": { "t_out": "Outlet Temp (°C)", "t_in": "Inlet Temp (°C)", "Δt": "Temp Rise (°C)" }
-            },
-            "imperial": {
-                "formula": "t_out = t_in + Δt",
-                "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
-            }
+        "imperial": {
+          "formula": "Q_BTUh = P_HP * 2545 * (1 - η/100)",
+          "legend": { "Q": "Heat (BTU/h)", "P": "Motor Power (HP)", "η": "Efficiency (%)" }
         }
+      },
+      "tempRise": {
+        "title": "Temperature Rise",
+        "si": {
+          "formula": "Δt = Q_kW / (G * Cpa_moist)",
+          "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)", "Cpa_moist": "Specific heat of moist air" }
+        },
+        "imperial": {
+          "formula": "Δt = Q_BTUh / (1.08 * q)",
+          "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
+        }
+      },
+      "outletTemp": {
+        "title": "Outlet Temperature",
+        "si": {
+          "formula": "t_out = t_in + Δt",
+          "legend": { "t_out": "Outlet Temp (°C)", "t_in": "Inlet Temp (°C)", "Δt": "Temp Rise (°C)" }
+        },
+        "imperial": {
+          "formula": "t_out = t_in + Δt",
+          "legend": { "t_out": "Outlet Temp (°F)", "t_in": "Inlet Temp (°F)", "Δt": "Temp Rise (°F)" }
+        }
+      }
     },
     "damper": {
       "airVelocity": {
@@ -682,8 +692,8 @@ const jaMessages = {
   "equipmentDescriptions": {
     "filter": "フィルターは空気をろ過し、塵や不純物を除去します。このプロセスでは、空気の温度や湿度に変化はなく、圧力損失のみが発生します。",
     "burner": "バーナーは空気を加熱します。顕熱と潜熱の両方を加えることができます。\n・空気線図上の動き: 右肩上がりに変化します。\n・傾き: 傾きはSHF(顕熱比)によって決まります。SHFが1.0の場合、プロセスラインは水平(顕熱のみ)になり、SHFが1.0未満の場合、傾きは大きくなります(潜熱が加わる)。",
-    "cooling_coil": "冷水コイルは空気を冷却・除湿します。\n・空気線図上の動き: 左下方向に変化します。\n・プロセス: 空気の状態は、入口空気点と装置露点温度(ADP)を結ぶ線に沿って変化します。バイパスファクター(BF)は、コイルを通過せずに状態が変化しない空気の割合を示します。",
-    "heating_coil": "温水コイルは空気を加熱します。このプロセスは顕熱のみを加えます。\n・空気線図上の動き: 水平右方向に変化します(絶対湿度は一定)。",
+    "cooling_coil": "冷水コイルは空気を冷却・除湿します。\n・空気線図上の動き: 左下方向に変化します。\n・プロセス: 空気の状態は、入口空気点と装置露点温度(ADP)を結ぶ線に沿って変化します。バイパスファクター(BF)は、コイルを通過せずに状態が変化しない空気の割合を示します。\n・熱交換効率: このパラメータは、コイルケーシングを介して周囲の空気から冷水への熱の侵入(熱取得)を考慮します。効率が100%未満の場合、水側の熱負荷は空気側の熱負荷よりも大きくなります。",
+    "heating_coil": "温水コイルは空気を加熱します。このプロセスは顕熱のみを加えます。\n・空気線図上の動き: 水平右方向に変化します(絶対湿度は一定)。\n・熱交換効率: このパラメータは、コイルケーシングから周囲の空気への熱の損失を考慮します。効率が100%未満の場合、温水は空気が得る熱負荷よりも多くの熱を放出する必要があります。",
     "spray_washer": "スプレーワッシャーは、水を噴霧して空気を断熱的に加湿・冷却します。\n・空気線図上の動き: 等エンタルピー線に沿って左上方向に変化します。\n・プロセス: このプロセスではエンタルピーがほぼ一定に保たれます。",
     "steam_humidifier": "蒸気加湿器は、蒸気を直接吹き込むことで空気を加湿・加熱します。\n・空気線図上の動き: 右上方向に変化します。",
     "fan": "ファンは空気を送風します。モーターと送風機の効率により、エネルギーの一部が熱に変換され、空気をわずかに加熱します。これは顕熱のみのプロセスです。\n・空気線図上の動き: 水平右方向にわずかに変化します(絶対湿度は一定)。",
@@ -698,7 +708,7 @@ const jaMessages = {
     "lowerHeatingValue": "低位発熱量",
     "chilledWaterInletTemp": "冷水入口温度",
     "chilledWaterOutletTemp": "冷水出口温度",
-    "heatExchangeEfficiency": "熱交換効率",
+    "coilEfficiency": "熱交換効率 (%)",
     "hotWaterInletTemp": "温水入口温度",
     "hotWaterOutletTemp": "温水出口温度",
     "humidificationEfficiency": "加湿効率",
@@ -710,13 +720,13 @@ const jaMessages = {
   "results": {
     "faceVelocity": "面速",
     "treatedAirflowPerSheet": "風量/枚",
-    "heatLoad": "加熱量",
+    "heatLoad": "バーナー熱負荷",
     "gasFlowRate": "ガス流量",
-    "airSideHeatLoad": "空気側熱量",
-    "coldWaterSideHeatLoad": "冷水側熱量",
+    "airSideHeatLoad": "空気側熱負荷",
+    "coldWaterSideHeatLoad": "冷水側熱負荷",
     "chilledWaterFlow_L_min": "冷水流量",
     "dehumidification_L_min": "除湿量",
-    "hotWaterSideHeatLoad": "温水側熱量",
+    "hotWaterSideHeatLoad": "温水側熱負荷",
     "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
     "sprayAmount_L_min": "噴霧量",
@@ -785,9 +795,9 @@ const jaMessages = {
       "rh": "RH",
       "keyResults": "主要結果",
       "burnerLoad": "バーナー負荷",
-      "coolingLoad": "冷水側熱量",
+      "coolingLoad": "冷水側熱負荷",
       "coolingFlow": "冷水流量",
-      "heatingLoad": "温水側熱量",
+      "heatingLoad": "温水側熱負荷",
       "heatingFlow": "温水流量",
       "steamFlow": "蒸気量",
       "pressureLoss": "圧力損失",
@@ -908,14 +918,14 @@ const jaMessages = {
     },
     "burner": {
       "heatLoad": {
-        "title": "加熱量",
+        "title": "バーナー熱負荷",
         "si": {
           "formula": "Q_kW = G * (h_out - h_in)",
-          "legend": { "Q": "加熱量 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
+          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
           "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
-          "legend": { "Q": "加熱量 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
       "gasFlowRate": {
@@ -924,7 +934,7 @@ const jaMessages = {
           "formula": "V = (Q_kW * 3.6) / H_l",
           "legend": {
             "V": "流量 (m³/h)",
-            "Q_kW": "加熱量 (kW)",
+            "Q_kW": "熱負荷 (kW)",
             "H_l": "低位発熱量 (MJ/m³)"
           }
         },
@@ -932,7 +942,7 @@ const jaMessages = {
           "formula": "V = Q_BTUh / H_l",
           "legend": {
             "V": "流量 (ft³/h)",
-            "Q_BTUh": "加熱量 (BTU/h)",
+            "Q_BTUh": "熱負荷 (BTU/h)",
             "H_l": "低位発熱量 (BTU/ft³)"
           }
         }
@@ -961,15 +971,26 @@ const jaMessages = {
           "legend": { "Q": "熱量 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
-      "waterSideHeatLoad": {
-        "title": "水側熱量",
+      "waterSideHeatLoad_heating": {
+        "title": "水側熱負荷 (加熱)",
         "si": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "水側熱量 (kW)", "Q_air": "空気側熱量 (kW)", "η": "効率 (%)" }
+          "legend": { "Q_water": "水側熱負荷 (kW)", "Q_air": "空気側熱負荷 (kW)", "η": "熱交換効率 (熱損失を考慮, %)" }
         },
         "imperial": {
           "formula": "Q_water = Q_air / (η / 100)",
-          "legend": { "Q_water": "水側熱量 (BTU/h)", "Q_air": "空気側熱量 (BTU/h)", "η": "効率 (%)" }
+          "legend": { "Q_water": "水側熱負荷 (BTU/h)", "Q_air": "空気側熱負荷 (BTU/h)", "η": "熱交換効率 (熱損失を考慮, %)" }
+        }
+      },
+       "waterSideHeatLoad_cooling": {
+        "title": "水側熱負荷 (冷却)",
+        "si": {
+          "formula": "Q_water = Q_air / (η / 100)",
+          "legend": { "Q_water": "水側熱負荷 (kW)", "Q_air": "空気側熱負荷 (kW)", "η": "熱交換効率 (熱取得を考慮, %)" }
+        },
+        "imperial": {
+          "formula": "Q_water = Q_air / (η / 100)",
+          "legend": { "Q_water": "水側熱負荷 (BTU/h)", "Q_air": "空気側熱負荷 (BTU/h)", "η": "熱交換効率 (熱取得を考慮, %)" }
         }
       },
       "waterFlow": {
@@ -1192,10 +1213,8 @@ const getNestedValue = (obj: any, key: string) => {
   return key.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
 };
 
-// FIX: Changed from React.FC to a more explicit function component signature.
-// This is a more modern and robust pattern that avoids potential type inference issues,
-// definitively resolving the persistent "children is missing" error during the build process.
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+// FIX: Changed to a more explicit function component signature to correctly handle the 'children' prop, resolving the build error.
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Default to Japanese based on app's title and lang attribute in HTML
   const [locale, setLocale] = useState('ja');
 

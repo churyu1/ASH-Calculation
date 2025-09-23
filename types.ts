@@ -54,12 +54,13 @@ export interface CoolingCoilConditions extends BaseConditions {
     chilledWaterInletTemp?: number;
     chilledWaterOutletTemp?: number;
     bypassFactor?: number;
+    coilEfficiency?: number;
 }
 
 export interface HeatingCoilConditions extends BaseConditions {
     hotWaterInletTemp?: number;
     hotWaterOutletTemp?: number;
-    heatExchangeEfficiency?: number;
+    coilEfficiency?: number;
 }
 
 export interface SprayWasherConditions extends BaseConditions {

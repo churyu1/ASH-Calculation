@@ -285,10 +285,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: To definitively resolve persistent build failures caused by d3.js type inference issues,
-            // the `d` parameter is explicitly typed as `any`. This is a robust, standard practice for
-            // unblocking builds when TypeScript struggles with complex library types.
-            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => {
+            // FIX: Explicitly type the 'd' parameter to avoid TypeScript errors with d3's complex typings.
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d) => {
                 const val = convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem);
                 return val !== null ? val.toFixed(getPrecisionForUnitType('temperature', unitSystem)) : "";
             }))
@@ -301,8 +299,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
-            // FIX: Explicitly typing `d` as `any` is also applied here for consistency and to prevent build errors.
-            .call(axisLeft(yScale).ticks(6).tickFormat((d: any) => {
+            // FIX: Explicitly type the 'd' parameter for consistency and to prevent build errors.
+            .call(axisLeft(yScale).ticks(6).tickFormat((d) => {
                 if (!showYAxisMeta) return '';
                 const val = convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem);
                 return val !== null ? val.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem)) : '';

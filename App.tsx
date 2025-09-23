@@ -386,7 +386,7 @@ const runFullCalculation = (
                         break;
                     }
                     case EquipmentType.COOLING_COIL: {
-                        const { chilledWaterInletTemp = 7, chilledWaterOutletTemp = 14, bypassFactor = 5 } = currentEq.conditions as CoolingCoilConditions;
+                        const { chilledWaterInletTemp = 7, chilledWaterOutletTemp = 14, bypassFactor = 5, coilEfficiency = 85 } = currentEq.conditions as CoolingCoilConditions;
                         const BF = bypassFactor / 100;
                         const userOutletTemp = currentEq.outletAir.temp;
 
@@ -435,14 +435,15 @@ const runFullCalculation = (
                             
                             if (newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (inletEnthalpy - newOutletAir.enthalpy);
+                                const coldWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
                                 const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - newOutletAir.absHumidity) / 1000;
                                 
                                 const waterTempDiff = chilledWaterOutletTemp - chilledWaterInletTemp;
-                                const chilledWaterFlow_L_min = waterTempDiff > 0 ? (airSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
+                                const chilledWaterFlow_L_min = waterTempDiff > 0 ? (coldWaterSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
                                 
                                 newResults = {
                                     airSideHeatLoad_kW,
-                                    coldWaterSideHeatLoad_kW: airSideHeatLoad_kW,
+                                    coldWaterSideHeatLoad_kW,
                                     chilledWaterFlow_L_min,
                                     dehumidification_L_min: dehumidification_kg_s > 0 ? dehumidification_kg_s * 60 : 0,
                                     bypassFactor: BF * 100,
@@ -454,7 +455,7 @@ const runFullCalculation = (
                         break;
                     }
                     case EquipmentType.HEATING_COIL: {
-                        const { hotWaterInletTemp = 80, hotWaterOutletTemp = 50, heatExchangeEfficiency = 85 } = currentEq.conditions as HeatingCoilConditions;
+                        const { hotWaterInletTemp = 80, hotWaterOutletTemp = 50, coilEfficiency = 85 } = currentEq.conditions as HeatingCoilConditions;
                         const userOutletTemp = currentEq.outletAir.temp;
 
                         if (userOutletTemp !== null) {
@@ -462,7 +463,7 @@ const runFullCalculation = (
                             newOutletAir = calculateAirProperties(clampedOutletTemp, null, inletAbsHum);
                             if (newOutletAir.enthalpy !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
-                                const hotWaterSideHeatLoad_kW = (heatExchangeEfficiency > 0) ? airSideHeatLoad_kW / (heatExchangeEfficiency / 100) : 0;
+                                const hotWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
                                 const waterTempDiff = hotWaterInletTemp - hotWaterOutletTemp;
                                 const hotWaterFlow_L_min = waterTempDiff > 0 ? (hotWaterSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
                                 newResults = { airSideHeatLoad_kW, hotWaterSideHeatLoad_kW, hotWaterFlow_L_min } as HeatingCoilResults;
@@ -828,8 +829,8 @@ const App: React.FC = () => {
             switch (type) {
                  case EquipmentType.FILTER: (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 }; break;
                  case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, defaultInlet.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9, lowerHeatingValue: 45.0 }; break;
-                 case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5 }; break;
-                 case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, heatExchangeEfficiency: 85 }; break;
+                 case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5, coilEfficiency: 85 }; break;
+                 case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, coilEfficiency: 85 }; break;
                  case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
                  case EquipmentType.STEAM_HUMIDIFIER: newEquipment.outletAir = { temp: null, rh: 70, absHumidity: null, enthalpy: null, density: null }; (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100, steamGaugePressureUnit: SteamPressureUnit.KPAG, }; break;
                  case EquipmentType.FAN:
