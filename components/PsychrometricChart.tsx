@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
@@ -287,8 +288,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: Explicitly type 'd' to avoid potential TypeScript errors with d3's complex types.
-            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: number | { valueOf(): number }) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            // FIX: Explicitly type 'd' as 'any' to bypass strict type inference issues in the build environment with d3.
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
         xAxis.selectAll("line").style("stroke", themeColors.axis);
@@ -298,7 +299,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
-            .call(axisLeft(yScale).ticks(6).tickFormat((d: number | { valueOf(): number }) =>
+            // FIX: Explicitly type 'd' as 'any' to bypass strict type inference issues in the build environment with d3.
+            .call(axisLeft(yScale).ticks(6).tickFormat((d: any) =>
                 showYAxisMeta
                     ? `${convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
                     : ''
