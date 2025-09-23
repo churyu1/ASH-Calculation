@@ -153,19 +153,10 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
         }, 400); // Delay before continuous change starts
     }, [handleChange, stopContinuousChange]);
     
-    const handleMouseDown = (direction: 'inc' | 'dec') => (e: React.MouseEvent) => {
+    const handlePointerDown = (direction: 'inc' | 'dec') => (e: React.PointerEvent) => {
         e.preventDefault();
         // Key fix: Forcefully remove focus from the text input and update the internal focus state.
         // This ensures the component will accept prop updates from the parent.
-        if (document.activeElement === inputRef.current) {
-            inputRef.current?.blur();
-        }
-        isFocused.current = false;
-        startContinuousChange(direction);
-    };
-    
-    const handleTouchStart = (direction: 'inc' | 'dec') => (e: React.TouchEvent) => {
-        e.preventDefault();
         if (document.activeElement === inputRef.current) {
             inputRef.current?.blur();
         }
@@ -207,25 +198,23 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
             <div className="flex items-center gap-1 justify-end">
                 <button 
                     type="button" 
-                    onMouseDown={handleMouseDown('dec')}
-                    onMouseUp={stopContinuousChange}
-                    onMouseLeave={stopContinuousChange}
-                    onTouchStart={handleTouchStart('dec')}
-                    onTouchEnd={stopContinuousChange}
+                    onPointerDown={handlePointerDown('dec')}
+                    onPointerUp={stopContinuousChange}
+                    onPointerLeave={stopContinuousChange}
+                    onPointerCancel={stopContinuousChange}
                     disabled={isDecrementDisabled} 
-                    className="px-2 py-1 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
+                    className="px-2 py-1 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold touch-none"
                 >
                     -
                 </button>
                 <button 
                     type="button" 
-                    onMouseDown={handleMouseDown('inc')}
-                    onMouseUp={stopContinuousChange}
-                    onMouseLeave={stopContinuousChange}
-                    onTouchStart={handleTouchStart('inc')}
-                    onTouchEnd={stopContinuousChange}
+                    onPointerDown={handlePointerDown('inc')}
+                    onPointerUp={stopContinuousChange}
+                    onPointerLeave={stopContinuousChange}
+                    onPointerCancel={stopContinuousChange}
                     disabled={isIncrementDisabled} 
-                    className="px-2 py-1 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
+                    className="px-2 py-1 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold touch-none"
                 >
                     +
                 </button>

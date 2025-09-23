@@ -287,8 +287,9 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: Explicitly type the 'd' parameter in tickFormat as 'any' to resolve a TypeScript inference issue.
-            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => `${convertValue(d as number, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
+            // FIX: The type of 'd' from d3's tickFormat can be `number | { valueOf(): number }`.
+            // Using `Number(d)` handles both cases safely, resolving potential type inference issues.
+            .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
         xAxis.selectAll("line").style("stroke", themeColors.axis);
@@ -300,7 +301,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         const yAxis = svg.append("g")
             .call(axisLeft(yScale).ticks(6).tickFormat(d =>
                 showYAxisMeta
-                    ? `${convertValue(d as number, 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
+                    ? `${convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
                     : ''
             ));
             
@@ -906,7 +907,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const x1 = xScale(inletTempSI), y1 = yScale(inletAbsHumiditySI);
                         const x2 = xScale(outletTempSI), y2 = yScale(outletAbsHumiditySI);
                         
-                        const [startX, startY] = pointer(event.sourceEvent, svg.node());
+                        const [startX, startY] = pointer(event, svg.node());
                         select(this).property('__start_pointer__', { x: startX, y: startY });
                         select(this).property('__start_pos__', { inletX: x1, inletY: y1, outletX: x2, outletY: y2 });
                         
@@ -929,7 +930,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 })
                 .on("drag", function (event) {
                     const dragMode = select(this).property('__drag_mode__');
-                    const [mx, my] = pointer(event.sourceEvent, svg.node());
+                    const [mx, my] = pointer(event, svg.node());
                     
                     svg.selectAll(".snap-line-highlight").remove();
 
@@ -938,7 +939,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const startPos = select(this).property('__start_pos__');
                         if (!startPointer || !startPos) return;
 
-                        const [currentX, currentY] = pointer(event.sourceEvent, svg.node());
+                        const [currentX, currentY] = pointer(event, svg.node());
                         const dx = currentX - startPointer.x;
                         const dy = currentY - startPointer.y;
                         let finalDx = dx, finalDy = dy;
