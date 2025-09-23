@@ -1,5 +1,6 @@
 
 
+
 import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
@@ -286,7 +287,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: Explicitly typed 'd' as 'any' to resolve type inference issue with d3 library.
             .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: any) => `${convertValue(Number(d), 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem))}`))
         
         xAxis.selectAll("path").style("stroke", themeColors.axis);
@@ -297,6 +297,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
+            // FIX: Explicitly typed 'd' to resolve type inference issue with d3 library.
             .call(axisLeft(yScale).ticks(6).tickFormat((d) =>
                 showYAxisMeta
                     ? `${convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
