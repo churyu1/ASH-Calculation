@@ -1,6 +1,5 @@
 
 
-
 import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
@@ -301,6 +300,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         const yAxis = svg.append("g")
             .call(axisLeft(yScale).ticks(6).tickFormat(d =>
                 showYAxisMeta
+                    // FIX: The type of 'd' from d3's tickFormat can be `number | { valueOf(): number }`.
+                    // Using `Number(d)` handles both cases safely, resolving potential type inference issues.
                     ? `${convertValue(Number(d), 'abs_humidity', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('abs_humidity', unitSystem))}`
                     : ''
             ));
