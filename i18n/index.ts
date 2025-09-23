@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
 // The JSON files are embedded directly to ensure compatibility with browser-native ESM.
@@ -1192,9 +1193,9 @@ const getNestedValue = (obj: any, key: string) => {
   return key.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
 };
 
-// Change component to use React.createElement to avoid JSX syntax in a .ts file.
-// FIX: Explicitly type LanguageProvider as a React.FC to help TypeScript's JSX type inference.
-export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+// By changing from `React.FC` to directly typing the props object,
+// we can sometimes resolve subtle TypeScript inference issues in complex build environments.
+export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
   // Default to Japanese based on app's title and lang attribute in HTML
   const [locale, setLocale] = useState('ja');
 
@@ -1212,7 +1213,8 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   
   const value = { locale, setLocale, t };
 
-  return React.createElement(LanguageContext.Provider, { value }, children);
+  // FIX: Replaced JSX with React.createElement to make it compatible with the .ts file extension.
+  return React.createElement(LanguageContext.Provider, { value: value }, children);
 };
 
 // Add explicit return type to the hook.
