@@ -1,30 +1,51 @@
-name: Deploy to GitHub Pages
+# GitHub Pages へのデプロイ用のシンプルなワークフロー
+name: Deploy static content to Pages
 
 on:
+  # main ブランチへのプッシュ時に実行
   push:
-    branches:
-      - main # mainブランチにプッシュされたときに実行
+    branches: ["main"]
+
+  # Actions タブから手動でワークフローを実行できるようにする
+  workflow_dispatch:
+
+# GITHUB_TOKEN の権限を設定し、GitHub Pages へのデプロイを許可する
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 一度に 1 つのデプロイを許可する
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  # 'deploy' という名前の単一のジョブ
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '18' # 使用するNode.jsのバージョン
-
+          node-version: 20
+          cache: 'npm'
       - name: Install dependencies
         run: npm install
-
       - name: Build
         run: npm run build
-
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs # 公開するディレクトリ
+          # 'vite.config.ts' の outDir に合わせて 'docs' を指定
+          path: './docs'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
