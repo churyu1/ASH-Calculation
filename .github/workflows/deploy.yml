@@ -35,10 +35,10 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+      - name: Clean npm cache
+        run: npm cache clean --force
       - name: Install dependencies
-        run: |
-          npm cache clean --force
-          npm ci
+        run: npm ci
       - name: Build
         run: npm run build
       - name: Setup Pages
