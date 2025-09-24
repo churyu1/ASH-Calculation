@@ -909,7 +909,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const x1 = xScale(inletTempSI), y1 = yScale(inletAbsHumiditySI);
                         const x2 = xScale(outletTempSI), y2 = yScale(outletAbsHumiditySI);
                         
-                        const [startX, startY] = pointer(event.sourceEvent, svg.node());
+                        const startX = event.x;
+                        const startY = event.y;
                         select(this).property('__start_pointer__', { x: startX, y: startY });
                         select(this).property('__start_pos__', { inletX: x1, inletY: y1, outletX: x2, outletY: y2 });
                         
@@ -932,7 +933,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 })
                 .on("drag", function (event) {
                     const dragMode = select(this).property('__drag_mode__');
-                    const [mx, my] = pointer(event.sourceEvent, svg.node());
+                    const mx = event.x;
+                    const my = event.y;
                     
                     svg.selectAll(".snap-line-highlight").remove();
 
@@ -941,7 +943,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const startPos = select(this).property('__start_pos__');
                         if (!startPointer || !startPos) return;
 
-                        const [currentX, currentY] = pointer(event.sourceEvent, svg.node());
+                        const currentX = event.x;
+                        const currentY = event.y;
                         const dx = currentX - startPointer.x;
                         const dy = currentY - startPointer.y;
                         let finalDx = dx, finalDy = dy;
@@ -1289,7 +1292,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const line2 = `${tempString}${temperatureUnit}, ${rhString}%`;
                         const label = `<div>${line1}</div><div>${line2}</div>`;
 
-                        const [cursorX, cursorY] = pointer(event.sourceEvent, containerRef.current);
+                        const cursorX = event.x + margin.left;
+                        const cursorY = event.y + margin.top;
                         tooltip.style("visibility", "visible")
                                 .html(label)
                                 .style("top", `${cursorY + 20}px`)
