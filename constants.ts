@@ -11,6 +11,17 @@ export const EQUIPMENT_COLORS: Record<EquipmentType, string> = {
     [EquipmentType.CUSTOM]: 'border-indigo-500',
 };
 
+export const EQUIPMENT_BG_COLORS: Record<EquipmentType, string> = {
+    [EquipmentType.FILTER]: 'bg-slate-50',
+    [EquipmentType.BURNER]: 'bg-amber-50',
+    [EquipmentType.COOLING_COIL]: 'bg-blue-50',
+    [EquipmentType.HEATING_COIL]: 'bg-red-50',
+    [EquipmentType.SPRAY_WASHER]: 'bg-cyan-50',
+    [EquipmentType.STEAM_HUMIDIFIER]: 'bg-pink-50',
+    [EquipmentType.FAN]: 'bg-purple-50',
+    [EquipmentType.CUSTOM]: 'bg-indigo-50',
+};
+
 export const EQUIPMENT_HEX_COLORS: Record<EquipmentType, string> = {
     [EquipmentType.FILTER]: '#94a3b8',
     [EquipmentType.BURNER]: '#f59e0b',

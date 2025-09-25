@@ -9,7 +9,7 @@ import {
     SteamPressureUnit
 } from '../types';
 import { calculateAirProperties, calculatePsat, PSYCH_CONSTANTS, calculateSteamProperties } from '../services/psychrometrics.ts';
-import { MOTOR_OUTPUT_CONVERSIONS, MAJOR_GAS_HEATING_VALUES } from '../constants.ts';
+import { MOTOR_OUTPUT_CONVERSIONS, MAJOR_GAS_HEATING_VALUES, EQUIPMENT_BG_COLORS } from '../constants.ts';
 import { useLanguage } from '../i18n/index.ts';
 import NumberInputWithControls from './NumberInputWithControls.tsx';
 import DisplayValueWithUnit from './DisplayValueWithUnit.tsx';
@@ -38,6 +38,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
 
     const currentInletAirCalculated = useMemo(() => calculateAirProperties(inletAir.temp, inletAir.rh), [inletAir.temp, inletAir.rh]);
     const massFlowRateDA_kg_s = useMemo(() => (airflow !== null && currentInletAirCalculated.density !== null) ? (airflow / 60) * currentInletAirCalculated.density : 0, [airflow, currentInletAirCalculated.density]);
+    const bgColor = EQUIPMENT_BG_COLORS[type];
 
     useEffect(() => {
         if (type === EquipmentType.STEAM_HUMIDIFIER) {
@@ -473,7 +474,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
 
 
     const renderAirProperties = (airProps: AirProperties, calculatedProps: AirProperties, title: string, isOutlet = false) => (
-        <div className="p-4 bg-slate-100 rounded-lg">
+        <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
             <h3 className="font-semibold mb-2">{title}</h3>
             <div className="space-y-3">
                 {isOutlet ? (
@@ -521,7 +522,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     );
     
     return (
-        <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-md bg-white border border-slate-300 border-t-0 rounded-t-none`}>
+        <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-md border-2 ${bgColor} ${color}`}>
              <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-semibold">{index + 1}. {equipment.name || t(`equipmentNames.${type}`)}</h2>
                 <div className="flex items-center gap-2">
@@ -548,7 +549,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             <>
                 {type === EquipmentType.FILTER ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
-                        <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 p-4 bg-slate-100 rounded-lg">
+                        <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 p-4 bg-white rounded-lg shadow-inner border border-slate-200">
                             <h3 className="font-semibold mb-2">{t('equipment.airConditions')}</h3>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center py-1">
