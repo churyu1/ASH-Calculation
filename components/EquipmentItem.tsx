@@ -8,7 +8,7 @@ import {
     FilterResults, SprayWasherResults, CustomResults,
     SteamPressureUnit
 } from '../types';
-import { calculateAirProperties, calculatePsat, PSYCH_CONSTANTS, calculateSteamProperties } from '../services/psychrometrics.ts';
+import { calculateAirProperties, calculatePsat, PSYCH_CONSTANTS, calculateSteamProperties, calculateAtmosphericPressure } from '../services/psychrometrics.ts';
 import { MOTOR_OUTPUT_CONVERSIONS, MAJOR_GAS_HEATING_VALUES, EQUIPMENT_BG_COLORS } from '../constants.ts';
 import { useLanguage } from '../i18n/index.ts';
 import NumberInputWithControls from './NumberInputWithControls.tsx';
@@ -22,13 +22,14 @@ interface EquipmentItemProps {
     index: number;
     totalEquipment: number;
     airflow: number | null;
+    altitude: number;
     onUpdate: (id: number, updatedEquipment: Partial<Equipment>) => void;
     onDelete: (id: number) => void;
     unitSystem: UnitSystem;
 }
 
 const EquipmentItem: React.FC<EquipmentItemProps> = ({
-    equipment, index, totalEquipment, airflow, onUpdate, onDelete, unitSystem
+    equipment, index, totalEquipment, airflow, altitude, onUpdate, onDelete, unitSystem
 }) => {
     const { id, type, pressureLoss, inletAir, outletAir, conditions, color, results } = equipment;
     const { t, locale } = useLanguage();
@@ -36,7 +37,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     const [pressureInputValue, setPressureInputValue] = useState('');
     const [isDescriptionVisible, setIsDescriptionVisible] = useState(false);
 
-    const currentInletAirCalculated = useMemo(() => calculateAirProperties(inletAir.temp, inletAir.rh), [inletAir.temp, inletAir.rh]);
+    const atmPressure = useMemo(() => calculateAtmosphericPressure(altitude), [altitude]);
+    const currentInletAirCalculated = useMemo(() => calculateAirProperties(inletAir.temp, inletAir.rh, atmPressure), [inletAir.temp, inletAir.rh, atmPressure]);
     const massFlowRateDA_kg_s = useMemo(() => (airflow !== null && currentInletAirCalculated.density !== null) ? (airflow / 60) * currentInletAirCalculated.density : 0, [airflow, currentInletAirCalculated.density]);
     const bgColor = EQUIPMENT_BG_COLORS[type];
 
@@ -363,10 +365,10 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.steam_humidifier.steamAbsolutePressure';
         const values = {
             'P_gauge': { value: steamGaugePressure, unit: 'kPaG' },
-            'P_atm': { value: PSYCH_CONSTANTS.ATM_PRESSURE_PA / 1000, unit: 'kPa' },
+            'P_atm': { value: atmPressure / 1000, unit: 'kPa' },
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
-    }, [type, conditions, unitSystem, t, locale]);
+    }, [type, conditions, unitSystem, t, locale, atmPressure]);
 
     const steamHumidifierPropertiesTooltip = useMemo(() => {
         if (type !== EquipmentType.STEAM_HUMIDIFIER) return null;

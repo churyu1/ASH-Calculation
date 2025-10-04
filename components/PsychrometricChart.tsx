@@ -1,9 +1,11 @@
 
-import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react';
+
+
+import React, { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
 import { convertValue, getPrecisionForUnitType } from '../utils/conversions.ts';
-import { calculateAirProperties, calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, PSYCH_CONSTANTS, calculateSteamProperties, calculateDewPoint, calculateRelativeHumidity } from '../services/psychrometrics.ts';
+import { calculateAirProperties, calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, PSYCH_CONSTANTS, calculateSteamProperties, calculateDewPoint, calculateRelativeHumidity, calculateAtmosphericPressure } from '../services/psychrometrics.ts';
 import { useLanguage } from '../i18n/index.ts';
 import { EQUIPMENT_HEX_COLORS } from '../constants.ts';
 
@@ -13,16 +15,18 @@ interface PsychrometricChartProps {
     globalOutletAir: AirProperties;
     unitSystem: UnitSystem;
     isSplitViewActive: boolean;
+    altitude: number;
     onUpdate: (id: number, updates: { inlet?: AirProperties, outlet?: AirProperties }) => void;
 }
 
-export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate }) => {
+export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, altitude, onUpdate }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const { t } = useLanguage();
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const snapTargetsRef = useRef<{ points: any[]; lines: any[] }>({ points: [], lines: [] });
     const dragInProgress = useRef(false);
+    const atmPressure = useMemo(() => calculateAtmosphericPressure(altitude), [altitude]);
 
     useLayoutEffect(() => {
         const updateSize = () => {
@@ -384,6 +388,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             for (const target of targets) {
                 const dx = target.x - x;
                 const dy = target.y - y;
+                // FIX: The distance calculation was incorrect, using dx^3 * dy instead of dx^2 + dy^2.
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -485,7 +490,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         rhLines.forEach(rh => {
             const lineData: ChartPoint[] = [];
             for (let T = -20; T <= 60; T += 1) {
-                const absHumidity = calculateAbsoluteHumidity(T, rh);
+                const absHumidity = calculateAbsoluteHumidity(T, rh, atmPressure);
                 if (absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
                     lineData.push({ temp: T, absHumidity });
                 }
@@ -689,7 +694,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const { temp: T_in, absHumidity: x_in } = startPoint;
                         
                         const minOutletTemp = Math.max(tempDomainMin, chilledWaterInletTemp);
-                        const inletDewPoint = calculateDewPoint(x_in);
+                        const inletDewPoint = calculateDewPoint(x_in, atmPressure);
 
                         for (let t_out = T_in; t_out >= minOutletTemp; t_out -= 0.5) {
                             let x_out: number;
@@ -701,14 +706,14 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 
                             if (t_adp !== undefined && t_adp < inletDewPoint) {
                                 // Dehumidification process
-                                const x_adp = calculateAbsoluteHumidity(t_adp, 100);
+                                const x_adp = calculateAbsoluteHumidity(t_adp, 100, atmPressure);
                                 x_out = x_adp * (1 - BF) + x_in * BF;
                             } else {
                                 // Sensible cooling only
                                 x_out = x_in;
                             }
 
-                            const saturationHumidity = calculateAbsoluteHumidity(t_out, 100);
+                            const saturationHumidity = calculateAbsoluteHumidity(t_out, 100, atmPressure);
                             if (x_out > saturationHumidity) {
                                 x_out = saturationHumidity;
                             }
@@ -746,7 +751,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 }
                 case EquipmentType.STEAM_HUMIDIFIER: {
                     const steamCond = equipment.conditions as SteamHumidifierConditions;
-                    const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
+                    const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100, atmPressure);
                     const h_steam = steamProps.enthalpy;
                     const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (startPoint.absHumidity / 1000);
                     const h_vapor = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * startPoint.temp;
@@ -854,7 +859,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             
                 if (t_in === null || x_in === null) return 0;
             
-                const inletDewPoint = calculateDewPoint(x_in);
+                const inletDewPoint = calculateDewPoint(x_in, atmPressure);
             
                 let outletAbsHum: number;
                 let t_adp: number | undefined;
@@ -865,7 +870,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 
                 if (t_adp !== undefined && t_adp < inletDewPoint) {
                     // Dehumidification process
-                    const x_adp = calculateAbsoluteHumidity(t_adp, 100);
+                    const x_adp = calculateAbsoluteHumidity(t_adp, 100, atmPressure);
                     outletAbsHum = x_adp * (1 - BF) + x_in * BF;
                 } else {
                     // Sensible cooling only
@@ -873,7 +878,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 }
             
                 // Correct for supersaturation which can occur due to the linear mixing model approximation
-                const saturationHumidityAtOutlet = calculateAbsoluteHumidity(t_out, 100);
+                const saturationHumidityAtOutlet = calculateAbsoluteHumidity(t_out, 100, atmPressure);
                 if (outletAbsHum > saturationHumidityAtOutlet) {
                     return saturationHumidityAtOutlet;
                 }
@@ -977,7 +982,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             const [tempDomainMin, tempDomainMax] = xScale.domain();
                             const clampedTemp = Math.max(tempDomainMin, Math.min(tempDomainMax, proposedInletTemp));
 
-                            const saturationHumidity = calculateAbsoluteHumidity(clampedTemp, 100);
+                            const saturationHumidity = calculateAbsoluteHumidity(clampedTemp, 100, atmPressure);
                             const saturationY = yScale(saturationHumidity);
                             
                             const proposedInletYAfterSnap = startPos.inletY + finalDy;
@@ -999,7 +1004,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         previewGroup.selectAll('*').remove();
                         const tempEqForPreview: Equipment = {
                             ...eq,
-                            inletAir: calculateAirProperties(xScale.invert(newInletX), null, yScale.invert(newInletY)),
+                            inletAir: calculateAirProperties(xScale.invert(newInletX), null, atmPressure, yScale.invert(newInletY)),
                         };
                         const pathData = generatePreviewPath(tempEqForPreview, 'outlet');
                         if (pathData && pathData.length > 1) {
@@ -1084,7 +1089,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                                     }
                                     case EquipmentType.STEAM_HUMIDIFIER: {
                                         const steamCond = conds as SteamHumidifierConditions;
-                                        const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
+                                        const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100, atmPressure);
                                         const h_steam = steamProps.enthalpy;
                                         const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (startHum / 1000);
                                         const h_vapor = PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * startTemp;
@@ -1245,7 +1250,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const startPoint_d = { temp: xScale.invert(fixedPointX), absHumidity: yScale.invert(fixedPointY) };
 
                         if (dragMode === 'inlet' && (eq.type === EquipmentType.HEATING_COIL || (eq.type === EquipmentType.BURNER && (eq.conditions as BurnerConditions).shf >= 1.0))) {
-                            const dewPointTemp = calculateDewPoint(outletAbsHumiditySI);
+                            const dewPointTemp = calculateDewPoint(outletAbsHumiditySI, atmPressure);
                             if (finalTemp < dewPointTemp) {
                                 finalTemp = dewPointTemp;
                             }
@@ -1274,7 +1279,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             }
                         }
 
-                        const saturationHumidityAtTemp = calculateAbsoluteHumidity(finalTemp, 100);
+                        const saturationHumidityAtTemp = calculateAbsoluteHumidity(finalTemp, 100, atmPressure);
                         if (finalAbsHumidity > saturationHumidityAtTemp) {
                             finalAbsHumidity = saturationHumidityAtTemp;
                         }
@@ -1282,7 +1287,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         finalTemp = Math.max(xScale.domain()[0], Math.min(xScale.domain()[1], finalTemp));
                         finalAbsHumidity = Math.max(yScale.domain()[0], Math.min(yScale.domain()[1], finalAbsHumidity));
                         
-                        const finalRh = calculateRelativeHumidity(finalTemp, finalAbsHumidity);
+                        const finalRh = calculateRelativeHumidity(finalTemp, finalAbsHumidity, atmPressure);
                         const tempString = convertValue(finalTemp, 'temperature', UnitSystem.SI, unitSystem)?.toFixed(getPrecisionForUnitType('temperature', unitSystem)) ?? '';
                         const rhString = finalRh.toFixed(getPrecisionForUnitType('rh', unitSystem));
                         const pointTypeLabel = dragMode === 'inlet' ? t('chart.inlet') : t('chart.outlet');
@@ -1330,8 +1335,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     
                     if (finalPos) {
                         if (dragMode === 'line') {
-                            const finalInlet = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
-                            const finalOutlet = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
+                            const finalInlet = calculateAirProperties(finalPos.inlet.temp, null, atmPressure, finalPos.inlet.absHumidity);
+                            const finalOutlet = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
                             onUpdate(eq.id, { inlet: finalInlet, outlet: finalOutlet });
                         } else if (dragMode === 'outlet') {
                             let finalOutletAir: AirProperties;
@@ -1340,16 +1345,16 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                                 const finalTemp = finalPos.outlet.temp;
                                 if (inletEnthalpy !== null && finalTemp !== null) {
                                     const finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalTemp, inletEnthalpy);
-                                    finalOutletAir = calculateAirProperties(finalTemp, null, finalAbsHumidity);
+                                    finalOutletAir = calculateAirProperties(finalTemp, null, atmPressure, finalAbsHumidity);
                                 } else {
-                                    finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
+                                    finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
                                 }
                             } else {
-                                finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, finalPos.outlet.absHumidity);
+                                finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
                             }
                             onUpdate(eq.id, { outlet: finalOutletAir });
                         } else if (dragMode === 'inlet') {
-                            const finalInletAir = calculateAirProperties(finalPos.inlet.temp, null, finalPos.inlet.absHumidity);
+                            const finalInletAir = calculateAirProperties(finalPos.inlet.temp, null, atmPressure, finalPos.inlet.absHumidity);
                             onUpdate(eq.id, { inlet: finalInletAir });
                         }
                     }
@@ -1465,7 +1470,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 })
                 .call(processDrag);
         });
-    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, dimensions, t]);
+    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, dimensions, t, atmPressure]);
     
     return (
         <div ref={containerRef} className="w-full h-[350px] sm:h-[450px] lg:h-[500px] relative">

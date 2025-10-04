@@ -12,6 +12,7 @@ const enMessages = {
     "siUnits": "SI Units",
     "imperialUnits": "Imperial Units",
     "systemAirflow": "System Airflow",
+    "altitude": "Altitude",
     "acInletConditions": "Air Conditioner Inlet Conditions",
     "acOutletConditions": "Air Conditioner Outlet Conditions",
     "addEquipment": "Add Equipment",
@@ -147,7 +148,8 @@ const enMessages = {
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/sheet", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
         "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h", "gas_flow": "m³/h",
-        "lower_heating_value": "MJ/m³"
+        "lower_heating_value": "MJ/m³",
+        "altitude": "m"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
@@ -155,7 +157,8 @@ const enMessages = {
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
         "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h", "gas_flow": "ft³/h",
-        "lower_heating_value": "BTU/ft³"
+        "lower_heating_value": "BTU/ft³",
+        "altitude": "ft"
     }
   },
   "chart": {
@@ -626,6 +629,7 @@ const jaMessages = {
     "siUnits": "SI単位",
     "imperialUnits": "ヤード・ポンド法",
     "systemAirflow": "システム風量",
+    "altitude": "高度",
     "acInletConditions": "空調器入口条件",
     "acOutletConditions": "空調器出口条件",
     "addEquipment": "機器の追加",
@@ -761,7 +765,8 @@ const jaMessages = {
         "rh": "%", "sheets": "枚", "shf": "", "efficiency": "%", "k_value": "", "velocity": "m/s",
         "airflow_per_sheet": "m³/min/枚", "water_to_air_ratio": "", "area": "m²", "density": "kg/m³",
         "steam_pressure": "kPa", "steam_enthalpy": "kcal/kg", "steam_flow": "kg/h", "gas_flow": "m³/h",
-        "lower_heating_value": "MJ/m³"
+        "lower_heating_value": "MJ/m³",
+        "altitude": "m"
     },
     "imperial": {
         "airflow": "CFM", "temperature": "℉", "temperature_delta": "℉", "length": "in", "pressure": "in.w.g.", "heat_load": "BTU/h",
@@ -769,7 +774,8 @@ const jaMessages = {
         "rh": "%", "sheets": "sheets", "shf": "", "efficiency": "%", "k_value": "", "velocity": "fpm",
         "airflow_per_sheet": "CFM/sheet", "water_to_air_ratio": "", "area": "ft²", "density": "lb/ft³",
         "steam_pressure": "psi", "steam_enthalpy": "BTU/lb", "steam_flow": "lb/h", "gas_flow": "ft³/h",
-        "lower_heating_value": "BTU/ft³"
+        "lower_heating_value": "BTU/ft³",
+        "altitude": "ft"
     }
   },
   "chart": {

@@ -8,7 +8,7 @@ import {
     SprayWasherResults, SteamHumidifierResults, FanResults, CustomResults
 } from './types';
 import { EQUIPMENT_COLORS } from './constants.ts';
-import { calculateAirProperties, calculatePsat, calculateAbsoluteHumidity, calculateEnthalpy, calculateDewPoint, calculateAbsoluteHumidityFromEnthalpy, calculateRelativeHumidity, calculateDryAirDensity, PSYCH_CONSTANTS, calculateSteamProperties, calculateTempFromRhAndAbsHumidity } from './services/psychrometrics.ts';
+import { calculateAirProperties, calculatePsat, calculateAbsoluteHumidity, calculateEnthalpy, calculateDewPoint, calculateAbsoluteHumidityFromEnthalpy, calculateRelativeHumidity, calculateDryAirDensity, PSYCH_CONSTANTS, calculateSteamProperties, calculateTempFromRhAndAbsHumidity, calculateAtmosphericPressure } from './services/psychrometrics.ts';
 import { useLanguage } from './i18n/index.ts';
 import EquipmentItem from './components/EquipmentItem.tsx';
 import NumberInputWithControls from './components/NumberInputWithControls.tsx';
@@ -313,8 +313,9 @@ const createNewProject = (id: string, name: string): Project => ({
     name,
     airflow: 100,
     equipmentList: [],
-    acInletAir: calculateAirProperties(30, 20),
-    acOutletAir: calculateAirProperties(27, 70),
+    acInletAir: { temp: 30, rh: 20, absHumidity: null, enthalpy: null, density: null },
+    acOutletAir: { temp: 27, rh: 70, absHumidity: null, enthalpy: null, density: null },
+    altitude: 0,
 });
 
 const SUMMARY_TAB_ID = 'summary-tab';
@@ -327,8 +328,12 @@ interface AppState {
 const runFullCalculation = (
     originalList: Equipment[],
     acInletAir: AirProperties,
-    airflow: number | null
+    airflow: number | null,
+    altitude: number
 ): Equipment[] => {
+    const atmPressure = calculateAtmosphericPressure(altitude);
+    const initialInlet = calculateAirProperties(acInletAir.temp, acInletAir.rh, atmPressure);
+
     const calculationResult = originalList.reduce(
         (acc, eq) => {
             const { calculatedList, previousOutlet } = acc;
@@ -337,7 +342,7 @@ const runFullCalculation = (
 
             // Step 1: Set the inlet based on the previous outlet
             const effectiveInlet = currentEq.inletIsLocked ? currentEq.inletAir : previousOutlet;
-            currentEq.inletAir = calculateAirProperties(effectiveInlet.temp, effectiveInlet.rh);
+            currentEq.inletAir = calculateAirProperties(effectiveInlet.temp, effectiveInlet.rh, atmPressure);
 
             // Step 2: Perform the calculation for the current equipment
             const massFlowRateDA_kg_s = (airflow !== null && currentEq.inletAir.density !== null) ? (airflow / 60) * currentEq.inletAir.density : 0;
@@ -369,7 +374,7 @@ const runFullCalculation = (
                                 delta_x = (1000 / PSYCH_CONSTANTS.LATENT_HEAT_VAPORIZATION_0C) * (1 / shf - 1) * PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR * delta_t;
                             }
                             const outletAbsHum = inletAbsHum + delta_x;
-                            newOutletAir = calculateAirProperties(userOutletTemp, null, outletAbsHum);
+                            newOutletAir = calculateAirProperties(userOutletTemp, null, atmPressure, outletAbsHum);
 
                             if (newOutletAir.enthalpy !== null) {
                                 const totalHeat_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
@@ -391,46 +396,37 @@ const runFullCalculation = (
                         const userOutletTemp = currentEq.outletAir.temp;
 
                         if (userOutletTemp !== null) {
-                            // Calculate the physically possible minimum outlet temperature.
-                            // This is a mix of the chilled water temperature (for the air that contacts the coil)
-                            // and the inlet air temperature (for the bypassed air).
                             const minAchievableOutletTemp = (chilledWaterInletTemp * (1 - BF)) + (inletTemp * BF);
 
-                            // Clamp the user's desired outlet temperature. It cannot be colder than what's physically possible.
                             let clampedOutletTemp = userOutletTemp;
                             if (clampedOutletTemp < minAchievableOutletTemp) {
                                 clampedOutletTemp = minAchievableOutletTemp;
                             }
-                            // Also ensure it's not warmer than the inlet (for a cooling process)
                              if (clampedOutletTemp > inletTemp) {
                                 clampedOutletTemp = inletTemp;
                             }
 
-                            const inletDewPointTemp = calculateDewPoint(inletAbsHum);
+                            const inletDewPointTemp = calculateDewPoint(inletAbsHum, atmPressure);
                             
                             let T_adp: number | undefined = undefined;
                             let outletAbsHum: number;
                             
-                            // Calculate the theoretical ADP required to achieve the outlet temperature
                             if (BF < 1.0 && (inletTemp - clampedOutletTemp) > 0.01) {
                                 T_adp = (clampedOutletTemp - inletTemp * BF) / (1 - BF);
                             }
 
-                            // Dehumidification occurs if the effective coil surface temperature (ADP) is below the inlet air's dew point.
                             if (T_adp !== undefined && T_adp < inletDewPointTemp) {
-                                // Dehumidification process
-                                const x_adp = calculateAbsoluteHumidity(T_adp, 100);
+                                const x_adp = calculateAbsoluteHumidity(T_adp, 100, atmPressure);
                                 outletAbsHum = x_adp * (1 - BF) + inletAbsHum * BF;
                             } else {
-                                // Sensible cooling only
                                 outletAbsHum = inletAbsHum;
                             }
                             
-                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, outletAbsHum);
+                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, outletAbsHum);
 
-                            const saturationHumidityAtOutlet = calculateAbsoluteHumidity(clampedOutletTemp, 100);
+                            const saturationHumidityAtOutlet = calculateAbsoluteHumidity(clampedOutletTemp, 100, atmPressure);
                             if (newOutletAir.absHumidity !== null && newOutletAir.absHumidity > saturationHumidityAtOutlet) {
-                                newOutletAir = calculateAirProperties(clampedOutletTemp, 100); 
+                                newOutletAir = calculateAirProperties(clampedOutletTemp, 100, atmPressure); 
                             }
                             
                             if (newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
@@ -460,7 +456,7 @@ const runFullCalculation = (
 
                         if (userOutletTemp !== null) {
                             const clampedOutletTemp = Math.max(inletTemp, userOutletTemp);
-                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, inletAbsHum);
+                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, inletAbsHum);
                             if (newOutletAir.enthalpy !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
                                 const hotWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
@@ -477,19 +473,19 @@ const runFullCalculation = (
 
                         if (userOutletTemp !== null && inletEnthalpy !== null) {
                             let tSat = inletTemp;
-                            for (let i = 0; i < 15; i++) {
-                                let wSat = calculateAbsoluteHumidity(tSat, 100);
+                            for (let i = 0; i < 15; i++) { 
+                                let wSat = calculateAbsoluteHumidity(tSat, 100, atmPressure);
                                 let hSat = calculateEnthalpy(tSat, wSat);
                                 tSat -= (hSat - inletEnthalpy) * 0.05; 
                             }
-                            const finalWSat = calculateAbsoluteHumidity(tSat, 100);
+                            const finalWSat = calculateAbsoluteHumidity(tSat, 100, atmPressure);
 
                             let clampedOutletTemp = userOutletTemp;
                             if (clampedOutletTemp < tSat) clampedOutletTemp = tSat;
                             if (clampedOutletTemp > inletTemp) clampedOutletTemp = inletTemp;
 
                             const outletAbsHum = calculateAbsoluteHumidityFromEnthalpy(clampedOutletTemp, inletEnthalpy);
-                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, outletAbsHum);
+                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, outletAbsHum);
 
                             if (newOutletAir.absHumidity !== null) {
                                 const humidification_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
@@ -510,23 +506,21 @@ const runFullCalculation = (
                         const steamCond = currentEq.conditions as SteamHumidifierConditions;
                         const userOutletRh = currentEq.outletAir.rh;
                         if (userOutletRh !== null) {
-                            const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100);
+                            const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100, atmPressure);
                             const h_steam = steamProps.enthalpy;
                             
                             let t_out_guess = inletTemp;
                             for (let i = 0; i < 20; i++) {
-                                 const x_out_guess = calculateAbsoluteHumidity(t_out_guess, userOutletRh);
+                                 const x_out_guess = calculateAbsoluteHumidity(t_out_guess, userOutletRh, atmPressure);
                                  const h_out_guess = calculateEnthalpy(t_out_guess, x_out_guess);
                                  const balance = (h_out_guess - inletEnthalpy) - ((x_out_guess - inletAbsHum) / 1000) * h_steam;
                                  if (Math.abs(balance) < 0.01) break;
                                  t_out_guess -= balance * 0.05;
                             }
-                            newOutletAir = calculateAirProperties(t_out_guess, userOutletRh);
+                            newOutletAir = calculateAirProperties(t_out_guess, userOutletRh, atmPressure);
 
-                            // Physicality check: Steam humidification must increase humidity and temperature.
                             if (newOutletAir.absHumidity !== null && newOutletAir.temp !== null &&
                                 (newOutletAir.absHumidity < inletAbsHum || newOutletAir.temp < inletTemp)) {
-                                // Invalid state, so no change occurs.
                                 newOutletAir = { ...currentEq.inletAir }; 
                             }
 
@@ -547,47 +541,39 @@ const runFullCalculation = (
                         const heatGeneration_kW = motorOutput * (1 - (motorEfficiency / 100));
 
                         if (currentEq.outletIsLocked) {
-                            // BACKWARD CALCULATION: User wants "sticky" outlet RH/Temp.
                             const userOutletTemp = currentEq.outletAir.temp;
                             const userOutletRh = currentEq.outletAir.rh;
                             
-                            // To perform back-calculation, we need both temp and RH for the outlet to define a new state.
                             if (userOutletTemp !== null && userOutletRh !== null && massFlowRateDA_kg_s > 0) {
-                                // Step 1: Calculate the new target outlet state based on user input (temp) and sticky property (rh).
-                                const targetOutletAir = calculateAirProperties(userOutletTemp, userOutletRh);
+                                const targetOutletAir = calculateAirProperties(userOutletTemp, userOutletRh, atmPressure);
                 
                                 if (targetOutletAir.absHumidity !== null && targetOutletAir.temp !== null) {
                                     const newAbsHum = targetOutletAir.absHumidity;
                                     
-                                    // Step 2: Back-calculate the required inlet temperature using the fan's fixed heat generation.
                                     const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (newAbsHum / 1000);
                                     const delta_t = heatGeneration_kW / (massFlowRateDA_kg_s * c_pa_moist);
                                     const calculatedInletTemp = targetOutletAir.temp - delta_t;
                                     
-                                    // Step 3: Define the new inlet and outlet states.
-                                    // The absolute humidity is determined by the new outlet state and must be the same for the inlet.
-                                    currentEq.inletAir = calculateAirProperties(calculatedInletTemp, null, newAbsHum);
+                                    currentEq.inletAir = calculateAirProperties(calculatedInletTemp, null, atmPressure, newAbsHum);
                                     newOutletAir = targetOutletAir;
                                     
-                                    // Lock the inlet since it was back-calculated based on the locked outlet.
                                     currentEq.inletIsLocked = true; 
                                 }
                             }
                         }
                         
-                        // FORWARD CALCULATION (or fallback from failed backward)
                         if (newOutletAir.temp === null) {
                             if (currentEq.outletIsLocked) {
                                 currentEq.outletIsLocked = false;
                             }
                             const effectiveInlet = currentEq.inletIsLocked ? currentEq.inletAir : previousOutlet;
-                            currentEq.inletAir = calculateAirProperties(effectiveInlet.temp, effectiveInlet.rh, effectiveInlet.absHumidity);
+                            currentEq.inletAir = calculateAirProperties(effectiveInlet.temp, effectiveInlet.rh, atmPressure, effectiveInlet.absHumidity);
                             
                             if (currentEq.inletAir.temp !== null && currentEq.inletAir.absHumidity !== null && massFlowRateDA_kg_s > 0) {
                                 const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (currentEq.inletAir.absHumidity / 1000);
                                 const tempRise_deltaT_celsius = heatGeneration_kW / (massFlowRateDA_kg_s * c_pa_moist);
                                 const outletTemp = currentEq.inletAir.temp + tempRise_deltaT_celsius;
-                                newOutletAir = calculateAirProperties(outletTemp, null, currentEq.inletAir.absHumidity);
+                                newOutletAir = calculateAirProperties(outletTemp, null, atmPressure, currentEq.inletAir.absHumidity);
                             } else {
                                 newOutletAir = { ...currentEq.inletAir };
                             }
@@ -599,7 +585,7 @@ const runFullCalculation = (
                         break;
                     }
                     case EquipmentType.CUSTOM:
-                        newOutletAir = calculateAirProperties(currentEq.outletAir.temp, currentEq.outletAir.rh);
+                        newOutletAir = calculateAirProperties(currentEq.outletAir.temp, currentEq.outletAir.rh, atmPressure);
                         newResults = {} as CustomResults;
                         break;
                 }
@@ -618,7 +604,7 @@ const runFullCalculation = (
         },
         {
             calculatedList: [] as Equipment[],
-            previousOutlet: { ...acInletAir }
+            previousOutlet: { ...initialInlet }
         }
     );
     
@@ -632,17 +618,22 @@ const App: React.FC = () => {
     
     const [state, setState] = useState<AppState>(() => {
         const firstProjectId = `proj-${Date.now()}`;
+        const initialProject = createNewProject(firstProjectId, `ASH 1`);
         const initialEquipment = getInitialEquipment();
-        const calculatedInitialEquipment = runFullCalculation(initialEquipment, calculateAirProperties(30, 20), 100);
+        
+        const atmPressure = calculateAtmosphericPressure(initialProject.altitude);
+        const acInletAir = calculateAirProperties(initialProject.acInletAir.temp, initialProject.acInletAir.rh, atmPressure);
+        const acOutletAir = calculateAirProperties(initialProject.acOutletAir.temp, initialProject.acOutletAir.rh, atmPressure);
+
+        const calculatedInitialEquipment = runFullCalculation(initialEquipment, acInletAir, initialProject.airflow, initialProject.altitude);
         
         const initialProjects = [{
-            id: firstProjectId,
-            name: `ASH 1`,
-            airflow: 100,
+            ...initialProject,
             equipmentList: calculatedInitialEquipment,
-            acInletAir: calculateAirProperties(30, 20),
-            acOutletAir: calculateAirProperties(27, 70),
+            acInletAir,
+            acOutletAir
         }];
+
         return {
             projects: initialProjects,
             activeProjectId: firstProjectId
@@ -669,7 +660,7 @@ const App: React.FC = () => {
     }, [activeProject, selectedEquipmentId]);
     
     const updateActiveProject = useCallback((
-        updater: (project: Project) => Partial<Omit<Project, 'id' | 'name'>>
+        updater: (project: Project) => Partial<Project>
     ) => {
         setState(prevState => {
             if (!prevState.activeProjectId || prevState.activeProjectId === SUMMARY_TAB_ID) return prevState;
@@ -687,13 +678,12 @@ const App: React.FC = () => {
             };
         });
     }, []);
-    
 
     const toggleLayout = () => setIsTwoColumnLayout(prev => !prev);
 
     const handleExport = () => {
         const dataToSave = {
-            version: '2.0.0',
+            version: '2.1.0',
             projects,
             activeProjectId,
             unitSystem,
@@ -718,8 +708,12 @@ const App: React.FC = () => {
                 const text = e.target?.result;
                 if (typeof text !== 'string') throw new Error('File content is not a string.');
                 const data = JSON.parse(text);
-                if (data.version === '2.0.0' && data.projects && data.activeProjectId && data.unitSystem) {
-                    setState({ projects: data.projects, activeProjectId: data.activeProjectId });
+                if ((data.version === '2.0.0' || data.version === '2.1.0') && data.projects && data.activeProjectId && data.unitSystem) {
+                    const loadedProjects = data.projects.map((p: Project) => ({
+                        ...p,
+                        altitude: p.altitude ?? 0, // Add altitude fallback
+                    }));
+                    setState({ projects: loadedProjects, activeProjectId: data.activeProjectId });
                     setUnitSystem(data.unitSystem);
                     if (data.locale) setLocale(data.locale);
                     alert(t('app.importSuccess'));
@@ -815,10 +809,32 @@ const App: React.FC = () => {
             return { ...prev, projects: itemsWithoutDragged };
         });
     };
+    
+    const handleGlobalChange = useCallback((updates: Partial<Omit<Project, 'id' | 'name' | 'equipmentList'>>) => {
+        updateActiveProject(project => {
+            const updatedProjectState = { ...project, ...updates };
+            const { altitude, acInletAir, acOutletAir, airflow, equipmentList } = updatedProjectState;
+            const atmPressure = calculateAtmosphericPressure(altitude);
+            
+            const recalculatedInlet = calculateAirProperties(acInletAir.temp, acInletAir.rh, atmPressure);
+            const recalculatedOutlet = calculateAirProperties(acOutletAir.temp, acOutletAir.rh, atmPressure);
+    
+            const calculatedList = runFullCalculation(equipmentList, recalculatedInlet, airflow, altitude);
+    
+            return { 
+                ...updates, 
+                acInletAir: recalculatedInlet,
+                acOutletAir: recalculatedOutlet,
+                equipmentList: calculatedList 
+            };
+        });
+    }, [updateActiveProject]);
+
 
     const addEquipment = (type: EquipmentType) => {
         updateActiveProject(project => {
-            const { equipmentList, acInletAir } = project;
+            const { equipmentList, acInletAir, altitude } = project;
+            const atmPressure = calculateAtmosphericPressure(altitude);
             const newId = equipmentList.reduce((maxId, eq) => Math.max(eq.id, maxId), -1) + 1;
             const defaultInlet = equipmentList.length > 0 ? (equipmentList[equipmentList.length - 1].outletAir) : { ...acInletAir };
             let newEquipment: Equipment = {
@@ -828,10 +844,10 @@ const App: React.FC = () => {
             // Set type-specific defaults
             switch (type) {
                  case EquipmentType.FILTER: (newEquipment.conditions as FilterConditions) = { width: 500, height: 500, thickness: 50, sheets: 1 }; break;
-                 case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, defaultInlet.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9, lowerHeatingValue: 45.0 }; break;
-                 case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5, coilEfficiency: 85 }; break;
-                 case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, coilEfficiency: 85 }; break;
-                 case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
+                 case EquipmentType.BURNER: newEquipment.outletAir = calculateAirProperties(55.2, null, atmPressure, defaultInlet.absHumidity); (newEquipment.conditions as BurnerConditions) = { shf: 0.9, lowerHeatingValue: 45.0 }; break;
+                 case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95, atmPressure); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5, coilEfficiency: 85 }; break;
+                 case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30, atmPressure); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, coilEfficiency: 85 }; break;
+                 case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70, atmPressure); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
                  case EquipmentType.STEAM_HUMIDIFIER: newEquipment.outletAir = { temp: null, rh: 70, absHumidity: null, enthalpy: null, density: null }; (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100, steamGaugePressureUnit: SteamPressureUnit.KPAG, }; break;
                  case EquipmentType.FAN:
                     (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };
@@ -841,13 +857,13 @@ const App: React.FC = () => {
                     (newEquipment.conditions as CustomConditions) = {};
                     if (defaultInlet.temp !== null && defaultInlet.absHumidity !== null) {
                         const newOutletTemp = defaultInlet.temp + 2;
-                        newEquipment.outletAir = calculateAirProperties(newOutletTemp, null, defaultInlet.absHumidity);
+                        newEquipment.outletAir = calculateAirProperties(newOutletTemp, null, atmPressure, defaultInlet.absHumidity);
                     }
                     break;
             }
             setSelectedEquipmentId(newId);
             const newList = [...equipmentList, newEquipment];
-            const calculatedList = runFullCalculation(newList, project.acInletAir, project.airflow);
+            const calculatedList = runFullCalculation(newList, project.acInletAir, project.airflow, project.altitude);
             return { equipmentList: calculatedList };
         });
     };
@@ -860,7 +876,8 @@ const App: React.FC = () => {
             const fullyCalculatedList = runFullCalculation(
                 preCalculatedList,
                 project.acInletAir,
-                project.airflow
+                project.airflow,
+                project.altitude
             );
             return { equipmentList: fullyCalculatedList };
         });
@@ -891,7 +908,7 @@ const App: React.FC = () => {
 
             items.splice(targetIndex, 0, draggedItem);
             
-            const calculatedList = runFullCalculation(items, project.acInletAir, project.airflow);
+            const calculatedList = runFullCalculation(items, project.acInletAir, project.airflow, project.altitude);
             
             return { equipmentList: calculatedList };
         });
@@ -935,7 +952,7 @@ const App: React.FC = () => {
 
         updateActiveProject(project => {
             const newList = project.equipmentList.filter(eq => eq.id !== id);
-            const calculatedList = runFullCalculation(newList, project.acInletAir, project.airflow);
+            const calculatedList = runFullCalculation(newList, project.acInletAir, project.airflow, project.altitude);
             return { equipmentList: calculatedList };
         });
     };
@@ -945,19 +962,12 @@ const App: React.FC = () => {
         setSelectedEquipmentId(null);
     };
 
-    const handleGlobalChange = (updates: Partial<Project>) => {
-        updateActiveProject(project => {
-            const tempProject = {...project, ...updates};
-            const calculatedList = runFullCalculation(tempProject.equipmentList, tempProject.acInletAir, tempProject.airflow);
-            return { ...updates, equipmentList: calculatedList };
-        });
-    };
-
-    const handleAcInletTempChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acInletAir: calculateAirProperties(value, activeProject.acInletAir.rh) })};
-    const handleAcInletRHChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acInletAir: calculateAirProperties(activeProject.acInletAir.temp, value) })};
-    const handleAcOutletTempChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acOutletAir: calculateAirProperties(value, activeProject.acOutletAir.rh) })};
-    const handleAcOutletRHChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acOutletAir: calculateAirProperties(activeProject.acOutletAir.temp, value) })};
-    const handleAirflowChange = (value: number | null) => { if (activeProject) handleGlobalChange({ airflow: value })};
+    const handleAcInletTempChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acInletAir: { ...activeProject.acInletAir, temp: value } })};
+    const handleAcInletRHChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acInletAir: { ...activeProject.acInletAir, rh: value } })};
+    const handleAcOutletTempChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acOutletAir: { ...activeProject.acOutletAir, temp: value } })};
+    const handleAcOutletRHChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acOutletAir: { ...activeProject.acOutletAir, rh: value } })};
+    const handleAirflowChange = (value: number | null) => handleGlobalChange({ airflow: value });
+    const handleAltitudeChange = (value: number | null) => handleGlobalChange({ altitude: value ?? 0 });
     
     const equipmentForChart = useMemo(() => activeProject?.equipmentList.filter(eq =>
         ![EquipmentType.FILTER].includes(eq.type) &&
@@ -1008,7 +1018,11 @@ const App: React.FC = () => {
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [activeProject?.acInletAir, locale, unitSystem, t]);
     
-    const acOutletCalculated = useMemo(() => calculateAirProperties(activeProject?.acOutletAir.temp ?? null, activeProject?.acOutletAir.rh ?? null), [activeProject?.acOutletAir]);
+    const acOutletCalculated = useMemo(() => {
+        if (!activeProject) return { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
+        const atmPressure = calculateAtmosphericPressure(activeProject.altitude);
+        return calculateAirProperties(activeProject.acOutletAir.temp, activeProject.acOutletAir.rh, atmPressure);
+    }, [activeProject]);
 
     const acOutletAbsHumidityTooltip = useMemo(() => {
         if (!activeProject || activeProject.acOutletAir.temp === null || activeProject.acOutletAir.rh === null) return null;
@@ -1052,6 +1066,7 @@ const App: React.FC = () => {
                 globalOutletAir={acOutletCalculated}
                 unitSystem={unitSystem}
                 isSplitViewActive={isTwoColumnLayout}
+                altitude={activeProject.altitude}
                 onUpdate={handleChartUpdate}
             />
         </div>
@@ -1094,23 +1109,23 @@ const App: React.FC = () => {
                     <div className="flex flex-wrap gap-x-8 gap-y-4">
                         <fieldset><legend className="block text-lg font-semibold mb-2">{t('app.language')}</legend>
                             <div className="flex flex-wrap gap-2">
-                                <div><input type="radio" id="lang-ja" name="language" value="ja" checked={locale === 'ja'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-ja-label"/><label id="lang-ja-label" htmlFor="lang-ja" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'ja' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>日本語</label></div>
-                                <div><input type="radio" id="lang-en" name="language" value="en" checked={locale === 'en'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-en-label"/><label id="lang-en-label" htmlFor="lang-en" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'en' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>English</label></div>
+                                <div><input type="radio" id="lang-ja" name="language" value="ja" checked={locale === 'ja'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-ja-label"/><label id="lang-ja-label" htmlFor="lang-ja" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'ja' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>日本語</label></div>
+                                <div><input type="radio" id="lang-en" name="language" value="en" checked={locale === 'en'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-en-label"/><label id="lang-en-label" htmlFor="lang-en" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'en' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>English</label></div>
                             </div>
                         </fieldset>
                         <fieldset><legend className="block text-lg font-semibold mb-2">{t('app.unitSystem')}</legend>
                             <div className="flex flex-wrap gap-2">
-                                <div><input type="radio" id="unit-si" name="unitSystem" value={UnitSystem.SI} checked={unitSystem === UnitSystem.SI} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-si-label"/><label id="unit-si-label" htmlFor="unit-si" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.SI ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>{t('app.siUnits')}</label></div>
-                                <div><input type="radio" id="unit-imperial" name="unitSystem" value={UnitSystem.IMPERIAL} checked={unitSystem === UnitSystem.IMPERIAL} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-imperial-label"/><label id="unit-imperial-label" htmlFor="unit-imperial" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.IMPERIAL ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white hover:bg-slate-50' }`}>{t('app.imperialUnits')}</label></div>
+                                <div><input type="radio" id="unit-si" name="unitSystem" value={UnitSystem.SI} checked={unitSystem === UnitSystem.SI} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-si-label" /><label id="unit-si-label" htmlFor="unit-si" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.SI ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>{t('app.siUnits')}</label></div>
+                                <div><input type="radio" id="unit-imperial" name="unitSystem" value={UnitSystem.IMPERIAL} checked={unitSystem === UnitSystem.IMPERIAL} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-imperial-label" /><label id="unit-imperial-label" htmlFor="unit-imperial" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.IMPERIAL ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>{t('app.imperialUnits')}</label></div>
                             </div>
                         </fieldset>
                     </div>
                 </div>
 
-                <ProjectTabs 
+                <ProjectTabs
                     projects={projects}
                     activeProjectId={activeProjectId}
-                    onSelectProject={(id: string) => setState(prev => ({...prev, activeProjectId: id}))}
+                    onSelectProject={(id) => setState(prev => ({ ...prev, activeProjectId: id }))}
                     onAddProject={handleAddProject}
                     onCloseProject={handleCloseProject}
                     onRenameProject={handleRenameProject}
@@ -1118,138 +1133,130 @@ const App: React.FC = () => {
                     onMoveProject={handleMoveProject}
                 />
 
-                {activeProjectId === SUMMARY_TAB_ID ? (
+                {activeProjectId === SUMMARY_TAB_ID || !activeProject ? (
                     <AllProjectsSummary projects={projects} unitSystem={unitSystem} />
-                ) : !activeProject ? (
-                    <div className="text-center py-10 text-slate-500">{t('app.noEquipmentAdded')}</div>
                 ) : (
-                <div className={`lg:grid lg:gap-6 transition-all duration-500 ease-in-out ${isTwoColumnLayout ? 'lg:grid-cols-5' : 'lg:grid-cols-1'}`}>
-                    <div className={`space-y-6 ${isTwoColumnLayout ? 'lg:col-span-2' : 'lg:col-span-1'}`}>
-                        <div className="grid grid-cols-1 gap-6">
-                            <div className="p-4 bg-white rounded-lg shadow-md">
-                                <h2 className="text-lg font-semibold mb-2">{t('app.systemAirflow')}</h2>
-                                <div className="flex justify-start">
-                                    <NumberInputWithControls value={activeProject.airflow} onChange={handleAirflowChange} unitType="airflow" unitSystem={unitSystem} />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
-                            <div id="ac-inlet-conditions">
-                                <h2 className="text-xl font-semibold mb-4">{t('app.acInletConditions')}</h2>
-                                <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
-                                    <div className="p-4 bg-slate-100 rounded-lg">
-                                        <h3 className="font-semibold mb-2">{t('equipment.inletAir')}</h3>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="text-sm text-slate-700 block mb-1">{t('airProperties.temperature')}</label>
-                                                <NumberInputWithControls value={activeProject.acInletAir.temp} onChange={handleAcInletTempChange} unitType="temperature" unitSystem={unitSystem} />
-                                            </div>
-                                            <div>
-                                                <label className="text-sm text-slate-700 block mb-1">{t('airProperties.rh')}</label>
-                                                <NumberInputWithControls value={activeProject.acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="p-4 bg-slate-100 rounded-lg">
-                                        <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
-                                        <div className="flex justify-between items-center py-1"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={activeProject.acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} /></div>
-                                        <div className="flex justify-between items-center py-1"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={activeProject.acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="ac-outlet-conditions">
-                                <h2 className="text-xl font-semibold mb-4">{t('app.acOutletConditions')}</h2>
-                                <div className="p-4 bg-white rounded-lg shadow-md grid grid-cols-1 gap-4">
-                                    <div className="p-4 bg-slate-100 rounded-lg">
-                                        <h3 className="font-semibold mb-2">{t('equipment.outletAir')}</h3>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="text-sm text-slate-700 block mb-1">{t('airProperties.temperature')}</label>
-                                                <NumberInputWithControls value={activeProject.acOutletAir.temp} onChange={handleAcOutletTempChange} unitType="temperature" unitSystem={unitSystem} />
-                                            </div>
-                                            <div>
-                                                <label className="text-sm text-slate-700 block mb-1">{t('airProperties.rh')}</label>
-                                                <NumberInputWithControls value={activeProject.acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="p-4 bg-slate-100 rounded-lg">
-                                        <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
-                                        <div className="flex justify-between items-center py-1"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip} /></div>
-                                        <div className="flex justify-between items-center py-1"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip} /></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className={`space-y-6 ${isTwoColumnLayout ? 'lg:hidden' : ''}`}>
-                            <div className="max-w-7xl mx-auto">
-                                {psychrometricChartSection}
-                            </div>
-                        </div>
+                    <>
+                        <FloatingNav isTwoColumnLayout={isTwoColumnLayout} onToggleLayout={toggleLayout} />
 
-                        <div id="add-equipment-section">
-                            <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                                <h2 className="text-xl font-semibold">{t('app.addEquipment')}</h2>
-                                {activeProject.equipmentList.length > 0 && (
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <button onClick={deleteAllEquipment} className="px-3 py-1.5 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700 transition-colors text-xs font-medium">{t('app.deleteAllEquipment')}</button>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">{equipmentButtons}</div>
-                        </div>
-                        <div className="border-t border-b-0 border-slate-300 -mx-6 px-6 pt-6">
-                            <EquipmentTabs
-                                equipmentList={activeProject.equipmentList}
-                                selectedId={selectedEquipmentId}
-                                onSelect={setSelectedEquipmentId}
-                                onMove={moveEquipment}
-                                onRename={handleRenameEquipment}
-                            />
-                             <AdjacencyInfoPanel
-                                equipmentList={activeProject.equipmentList}
-                                selectedId={selectedEquipmentId}
-                                unitSystem={unitSystem}
-                            />
+                        <div className={`grid gap-6 items-start ${isTwoColumnLayout ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                            {/* Left Column: Settings and Equipment Details */}
                             <div className="space-y-6">
-                                {selectedEquipment ? (
-                                    <EquipmentItem 
-                                        key={selectedEquipment.id} 
-                                        equipment={selectedEquipment} 
-                                        index={activeProject.equipmentList.findIndex(e => e.id === selectedEquipment.id)} 
-                                        totalEquipment={activeProject.equipmentList.length} 
-                                        airflow={activeProject.airflow} 
-                                        onUpdate={updateEquipment} 
-                                        onDelete={deleteEquipment} 
-                                        unitSystem={unitSystem}
+                                <div id="global-settings" className="p-4 bg-white rounded-lg shadow-md">
+                                    <h2 className="text-xl font-semibold mb-4">{t('app.configuration')}</h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200 md:col-span-2">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                                <div>
+                                                    <h3 className="font-semibold mb-2">{t('app.systemAirflow')}</h3>
+                                                    <NumberInputWithControls value={activeProject.airflow} onChange={handleAirflowChange} unitType="airflow" unitSystem={unitSystem} step={10} min={0} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold mb-2">{t('app.altitude')}</h3>
+                                                    <NumberInputWithControls value={activeProject.altitude} onChange={handleAltitudeChange} unitType="altitude" unitSystem={unitSystem} step={100} min={0} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
+                                            <h3 className="font-semibold mb-2">{t('app.acInletConditions')}</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
+                                                    <NumberInputWithControls value={activeProject.acInletAir.temp} onChange={handleAcInletTempChange} unitType="temperature" unitSystem={unitSystem} />
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.rh')}</label>
+                                                    <NumberInputWithControls value={activeProject.acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                                                </div>
+                                                <hr className="my-2 border-slate-300" />
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={activeProject.acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} /></div>
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={activeProject.acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
+                                            <h3 className="font-semibold mb-2">{t('app.acOutletConditions')}</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
+                                                    <NumberInputWithControls value={activeProject.acOutletAir.temp} onChange={handleAcOutletTempChange} unitType="temperature" unitSystem={unitSystem} />
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.rh')}</label>
+                                                    <NumberInputWithControls value={activeProject.acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
+                                                </div>
+                                                <hr className="my-2 border-slate-300" />
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/></div>
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip}/></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="add-equipment" className="p-4 bg-white rounded-lg shadow-md">
+                                    <h2 className="text-xl font-semibold mb-4">{t('app.addEquipment')}</h2>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        {equipmentButtons}
+                                    </div>
+                                    {activeProject.equipmentList.length > 0 && (
+                                        <div className="mt-4 text-right">
+                                            <button onClick={deleteAllEquipment} className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors text-sm font-medium">
+                                                {t('app.deleteAllEquipment')}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <EquipmentTabs
+                                        equipmentList={activeProject.equipmentList}
+                                        selectedId={selectedEquipmentId}
+                                        onSelect={setSelectedEquipmentId}
+                                        onMove={moveEquipment}
+                                        onRename={handleRenameEquipment}
                                     />
-                                ) : activeProject.equipmentList.length > 0 ? (
-                                    <div className="text-center p-8 text-slate-500 bg-white rounded-b-lg shadow-md border border-slate-300 border-t-0">{t('app.selectEquipment')}</div>
-                                ) : null}
+                                    {selectedEquipment ? (
+                                        <>
+                                            <AdjacencyInfoPanel equipmentList={activeProject.equipmentList} selectedId={selectedEquipmentId} unitSystem={unitSystem} />
+                                            <EquipmentItem
+                                                key={selectedEquipment.id}
+                                                equipment={selectedEquipment}
+                                                index={activeProject.equipmentList.findIndex(e => e.id === selectedEquipment.id)}
+                                                totalEquipment={activeProject.equipmentList.length}
+                                                airflow={activeProject.airflow}
+                                                altitude={activeProject.altitude}
+                                                onUpdate={updateEquipment}
+                                                onDelete={deleteEquipment}
+                                                unitSystem={unitSystem}
+                                            />
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-md">
+                                            {activeProject.equipmentList.length > 0 ? t('app.selectEquipment') : t('app.noEquipmentAdded')}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Chart is shown at the bottom in single-column mode */}
+                                {!isTwoColumnLayout && psychrometricChartSection}
                             </div>
+
+                            {/* Right Column: Chart (sticky) in two-column mode */}
+                            {isTwoColumnLayout && (
+                                <div className="hidden lg:block sticky top-6 h-[calc(100vh-3rem)] overflow-y-auto">
+                                    {psychrometricChartSection}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                    {isTwoColumnLayout && (
-                        <div className="lg:col-span-3 space-y-6 hidden lg:block">
-                            <div className="sticky top-6 space-y-6">
-                                {psychrometricChartSection}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                    </>
                 )}
-                <footer className="mt-12 pt-6 border-t border-slate-200 text-slate-500 text-xs text-left">
-                    <h3 className="font-semibold text-sm text-slate-600 mb-2 text-center">{t('app.disclaimerTitle')}</h3>
-                    <ol className="list-decimal list-inside space-y-2">
-                         {disclaimerContent.split('\n').map((item, index) => (
-                            <li key={index}>{item}</li>
-                        ))}
-                    </ol>
+                <footer className="mt-8 pt-6 border-t border-slate-300">
+                    <details className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <summary className="font-semibold text-slate-800 cursor-pointer">{t('app.disclaimerTitle')}</summary>
+                        <p className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{disclaimerContent}</p>
+                    </details>
                 </footer>
             </div>
-            <FloatingNav isTwoColumnLayout={isTwoColumnLayout} onToggleLayout={toggleLayout} />
         </div>
     );
 };
+
 export default App;

@@ -152,7 +152,7 @@ export type UnitType =
     | 'abs_humidity' | 'enthalpy' | 'motor_power' | 'velocity' | 'airflow_per_sheet'
     | 'rh' | 'sheets' | 'shf' | 'efficiency' | 'k_value' | 'water_to_air_ratio'
     | 'area' | 'density' | 'steam_pressure' | 'steam_enthalpy' | 'steam_flow' | 'gas_flow'
-    | 'lower_heating_value';
+    | 'lower_heating_value' | 'altitude';
 
 export interface ChartPoint {
     temp: number;
@@ -166,4 +166,5 @@ export interface Project {
     equipmentList: Equipment[];
     acInletAir: AirProperties;
     acOutletAir: AirProperties;
+    altitude: number;
 }

@@ -26,6 +26,7 @@ const UNIT_CONVERSIONS = {
         steam_flow: (kgh: number) => kgh * 2.20462, // kg/h to lb/h
         gas_flow: (m3h: number) => m3h * 35.3147, // m³/h to ft³/h
         lower_heating_value: (mj_m3: number) => mj_m3 * 26.8222, // MJ/m³ to BTU/ft³
+        altitude: (m: number) => m * 3.28084, // m to ft
     },
     // Conversion from Imperial unit to SI base unit
     toSI: {
@@ -48,6 +49,7 @@ const UNIT_CONVERSIONS = {
         steam_flow: (lbh: number) => lbh / 2.20462, // lb/h to kg/h
         gas_flow: (ft3h: number) => ft3h / 35.3147, // ft³/h to m³/h
         lower_heating_value: (btu_ft3: number) => btu_ft3 / 26.8222, // BTU/ft³ to MJ/m³
+        altitude: (ft: number) => ft / 3.28084, // ft to m
     },
 };
 
@@ -121,6 +123,7 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'steam_flow': return 1;
             case 'gas_flow': return 1;
             case 'lower_heating_value': return 0;
+            case 'altitude': return 0;
             default: return 2;
         }
     } else { // SI system
@@ -147,6 +150,7 @@ export const getPrecisionForUnitType = (unitType: UnitType | SteamPressureUnit, 
             case 'steam_flow': return 1;
             case 'gas_flow': return 3;
             case 'lower_heating_value': return 1;
+            case 'altitude': return 0;
             default: return 2;
         }
     }
