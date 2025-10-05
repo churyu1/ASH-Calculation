@@ -1236,12 +1236,12 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 {/* Chart is shown at the bottom in single-column mode */}
-                                {!isTwoColumnLayout && psychrometricChartSection}
+                                {!isTwoColumnLayout && <div>{psychrometricChartSection}</div>}
                             </div>
 
                             {/* Right Column: Chart (sticky) in two-column mode */}
                             {isTwoColumnLayout && (
-                                <div className="hidden lg:block sticky top-6 h-[calc(100vh-3rem)] overflow-y-auto">
+                                <div className="hidden lg:block lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-y-auto">
                                     {psychrometricChartSection}
                                 </div>
                             )}
