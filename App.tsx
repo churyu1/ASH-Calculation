@@ -353,7 +353,7 @@ const runFullCalculation = (
             
             const { temp: inletTemp, absHumidity: inletAbsHum, enthalpy: inletEnthalpy } = currentEq.inletAir;
 
-            if (massFlowRateDA_kg_s > 0 && inletTemp !== null && inletAbsHum !== null && inletEnthalpy !== null) {
+            if (inletTemp !== null && inletAbsHum !== null && inletEnthalpy !== null) {
                 switch (currentEq.type) {
                     case EquipmentType.FILTER:
                         newOutletAir = { ...currentEq.inletAir };
@@ -376,7 +376,7 @@ const runFullCalculation = (
                             const outletAbsHum = inletAbsHum + delta_x;
                             newOutletAir = calculateAirProperties(userOutletTemp, null, atmPressure, outletAbsHum);
 
-                            if (newOutletAir.enthalpy !== null) {
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null) {
                                 const totalHeat_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
                                 const heatingValue = lowerHeatingValue; // This is in MJ/m³
                                 let gasFlowRate: number | undefined = undefined;
@@ -429,7 +429,7 @@ const runFullCalculation = (
                                 newOutletAir = calculateAirProperties(clampedOutletTemp, 100, atmPressure); 
                             }
                             
-                            if (newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (inletEnthalpy - newOutletAir.enthalpy);
                                 const coldWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
                                 const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - newOutletAir.absHumidity) / 1000;
@@ -446,6 +446,12 @@ const runFullCalculation = (
                                     contactFactor: (1 - BF) * 100,
                                     apparatusDewPointTemp: T_adp,
                                 } as CoolingCoilResults;
+                            } else {
+                                newResults = {
+                                    bypassFactor: BF * 100,
+                                    contactFactor: (1 - BF) * 100,
+                                    apparatusDewPointTemp: T_adp,
+                                } as Partial<CoolingCoilResults>;
                             }
                         }
                         break;
@@ -457,7 +463,7 @@ const runFullCalculation = (
                         if (userOutletTemp !== null) {
                             const clampedOutletTemp = Math.max(inletTemp, userOutletTemp);
                             newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, inletAbsHum);
-                            if (newOutletAir.enthalpy !== null) {
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
                                 const hotWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
                                 const waterTempDiff = hotWaterInletTemp - hotWaterOutletTemp;
@@ -487,17 +493,24 @@ const runFullCalculation = (
                             const outletAbsHum = calculateAbsoluteHumidityFromEnthalpy(clampedOutletTemp, inletEnthalpy);
                             newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, outletAbsHum);
 
+                            let humidificationEfficiency = 0;
                             if (newOutletAir.absHumidity !== null) {
-                                const humidification_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
-                                let humidificationEfficiency = 0;
                                 if (finalWSat > inletAbsHum) {
                                     humidificationEfficiency = ((newOutletAir.absHumidity - inletAbsHum) / (finalWSat - inletAbsHum)) * 100;
                                 }
+                            }
+                            
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null) {
+                                const humidification_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
                                 newResults = {
                                     humidification_L_min: humidification_kg_s > 0 ? humidification_kg_s * 60 : 0,
                                     sprayAmount_L_min: massFlowRateDA_kg_s * waterToAirRatio * 60,
                                     humidificationEfficiency: Math.max(0, Math.min(100, humidificationEfficiency)),
                                 } as SprayWasherResults;
+                            } else {
+                                newResults = {
+                                    humidificationEfficiency: Math.max(0, Math.min(100, humidificationEfficiency)),
+                                } as Partial<SprayWasherResults>;
                             }
                         }
                         break;
@@ -524,15 +537,17 @@ const runFullCalculation = (
                                 newOutletAir = { ...currentEq.inletAir }; 
                             }
 
-                            if (newOutletAir.absHumidity !== null) {
-                                const steamAmount_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
-                                newResults = {
-                                    steamAbsolutePressure: steamProps.absPressure,
-                                    steamTemperature: steamProps.temp,
-                                    steamEnthalpy: steamProps.enthalpy * 0.239006,
-                                    requiredSteamAmount: steamAmount_kg_s > 0 ? steamAmount_kg_s * 3600 : 0,
-                                } as SteamHumidifierResults;
+                            let steamAmount_kg_s = 0;
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null) {
+                                steamAmount_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
                             }
+
+                            newResults = {
+                                steamAbsolutePressure: steamProps.absPressure,
+                                steamTemperature: steamProps.temp,
+                                steamEnthalpy: steamProps.enthalpy * 0.239006,
+                                requiredSteamAmount: steamAmount_kg_s > 0 ? steamAmount_kg_s * 3600 : 0,
+                            } as SteamHumidifierResults;
                         }
                         break;
                     }
@@ -544,18 +559,21 @@ const runFullCalculation = (
                             const userOutletTemp = currentEq.outletAir.temp;
                             const userOutletRh = currentEq.outletAir.rh;
                             
-                            if (userOutletTemp !== null && userOutletRh !== null && massFlowRateDA_kg_s > 0) {
+                            if (userOutletTemp !== null && userOutletRh !== null) {
                                 const targetOutletAir = calculateAirProperties(userOutletTemp, userOutletRh, atmPressure);
+                                newOutletAir = targetOutletAir;
                 
                                 if (targetOutletAir.absHumidity !== null && targetOutletAir.temp !== null) {
                                     const newAbsHum = targetOutletAir.absHumidity;
                                     
-                                    const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (newAbsHum / 1000);
-                                    const delta_t = heatGeneration_kW / (massFlowRateDA_kg_s * c_pa_moist);
-                                    const calculatedInletTemp = targetOutletAir.temp - delta_t;
-                                    
-                                    currentEq.inletAir = calculateAirProperties(calculatedInletTemp, null, atmPressure, newAbsHum);
-                                    newOutletAir = targetOutletAir;
+                                    if (massFlowRateDA_kg_s > 0) {
+                                        const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (newAbsHum / 1000);
+                                        const delta_t = heatGeneration_kW / (massFlowRateDA_kg_s * c_pa_moist);
+                                        const calculatedInletTemp = targetOutletAir.temp - delta_t;
+                                        currentEq.inletAir = calculateAirProperties(calculatedInletTemp, null, atmPressure, newAbsHum);
+                                    } else {
+                                        currentEq.inletAir = calculateAirProperties(previousOutlet.temp, previousOutlet.rh, atmPressure);
+                                    }
                                     
                                     currentEq.inletIsLocked = true; 
                                 }
@@ -569,9 +587,12 @@ const runFullCalculation = (
                             const effectiveInlet = currentEq.inletIsLocked ? currentEq.inletAir : previousOutlet;
                             currentEq.inletAir = calculateAirProperties(effectiveInlet.temp, effectiveInlet.rh, atmPressure, effectiveInlet.absHumidity);
                             
-                            if (currentEq.inletAir.temp !== null && currentEq.inletAir.absHumidity !== null && massFlowRateDA_kg_s > 0) {
-                                const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (currentEq.inletAir.absHumidity / 1000);
-                                const tempRise_deltaT_celsius = heatGeneration_kW / (massFlowRateDA_kg_s * c_pa_moist);
+                            if (currentEq.inletAir.temp !== null && currentEq.inletAir.absHumidity !== null) {
+                                let tempRise_deltaT_celsius = 0;
+                                if (massFlowRateDA_kg_s > 0) {
+                                    const c_pa_moist = PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR + PSYCH_CONSTANTS.SPECIFIC_HEAT_WATER_VAPOR * (currentEq.inletAir.absHumidity / 1000);
+                                    tempRise_deltaT_celsius = heatGeneration_kW / (massFlowRateDA_kg_s * c_pa_moist);
+                                }
                                 const outletTemp = currentEq.inletAir.temp + tempRise_deltaT_celsius;
                                 newOutletAir = calculateAirProperties(outletTemp, null, atmPressure, currentEq.inletAir.absHumidity);
                             } else {
