@@ -44,8 +44,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # 'vite.config.ts' の outDir に合わせて 'docs' を指定
-          path: './docs'
+          # 'vite.config.ts' の outDir に合わせて 'dist' を指定
+          path: './dist'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
