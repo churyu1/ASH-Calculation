@@ -713,9 +713,15 @@ const App: React.FC = () => {
         const jsonString = JSON.stringify(dataToSave, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
+        
+        // Generate filename based on current date: ASH_YYYY-MM-DD
+        const today = new Date();
+        const dateString = today.toISOString().split('T')[0];
+        const fileName = `ASH_${dateString}.json`;
+
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'hvac-calculator-projects.json';
+        a.download = fileName;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
