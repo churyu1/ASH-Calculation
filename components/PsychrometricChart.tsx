@@ -1,6 +1,4 @@
 
-
-
 import React, { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
@@ -243,20 +241,16 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             const legendLineHeight = 18;
             const legendItemSpacing = 15;
         
-            // FIX: Explicitly type the 'type' parameter in the forEach loop to resolve a TypeScript error where it was being inferred as 'unknown'.
             uniqueEquipmentTypesOnChart.forEach((type: EquipmentType) => {
                 const color = EQUIPMENT_HEX_COLORS[type];
                 const name = t(`equipmentNames.${type}`);
         
-                // Create a dummy text element to measure its width
                 const tempText = svg.append("text").text(name).style("font-size", "12px").style("opacity", 0);
                 const textWidth = tempText.node()?.getBBox().width ?? 0;
-                tempText.remove(); // Remove the dummy element
+                tempText.remove(); 
         
-                // Calculate the full width of the legend item (rect + padding + text)
                 const itemWidth = 15 + 5 + textWidth; 
         
-                // Check if the item needs to wrap to the next line
                 if (legendXOffset > 0 && legendXOffset + itemWidth + legendItemSpacing > width) {
                     legendXOffset = 0;
                     legendYOffset += legendLineHeight;
@@ -280,7 +274,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     .attr("fill", themeColors.axisLabel)
                     .attr("text-anchor", "start");
                 
-                // Update the x-offset for the next item
                 legendXOffset += itemWidth + legendItemSpacing;
             });
         }
@@ -290,7 +283,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
         const xAxis = svg.append("g")
             .attr("transform", `translate(0,${height})`)
-            // FIX: Explicitly type the 'd' parameter to avoid TypeScript errors with d3's complex typings.
             .call(axisBottom(xScale).ticks(numTicksX).tickFormat((d: number) => {
                 const val = convertValue(d, 'temperature', UnitSystem.SI, unitSystem);
                 return val !== null ? val.toFixed(getPrecisionForUnitType('temperature', unitSystem)) : "";
@@ -304,7 +296,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             .text(`${t('chart.xAxisLabel')} (${temperatureUnit})`);
 
         const yAxis = svg.append("g")
-            // FIX: Explicitly type the 'd' parameter for consistency and to prevent build errors.
             .call(axisLeft(yScale).ticks(6).tickFormat((d: number) => {
                 if (!showYAxisMeta) return '';
                 const val = convertValue(d, 'abs_humidity', UnitSystem.SI, unitSystem);
@@ -388,7 +379,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             for (const target of targets) {
                 const dx = target.x - x;
                 const dy = target.y - y;
-                // FIX: The distance calculation was incorrect, using dx^3 * dy instead of dx^2 + dy^2.
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -409,7 +399,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             const v2x = segP2X - segP1X;
             const v2y = segP2Y - segP1Y;
             
-            // Check if ray has zero length
             if (Math.abs(v1x) < 1e-9 && Math.abs(v1y) < 1e-9) {
                 return null;
             }
@@ -603,7 +592,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     }
 
                     if (foundPosition) {
-                        // Hide labels for 110 and 120 to prevent overlap
                         if (h < 110) {
                             const textElement = svg.append("text")
                                .attr("transform", `translate(${xPos}, ${yPos}) rotate(${angleDeg})`)
@@ -705,11 +693,9 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             }
                 
                             if (t_adp !== undefined && t_adp < inletDewPoint) {
-                                // Dehumidification process
                                 const x_adp = calculateAbsoluteHumidity(t_adp, 100, atmPressure);
                                 x_out = x_adp * (1 - BF) + x_in * BF;
                             } else {
-                                // Sensible cooling only
                                 x_out = x_in;
                             }
 
@@ -869,15 +855,12 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 }
                 
                 if (t_adp !== undefined && t_adp < inletDewPoint) {
-                    // Dehumidification process
                     const x_adp = calculateAbsoluteHumidity(t_adp, 100, atmPressure);
                     outletAbsHum = x_adp * (1 - BF) + x_in * BF;
                 } else {
-                    // Sensible cooling only
                     outletAbsHum = x_in;
                 }
             
-                // Correct for supersaturation which can occur due to the linear mixing model approximation
                 const saturationHumidityAtOutlet = calculateAbsoluteHumidity(t_out, 100, atmPressure);
                 if (outletAbsHum > saturationHumidityAtOutlet) {
                     return saturationHumidityAtOutlet;
@@ -1051,7 +1034,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
                             projectedTemp = mouseTemp;
                         } else {
-                            // 1. Calculate the IDEAL projected point on the unconstrained process line.
                             projectedTemp = xScale.invert(mx);
                             let projectedAbsHumidity = yScale.invert(my);
 
@@ -1137,7 +1119,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             projectedMy = yScale(projectedAbsHumidity);
                         }
                         
-                        // 2. Now find snaps based on the IDEAL projected position.
                         const closestPointSnap = findClosestSnapPoint(projectedMx, projectedMy, snapTargetsRef.current.points, SNAP_RADIUS);
                         
                         let closestIntersectionSnap: { x: number; y: number; distance: number; line: any } | null = null;
@@ -1150,7 +1131,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             const isDraggedBurner = eq.type === EquipmentType.BURNER;
                             const isTargetWasher = targetEquipment.type === EquipmentType.SPRAY_WASHER;
 
-                            // Analytical intersection for Burner <-> Spray Washer
                             if (isDraggedBurner && isTargetWasher) {
                                 const burnerLineEq = {
                                     type: eq.type,
@@ -1178,7 +1158,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                                     }
                                 }
                             } else {
-                                // Default geometric line-segment intersection
                                 intersection = findRaySegmentIntersection(
                                     fixedPointX, fixedPointY,
                                     projectedMx, projectedMy,
@@ -1208,7 +1187,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             winningSnap = { type: 'line', ...closestIntersectionSnap };
                         }
 
-                        // 3. Determine the final ideal position (snapped or projected)
                         let idealFinalX: number, idealFinalY: number;
 
                         if (winningSnap) {
@@ -1229,7 +1207,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                                     .style("pointer-events", "none");
                                 
                                     svg.append("circle")
-                                    .attr("class", "snap-line-highlight") // use same class for cleanup
+                                    .attr("class", "snap-line-highlight") 
                                     .attr("cx", idealFinalX).attr("cy", idealFinalY)
                                     .attr("r", 7)
                                     .attr("fill", "none")
@@ -1243,7 +1221,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             snapHighlight.style("display", "none");
                         }
 
-                        // 4. ONLY NOW, apply physical constraints to the final ideal point
                         let finalTemp = xScale.invert(idealFinalX);
                         let finalAbsHumidity = yScale.invert(idealFinalY);
                         
@@ -1309,7 +1286,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const finalY = yScale(finalAbsHumidity);
                         const finalPos = { temp: finalTemp, absHumidity: finalAbsHumidity };
                         
-                        // 5. Update UI with the final, constrained position
                         if (dragMode === 'outlet') {
                             outletDot.attr("cx", finalX).attr("cy", finalY);
                             processLine.attr("x2", finalX).attr("y2", finalY);
@@ -1359,7 +1335,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         }
                     }
 
-                    // Reset visual styles
                     if (dragMode === 'inlet') {
                         inletDot.attr('r', 4).style('opacity', handleDefaultOpacity);
                     } else if (dragMode === 'outlet') {
@@ -1371,7 +1346,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         outletDot.style('opacity', handleDefaultOpacity);
                     }
 
-                    // Clear all temporary properties
                     select(this)
                         .property('__drag_mode__', null)
                         .property('__start_pointer__', null)
@@ -1380,7 +1354,6 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         .property('__effective_shf__', null);
                 });
             
-            // Add handles for inlet, outlet and line
             const lineTooltipHitbox = svg.append("line")
                 .attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI))
                 .attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
@@ -1472,8 +1445,13 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         });
     }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, dimensions, t, atmPressure]);
     
+    // Use dynamic height classes based on isSplitViewActive to ensure optimal aspect ratio
+    const containerClasses = isSplitViewActive
+        ? "w-full h-[400px] sm:h-[450px] lg:h-[550px] relative" // Split view (limited space)
+        : "w-full h-[450px] sm:h-[700px] lg:h-[850px] relative"; // Single view (full width, taller)
+
     return (
-        <div ref={containerRef} className="w-full h-[350px] sm:h-[450px] lg:h-[500px] relative">
+        <div ref={containerRef} className={containerClasses}>
             <svg ref={svgRef}></svg>
         </div>
     );
