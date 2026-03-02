@@ -1108,6 +1108,29 @@ const App: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h1 className="text-3xl font-bold text-slate-900">{t('app.title')}</h1>
                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={() => setLocale(locale === 'ja' ? 'en' : 'ja')}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                    <path d="M2 12h20"/>
+                                </svg>
+                                {locale === 'ja' ? 'JA' : 'EN'}
+                            </button>
+                            <button
+                                onClick={() => setUnitSystem(unitSystem === UnitSystem.SI ? UnitSystem.IMPERIAL : UnitSystem.SI)}
+                                className="flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                                    <path d="M16 21v-5h5"/>
+                                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                </svg>
+                                {unitSystem === UnitSystem.SI ? 'SI' : 'IP'}
+                            </button>
                             <button onClick={triggerFileSelect} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg shadow-sm hover:bg-slate-100 transition-colors text-sm font-medium flex items-center justify-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -1131,23 +1154,6 @@ const App: React.FC = () => {
                         </details>
                     </div>
                 </header>
-
-                <div className="p-4 bg-white rounded-lg shadow-md mb-6">
-                    <div className="flex flex-wrap gap-x-8 gap-y-4">
-                        <fieldset><legend className="block text-lg font-semibold mb-2">{t('app.language')}</legend>
-                            <div className="flex flex-wrap gap-2">
-                                <div><input type="radio" id="lang-ja" name="language" value="ja" checked={locale === 'ja'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-ja-label"/><label id="lang-ja-label" htmlFor="lang-ja" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'ja' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>日本語</label></div>
-                                <div><input type="radio" id="lang-en" name="language" value="en" checked={locale === 'en'} onChange={e => setLocale(e.target.value)} className="sr-only" aria-labelledby="lang-en-label"/><label id="lang-en-label" htmlFor="lang-en" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ locale === 'en' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>English</label></div>
-                            </div>
-                        </fieldset>
-                        <fieldset><legend className="block text-lg font-semibold mb-2">{t('app.unitSystem')}</legend>
-                            <div className="flex flex-wrap gap-2">
-                                <div><input type="radio" id="unit-si" name="unitSystem" value={UnitSystem.SI} checked={unitSystem === UnitSystem.SI} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-si-label" /><label id="unit-si-label" htmlFor="unit-si" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.SI ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>{t('app.siUnits')}</label></div>
-                                <div><input type="radio" id="unit-imperial" name="unitSystem" value={UnitSystem.IMPERIAL} checked={unitSystem === UnitSystem.IMPERIAL} onChange={e => setUnitSystem(e.target.value as UnitSystem)} className="sr-only" aria-labelledby="unit-imperial-label" /><label id="unit-imperial-label" htmlFor="unit-imperial" className={`cursor-pointer rounded-md border-2 px-4 py-2 text-sm font-medium transition-colors ${ unitSystem === UnitSystem.IMPERIAL ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'}`}>{t('app.imperialUnits')}</label></div>
-                            </div>
-                        </fieldset>
-                    </div>
-                </div>
 
                 <ProjectTabs
                     projects={projects}
