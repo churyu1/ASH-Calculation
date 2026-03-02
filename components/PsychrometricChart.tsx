@@ -654,11 +654,11 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             );
         }
 
-        const generatePreviewPath = (equipment: Equipment, handleType: 'inlet' | 'outlet'): ChartPoint[] | null => {
+        const generatePreviewPath = (equipment: Equipment, handleType: 'inlet' | 'outlet', overridePoint?: AirProperties): ChartPoint[] | null => {
             const [tempDomainMin, tempDomainMax] = xScale.domain();
             const path: ChartPoint[] = [];
 
-            const startPoint = handleType === 'inlet' ? equipment.outletAir : equipment.inletAir;
+            const startPoint = overridePoint || (handleType === 'inlet' ? equipment.outletAir : equipment.inletAir);
             
             if (startPoint.temp === null || startPoint.absHumidity === null) return null;
 
@@ -762,9 +762,9 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             return path;
         };
 
-        const showPreview = (equipment: Equipment, handleType: 'inlet' | 'outlet' | 'line') => {
+        const showPreview = (equipment: Equipment, handleType: 'inlet' | 'outlet' | 'line', overridePoint?: AirProperties) => {
             previewGroup.selectAll('*').remove();
-            const pathData = generatePreviewPath(equipment, handleType === 'line' ? 'outlet' : handleType);
+            const pathData = generatePreviewPath(equipment, handleType === 'line' ? 'outlet' : handleType, overridePoint);
             if (pathData && pathData.length > 1) {
                 const color = EQUIPMENT_HEX_COLORS[equipment.type] || defaultColor;
                 const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
@@ -1026,6 +1026,8 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             inlet: newInlet,
                             outlet: newOutlet
                         });
+                        
+                        showPreview(eq, 'line', newInlet);
                     } else { // Inlet or Outlet drag
                         const fixedDot = dragMode === 'outlet' ? inletDot : outletDot;
                         const fixedPointX = parseFloat(fixedDot.attr("cx"));

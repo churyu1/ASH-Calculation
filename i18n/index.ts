@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback } fr
 // The JSON files are embedded directly to ensure compatibility with browser-native ESM.
 const enMessages = {
   "app": {
-    "title": "Psychrometric Chart with Drag-and-Drop",
+    "title": "HVAC PsychroChart",
     "description": "This is a psychrometric calculation application for air conditioners. You can freely combine equipment such as filters, coils, and fans to simulate changes in air conditions. The results are also displayed on a psychrometric chart, allowing for visual analysis.",
     "instructionsTitle": "How to Use",
     "instructions": "1. Set the system airflow and the inlet/outlet conditions for the entire air conditioner.\n2. Add necessary equipment from the 'Add Equipment' section.\n3. Configure the conditions for each piece of equipment. The air state will be automatically calculated and passed downstream.\n4. Drag the points and lines on the psychrometric chart to intuitively adjust the air conditions.",
