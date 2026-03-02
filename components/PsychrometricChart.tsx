@@ -835,8 +835,37 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
 
             const inletDot = svg.append("circle").attr("class", `inlet-dot-${eq.id}`).attr("cx", xScale(inletTempSI)).attr("cy", yScale(inletAbsHumiditySI)).attr("r", 4).attr("fill", "#16a34a").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
             const outletDot = svg.append("circle").attr("class", `outlet-dot-${eq.id}`).attr("cx", xScale(outletTempSI)).attr("cy", yScale(outletAbsHumiditySI)).attr("r", 4).attr("fill", "#dc2626").attr("stroke", themeColors.pointStroke).style("transition", "r 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", handleDefaultOpacity).style("pointer-events", "none");
-            const processLine = svg.append("line").attr("class", `process-line-${eq.id}`).attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI)).attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-               .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id}-${uniqueSuffix})`).style("transition", "stroke-width 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", lineDefaultOpacity);
+            const processLine = svg.append("path").attr("class", `process-line-${eq.id}`)
+               .attr("stroke", color).attr("stroke-width", 2.5).attr("marker-end", `url(#arrow-${eq.id}-${uniqueSuffix})`).style("transition", "stroke-width 0.15s ease-in-out, opacity 0.15s ease-in-out").style("opacity", lineDefaultOpacity).attr("fill", "none");
+            
+            const lineTooltipHitbox = svg.append("path")
+                .attr("stroke", "transparent")
+                .attr("stroke-width", 15)
+                .style("cursor", "move")
+                .attr("data-drag-mode", "line")
+                .attr("fill", "none");
+
+            const updateProcessLines = (inlet: {temp: number, absHumidity: number}, outlet: {temp: number, absHumidity: number}) => {
+                [processLine, lineTooltipHitbox].forEach(el => {
+                    if (eq.type === EquipmentType.SPRAY_WASHER) {
+                        const h = calculateEnthalpy(inlet.temp, inlet.absHumidity);
+                        const pathData: ChartPoint[] = [];
+                        const steps = 20;
+                        const tempStep = (outlet.temp - inlet.temp) / steps;
+                        for (let j = 0; j <= steps; j++) {
+                            const t = inlet.temp + tempStep * j;
+                            const x = calculateAbsoluteHumidityFromEnthalpy(t, h);
+                            pathData.push({ temp: t, absHumidity: x });
+                        }
+                        const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+                        el.attr("d", lineGenerator(pathData));
+                    } else {
+                        el.attr("d", `M${xScale(inlet.temp)},${yScale(inlet.absHumidity)}L${xScale(outlet.temp)},${yScale(outlet.absHumidity)}`);
+                    }
+                });
+            };
+
+            updateProcessLines({temp: inletTempSI, absHumidity: inletAbsHumiditySI}, {temp: outletTempSI, absHumidity: outletAbsHumiditySI});
             
             const getCoolingCoilOutletHumidity = (t_out: number, inlet: AirProperties, conditions: CoolingCoilConditions): number => {
                 const { temp: t_in, absHumidity: x_in } = inlet;
@@ -978,34 +1007,24 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         const newInletX = startPos.inletX + finalDx, newInletY = startPos.inletY + finalDy;
                         const newOutletX = startPos.outletX + finalDx, newOutletY = startPos.outletY + finalDy;
 
-                        inletDot.attr("cx", newInletX).attr("cy", newInletY);
-                        outletDot.attr("cx", newOutletX).attr("cy", newOutletY);
-                        processLine.attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
+                        let finalNewOutletY = newOutletY;
+                        const newInlet = { temp: xScale.invert(newInletX), absHumidity: yScale.invert(newInletY) };
+                        const newOutlet = { temp: xScale.invert(newOutletX), absHumidity: yScale.invert(newOutletY) };
                         
-                        select(this).attr("x1", newInletX).attr("y1", newInletY).attr("x2", newOutletX).attr("y2", newOutletY);
-
-                        previewGroup.selectAll('*').remove();
-                        const tempEqForPreview: Equipment = {
-                            ...eq,
-                            inletAir: calculateAirProperties(xScale.invert(newInletX), null, atmPressure, yScale.invert(newInletY)),
-                        };
-                        const pathData = generatePreviewPath(tempEqForPreview, 'outlet');
-                        if (pathData && pathData.length > 1) {
-                            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
-                            previewGroup.append("path")
-                                .datum(pathData)
-                                .attr("fill", "none")
-                                .attr("stroke", color)
-                                .attr("stroke-width", 2)
-                                .attr("stroke-dasharray", "6,6")
-                                .style("opacity", 0.6)
-                                .style("pointer-events", "none")
-                                .attr("d", lineGenerator);
+                        if (eq.type === EquipmentType.SPRAY_WASHER) {
+                            const h = calculateEnthalpy(newInlet.temp, newInlet.absHumidity);
+                            newOutlet.absHumidity = calculateAbsoluteHumidityFromEnthalpy(newOutlet.temp, h);
+                            finalNewOutletY = yScale(newOutlet.absHumidity);
                         }
 
+                        inletDot.attr("cx", newInletX).attr("cy", newInletY);
+                        outletDot.attr("cx", newOutletX).attr("cy", finalNewOutletY);
+                        
+                        updateProcessLines(newInlet, newOutlet);
+                        
                         select(this).property('__latest_drag_pos__', {
-                            inlet: { temp: xScale.invert(newInletX), absHumidity: yScale.invert(newInletY) },
-                            outlet: { temp: xScale.invert(newOutletX), absHumidity: yScale.invert(newOutletY) }
+                            inlet: newInlet,
+                            outlet: newOutlet
                         });
                     } else { // Inlet or Outlet drag
                         const fixedDot = dragMode === 'outlet' ? inletDot : outletDot;
@@ -1019,6 +1038,15 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             projectedMx = mx;
                             projectedMy = my;
                             projectedTemp = xScale.invert(mx);
+                        } else if (eq.type === EquipmentType.SPRAY_WASHER) {
+                            const fixedTemp = xScale.invert(fixedPointX);
+                            const fixedHum = yScale.invert(fixedPointY);
+                            const h = calculateEnthalpy(fixedTemp, fixedHum);
+                            
+                            projectedTemp = xScale.invert(mx);
+                            projectedMx = xScale(projectedTemp);
+                            const projectedHum = calculateAbsoluteHumidityFromEnthalpy(projectedTemp, h);
+                            projectedMy = yScale(projectedHum);
                         } else if (eq.type === EquipmentType.COOLING_COIL && dragMode === 'outlet') {
                             const inletProps = {
                                 temp: xScale.invert(fixedPointX),
@@ -1233,7 +1261,12 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             }
                         }
 
-                        if (eq.type === EquipmentType.COOLING_COIL) {
+                        if (eq.type === EquipmentType.SPRAY_WASHER) {
+                            const fixedTemp = startPoint_d.temp;
+                            const fixedHum = startPoint_d.absHumidity;
+                            const h = calculateEnthalpy(fixedTemp, fixedHum);
+                            finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalTemp, h);
+                        } else if (eq.type === EquipmentType.COOLING_COIL) {
                             const inletProps = { temp: startPoint_d.temp, absHumidity: startPoint_d.absHumidity } as AirProperties;
                             if (dragMode === 'outlet') {
                                 const { chilledWaterInletTemp = 7 } = eq.conditions as CoolingCoilConditions;
@@ -1288,11 +1321,13 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         
                         if (dragMode === 'outlet') {
                             outletDot.attr("cx", finalX).attr("cy", finalY);
-                            processLine.attr("x2", finalX).attr("y2", finalY);
+                            const currentInlet = { temp: xScale.invert(parseFloat(inletDot.attr("cx"))), absHumidity: yScale.invert(parseFloat(inletDot.attr("cy"))) };
+                            updateProcessLines(currentInlet, finalPos);
                             select(this).property('__latest_drag_pos__', { outlet: finalPos });
                         } else { // inlet
                             inletDot.attr("cx", finalX).attr("cy", finalY);
-                            processLine.attr("x1", finalX).attr("y1", finalY);
+                            const currentOutlet = { temp: xScale.invert(parseFloat(outletDot.attr("cx"))), absHumidity: yScale.invert(parseFloat(outletDot.attr("cy"))) };
+                            updateProcessLines(finalPos, currentOutlet);
                             select(this).property('__latest_drag_pos__', { inlet: finalPos });
                         }
                     }
@@ -1354,13 +1389,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         .property('__effective_shf__', null);
                 });
             
-            const lineTooltipHitbox = svg.append("line")
-                .attr("x1", xScale(inletTempSI)).attr("y1", yScale(inletAbsHumiditySI))
-                .attr("x2", xScale(outletTempSI)).attr("y2", yScale(outletAbsHumiditySI))
-                .attr("stroke", "transparent")
-                .attr("stroke-width", 15)
-                .style("cursor", "move")
-                .attr("data-drag-mode", "line")
+            lineTooltipHitbox
                 .on("mouseover", function() {
                     if (dragInProgress.current) return;
                     processLine.attr("stroke-width", 4.5).style("opacity", hoverOpacity);

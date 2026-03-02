@@ -26,9 +26,6 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
     const isFocused = useRef(false);
     const inputRef = useRef<HTMLInputElement>(null);
     
-    // Refs for continuous change
-    const intervalRef = useRef<number | null>(null);
-    const timeoutRef = useRef<number | null>(null);
     const valueRef = useRef(value);
 
     useEffect(() => {
@@ -98,7 +95,7 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
     }, [onChange, needsConversion, unitType, unitSystem, minInDisplayUnits, maxInDisplayUnits]);
     
     // Wrapped change handlers for continuous press
-    const handleChange = useCallback((direction: 'inc' | 'dec') => {
+    const handleChange = useCallback((direction: 'inc' | 'dec', updateLocalInput: boolean = false) => {
         const currentPropValue = valueRef.current;
         const currentVal = needsConversion ? convertValue(currentPropValue, unitType, UnitSystem.SI, unitSystem) : currentPropValue;
 
@@ -123,46 +120,13 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
             }
         }
         
-        // Key fix: ONLY commit to parent. Do not set local state.
-        // The parent's state change will flow back down as a prop, and the useEffect
-        // will update the local inputValue because isFocused.current is now false.
-        commitValueToParent(formatNumberForInput(newValue, unitType, unitSystem));
+        const formatted = formatNumberForInput(newValue, unitType, unitSystem);
+        if (updateLocalInput) {
+            setInputValue(formatted);
+        }
+        commitValueToParent(formatted);
 
     }, [commitValueToParent, maxInDisplayUnits, minInDisplayUnits, needsConversion, stepInDisplayUnits, unitSystem, unitType]);
-
-
-    const stopContinuousChange = useCallback(() => {
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-        }
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
-    }, []);
-
-    const startContinuousChange = useCallback((direction: 'inc' | 'dec') => {
-        stopContinuousChange(); // Ensure no timers are running
-        handleChange(direction); // Immediate change on first click
-
-        timeoutRef.current = window.setTimeout(() => {
-            intervalRef.current = window.setInterval(() => {
-                handleChange(direction);
-            }, 100); // Speed of continuous change
-        }, 400); // Delay before continuous change starts
-    }, [handleChange, stopContinuousChange]);
-    
-    const handlePointerDown = (direction: 'inc' | 'dec') => (e: React.PointerEvent) => {
-        e.preventDefault();
-        // Key fix: Forcefully remove focus from the text input and update the internal focus state.
-        // This ensures the component will accept prop updates from the parent.
-        if (document.activeElement === inputRef.current) {
-            inputRef.current?.blur();
-        }
-        isFocused.current = false;
-        startContinuousChange(direction);
-    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
@@ -182,50 +146,21 @@ const NumberInputWithControls: React.FC<NumberInputWithControlsProps> = ({
             setInputValue('');
         }
     };
-    
-    const isDecrementDisabled = minInDisplayUnits !== undefined && displayValue !== null && displayValue <= minInDisplayUnits;
-    const isIncrementDisabled = maxInDisplayUnits !== undefined && displayValue !== null && displayValue >= maxInDisplayUnits;
-
-    // Cleanup timers on unmount
-    useEffect(() => {
-        return () => {
-            stopContinuousChange();
-        };
-    }, [stopContinuousChange]);
 
     return (
         <div className={`flex flex-col items-end gap-1 ${containerClassName}`}>
             <div className="flex items-center gap-1 justify-end">
-                <button 
-                    type="button" 
-                    onPointerDown={handlePointerDown('dec')}
-                    onPointerUp={stopContinuousChange}
-                    onPointerLeave={stopContinuousChange}
-                    onPointerCancel={stopContinuousChange}
-                    disabled={isDecrementDisabled} 
-                    className="px-2 py-1 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold touch-none"
-                >
-                    -
-                </button>
-                <button 
-                    type="button" 
-                    onPointerDown={handlePointerDown('inc')}
-                    onPointerUp={stopContinuousChange}
-                    onPointerLeave={stopContinuousChange}
-                    onPointerCancel={stopContinuousChange}
-                    disabled={isIncrementDisabled} 
-                    className="px-2 py-1 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold touch-none"
-                >
-                    +
-                </button>
                 <input
                     ref={inputRef}
-                    type="text"
+                    type="number"
                     value={inputValue}
                     onChange={handleInputChange}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
-                    className={`w-20 px-2 py-1 border border-slate-300 rounded-md bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputClassName}`}
+                    step={stepInDisplayUnits}
+                    min={minInDisplayUnits}
+                    max={maxInDisplayUnits}
+                    className={`w-20 px-2 py-1 border border-slate-300 rounded-md bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputClassName}`}
                 />
                 <span className="text-sm w-auto text-left pl-1">{displayUnit}</span>
             </div>

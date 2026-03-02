@@ -644,10 +644,11 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                         <label className="text-sm text-slate-700 block">{t('conditions.steamGaugePressure')}</label>
                                         <div className="flex items-center gap-1">
                                             <input
-                                                type="text"
+                                                type="number"
+                                                step="10"
                                                 value={pressureInputValue}
                                                 onChange={(e) => handleSteamPressureChange(e.target.value)}
-                                                className="flex-grow w-0 px-2 py-1 border border-slate-300 rounded-md bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                className="flex-grow w-0 px-2 py-1 border border-slate-300 rounded-md bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             />
                                             <select
                                                 value={(conditions as SteamHumidifierConditions).steamGaugePressureUnit || SteamPressureUnit.KPAG}
@@ -668,7 +669,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                             <select 
                                                 value={(conditions as FanConditions).motorOutput ?? ''} 
                                                 onChange={(e) => handleConditionChange('motorOutput', parseFloat(e.target.value))}
-                                                className="w-full px-2 py-1 border border-slate-300 rounded-md bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                className="w-full px-2 py-1 border border-slate-300 rounded-md bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 <option value="" disabled>{t('app.select')}</option>
                                                 {MOTOR_OUTPUT_CONVERSIONS.map(o => (
