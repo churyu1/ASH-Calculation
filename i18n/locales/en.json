@@ -69,6 +69,7 @@
     "cooling_coil": "Chilled Water Coil",
     "heating_coil": "Hot Water Coil",
     "spray_washer": "Spray Washer",
+    "hot_water_washer": "Hot Water Washer",
     "steam_humidifier": "Steam Humidifier",
     "fan": "Fan",
     "custom": "Custom Equipment"
@@ -79,6 +80,7 @@
     "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.\n- Heat Exchange Efficiency: This parameter accounts for heat gain from the ambient air into the chilled water through the coil casing. An efficiency of less than 100% will result in the water-side heat load being greater than the air-side heat load.",
     "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).\n- Heat Exchange Efficiency: This parameter accounts for heat loss from the coil casing to the ambient air. An efficiency of less than 100% means the hot water must release more heat than the air gains.",
     "spray_washer": "A spray washer adiabatically humidifies and cools the air by spraying water.\n- Movement on Psychrometric Chart: Moves upwards and to the left along a constant enthalpy line.\n- Process: The enthalpy remains nearly constant during this process.",
+    "hot_water_washer": "A hot water washer heats and humidifies the air by spraying hot water.\n- Movement on Psychrometric Chart: Moves upwards and to the right.\n- Process: Through contact with hot water, the air state changes towards saturation at the hot water temperature.",
     "steam_humidifier": "A steam humidifier adds moisture and heat to the air by directly injecting steam.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
     "fan": "A fan moves the air. Due to motor and fan efficiencies, some energy is converted into heat, slightly warming the air. This is a sensible heat only process.\n- Movement on Psychrometric Chart: Moves slightly horizontally to the right (absolute humidity remains constant).",
     "custom": "Custom equipment allows users to freely set the inlet and outlet air conditions. This enables specific calculations or simulations of equipment not on the list."
@@ -104,7 +106,7 @@
   "results": {
     "faceVelocity": "Face Velocity",
     "treatedAirflowPerSheet": "Airflow/Sheet",
-    "heatLoad": "Burner Heat Load",
+    "heatLoad": "Heat Load",
     "gasFlowRate": "Gas Flow Rate",
     "airSideHeatLoad": "Air-Side Heat Load",
     "coldWaterSideHeatLoad": "Chilled Water Side Heat Load",
@@ -499,6 +501,19 @@
             "h_in": "Inlet Enthalpy (BTU/lb)",
             "RH_out": "Target Outlet RH (%)"
           }
+        }
+      }
+    },
+    "hot_water_washer": {
+      "heatLoad": {
+        "title": "Heat Load",
+        "si": {
+          "formula": "Q = G * (h_out - h_in)",
+          "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow Rate (kg/s)", "h": "Specific Enthalpy (kJ/kg)" }
+        },
+        "imperial": {
+          "formula": "Q_BTUh = q * 4.5 * (h_out - h_in)",
+          "legend": { "Q_BTUh": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h": "Specific Enthalpy (BTU/lb)" }
         }
       }
     },

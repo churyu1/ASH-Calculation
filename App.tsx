@@ -515,6 +515,52 @@ const runFullCalculation = (
                         }
                         break;
                     }
+                    case EquipmentType.HOT_WATER_WASHER: {
+                        const { hotWaterInletTemp = 40, waterToAirRatio = 0.8, makeupWaterTemp = 10 } = currentEq.conditions as HotWaterWasherConditions;
+                        const userOutletTemp = currentEq.outletAir.temp;
+                        
+                        if (userOutletTemp !== null) {
+                            // Simple approximation: assume process line goes towards saturation at hotWaterInletTemp
+                            const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                            
+                            // Clamp outlet temp between inlet temp and hot water temp
+                            let clampedOutletTemp = Math.max(inletTemp, Math.min(hotWaterInletTemp, userOutletTemp));
+                            
+                            // Calculate outlet humidity based on the line between inlet and saturation at hot water temp
+                            let outletAbsHum = inletAbsHum;
+                            if (hotWaterInletTemp !== inletTemp) {
+                                const slope = (maxAbsHum - inletAbsHum) / (hotWaterInletTemp - inletTemp);
+                                outletAbsHum = inletAbsHum + slope * (clampedOutletTemp - inletTemp);
+                            }
+                            
+                            // Apply saturation limit (cap at 100% RH)
+                            const saturationAbsHum = calculateAbsoluteHumidity(clampedOutletTemp, 100, atmPressure);
+                            if (outletAbsHum > saturationAbsHum) {
+                                outletAbsHum = saturationAbsHum;
+                            }
+                            
+                            newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, outletAbsHum);
+                            
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null && newOutletAir.enthalpy !== null) {
+                                const humidification_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
+                                const efficiency = maxAbsHum !== inletAbsHum ? ((newOutletAir.absHumidity - inletAbsHum) / (maxAbsHum - inletAbsHum)) * 100 : 0;
+                                const heatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
+                                
+                                // Calculate makeup water heating load: Q = M * Cp * (Thw - Tmakeup)
+                                // M is humidification_kg_s, Cp is 4.186 kJ/kgK
+                                const makeupWaterHeatingLoad_kW = humidification_kg_s > 0 ? humidification_kg_s * 4.186 * (hotWaterInletTemp - makeupWaterTemp) : 0;
+
+                                newResults = {
+                                    humidification_L_min: humidification_kg_s > 0 ? humidification_kg_s * 60 : 0,
+                                    sprayAmount_L_min: massFlowRateDA_kg_s * waterToAirRatio * 60,
+                                    humidificationEfficiency: efficiency,
+                                    heatLoad_kW: heatLoad_kW,
+                                    makeupWaterHeatingLoad_kW: makeupWaterHeatingLoad_kW
+                                } as HotWaterWasherResults;
+                            }
+                        }
+                        break;
+                    }
                     case EquipmentType.STEAM_HUMIDIFIER: {
                         const steamCond = currentEq.conditions as SteamHumidifierConditions;
                         const userOutletRh = currentEq.outletAir.rh;
@@ -635,9 +681,24 @@ const runFullCalculation = (
 
 const App: React.FC = () => {
     const { t, locale, setLocale } = useLanguage();
-    const [unitSystem, setUnitSystem] = useState<UnitSystem>(UnitSystem.SI);
+    const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => {
+        const saved = localStorage.getItem('hvac_app_unit_system');
+        return (saved as UnitSystem) || UnitSystem.SI;
+    });
     
     const [state, setState] = useState<AppState>(() => {
+        const saved = localStorage.getItem('hvac_app_state');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.projects && parsed.activeProjectId) {
+                    return parsed;
+                }
+            } catch (e) {
+                console.error("Failed to load state from localStorage", e);
+            }
+        }
+
         const firstProjectId = `proj-${Date.now()}`;
         const initialProject = createNewProject(firstProjectId, `ASH 1`);
         const initialEquipment = getInitialEquipment();
@@ -665,7 +726,22 @@ const App: React.FC = () => {
     const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isTwoColumnLayout, setIsTwoColumnLayout] = useState(true);
+    const [isTwoColumnLayout, setIsTwoColumnLayout] = useState(() => {
+        const saved = localStorage.getItem('hvac_app_layout');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('hvac_app_state', JSON.stringify(state));
+    }, [state]);
+
+    useEffect(() => {
+        localStorage.setItem('hvac_app_unit_system', unitSystem);
+    }, [unitSystem]);
+
+    useEffect(() => {
+        localStorage.setItem('hvac_app_layout', JSON.stringify(isTwoColumnLayout));
+    }, [isTwoColumnLayout]);
 
     const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
 
@@ -875,6 +951,7 @@ const App: React.FC = () => {
                  case EquipmentType.COOLING_COIL: newEquipment.outletAir = calculateAirProperties(15, 95, atmPressure); (newEquipment.conditions as CoolingCoilConditions) = { chilledWaterInletTemp: 7, chilledWaterOutletTemp: 14, bypassFactor: 5, coilEfficiency: 85 }; break;
                  case EquipmentType.HEATING_COIL: newEquipment.outletAir = calculateAirProperties(40, 30, atmPressure); (newEquipment.conditions as HeatingCoilConditions) = { hotWaterInletTemp: 80, hotWaterOutletTemp: 50, coilEfficiency: 85 }; break;
                  case EquipmentType.SPRAY_WASHER: newEquipment.outletAir = calculateAirProperties(25, 70, atmPressure); (newEquipment.conditions as SprayWasherConditions) = { waterToAirRatio: 0.8 }; break;
+                 case EquipmentType.HOT_WATER_WASHER: newEquipment.outletAir = calculateAirProperties(30, 80, atmPressure); (newEquipment.conditions as HotWaterWasherConditions) = { hotWaterInletTemp: 40, waterToAirRatio: 0.8, makeupWaterTemp: 10 }; break;
                  case EquipmentType.STEAM_HUMIDIFIER: newEquipment.outletAir = { temp: null, rh: 70, absHumidity: null, enthalpy: null, density: null }; (newEquipment.conditions as SteamHumidifierConditions) = { steamGaugePressure: 100, steamGaugePressureUnit: SteamPressureUnit.KPAG, }; break;
                  case EquipmentType.FAN:
                     (newEquipment.conditions as FanConditions) = { motorOutput: 0.2, motorEfficiency: 80 };

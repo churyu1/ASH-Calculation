@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 
 // The JSON files are embedded directly to ensure compatibility with browser-native ESM.
 const enMessages = {
@@ -72,6 +72,7 @@ const enMessages = {
     "cooling_coil": "Chilled Water Coil",
     "heating_coil": "Hot Water Coil",
     "spray_washer": "Spray Washer",
+    "hot_water_washer": "Hot Water Washer",
     "steam_humidifier": "Steam Humidifier",
     "fan": "Fan",
     "custom": "Custom Equipment"
@@ -82,6 +83,7 @@ const enMessages = {
     "cooling_coil": "A chilled water coil cools and dehumidifies the air.\n- Movement on Psychrometric Chart: Moves downwards and to the left.\n- Process: The air state changes along a line connecting the inlet air point and the Apparatus Dew Point (ADP). The Bypass Factor (BF) indicates the proportion of air that passes through the coil without changing its state.\n- Heat Exchange Efficiency: This parameter accounts for heat gain from the ambient air into the chilled water through the coil casing. An efficiency of less than 100% will result in the water-side heat load being greater than the air-side heat load.",
     "heating_coil": "A hot water coil heats the air. This process adds only sensible heat.\n- Movement on Psychrometric Chart: Moves horizontally to the right (absolute humidity remains constant).\n- Heat Exchange Efficiency: This parameter accounts for heat loss from the coil casing to the ambient air. An efficiency of less than 100% means the hot water must release more heat than the air gains.",
     "spray_washer": "A spray washer adiabatically humidifies and cools the air by spraying water.\n- Movement on Psychrometric Chart: Moves upwards and to the left along a constant enthalpy line.\n- Process: The enthalpy remains nearly constant during this process.",
+    "hot_water_washer": "A hot water washer heats and humidifies the air by spraying hot water.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
     "steam_humidifier": "A steam humidifier adds moisture and heat to the air by directly injecting steam.\n- Movement on Psychrometric Chart: Moves upwards and to the right.",
     "fan": "A fan moves the air. Due to motor and fan efficiencies, some energy is converted into heat, slightly warming the air. This is a sensible heat only process.\n- Movement on Psychrometric Chart: Moves slightly horizontally to the right (absolute humidity remains constant).",
     "custom": "Custom equipment allows users to freely set the inlet and outlet air conditions. This enables specific calculations or simulations of equipment not on the list."
@@ -100,6 +102,7 @@ const enMessages = {
     "hotWaterOutletTemp": "Hot Water Outlet Temp",
     "humidificationEfficiency": "Humidification Efficiency",
     "waterToAirRatio": "Water-to-Air Ratio (L/G)",
+    "makeupWaterTemp": "Makeup Water Temp",
     "steamGaugePressure": "Steam Gauge Pressure",
     "motorOutput": "Motor Output",
     "motorEfficiency": "Motor Efficiency"
@@ -107,7 +110,7 @@ const enMessages = {
   "results": {
     "faceVelocity": "Face Velocity",
     "treatedAirflowPerSheet": "Airflow/Sheet",
-    "heatLoad": "Burner Heat Load",
+    "heatLoad": "Heat Load",
     "gasFlowRate": "Gas Flow Rate",
     "airSideHeatLoad": "Air-Side Heat Load",
     "coldWaterSideHeatLoad": "Chilled Water Side Heat Load",
@@ -116,6 +119,7 @@ const enMessages = {
     "hotWaterSideHeatLoad": "Hot Water Side Heat Load",
     "hotWaterFlow_L_min": "Hot Water Flow",
     "humidification_L_min": "Humidification",
+    "makeupWaterHeatingLoad_kW": "Makeup Water Heating Load",
     "sprayAmount_L_min": "Spray Amount",
     "requiredSteamAmount": "Required Steam Amount",
     "steamAbsolutePressure": "Steam Absolute Pressure",
@@ -505,6 +509,30 @@ const enMessages = {
         }
       }
     },
+    "hot_water_washer": {
+      "heatLoad": {
+        "title": "Heat Load",
+        "si": {
+          "formula": "Q = G * (h_out - h_in)",
+          "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow Rate (kg/s)", "h": "Specific Enthalpy (kJ/kg)" }
+        },
+        "imperial": {
+          "formula": "Q_BTUh = q * 4.5 * (h_out - h_in)",
+          "legend": { "Q_BTUh": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h": "Specific Enthalpy (BTU/lb)" }
+        }
+      },
+      "makeupWaterHeatingLoad": {
+        "title": "Makeup Water Heating Load",
+        "si": {
+          "formula": "Q_m = M * Cp * (T_hw - T_m)",
+          "legend": { "Q_m": "Makeup Water Heating Load (kW)", "M": "Humidification (kg/s)", "Cp": "Specific Heat of Water (4.186 kJ/kg·K)", "T_hw": "Hot Water Temp (°C)", "T_m": "Makeup Water Temp (°C)" }
+        },
+        "imperial": {
+          "formula": "Q_m_BTUh = M_lbh * Cp * (T_hw - T_m)",
+          "legend": { "Q_m_BTUh": "Makeup Water Heating Load (BTU/h)", "M_lbh": "Humidification (lb/h)", "Cp": "Specific Heat of Water (1.0 BTU/lb·°F)", "T_hw": "Hot Water Temp (°F)", "T_m": "Makeup Water Temp (°F)" }
+        }
+      }
+    },
     "steam_humidifier": {
       "outletTemp": {
         "title": "Outlet Temperature (from RH)",
@@ -689,6 +717,7 @@ const jaMessages = {
     "cooling_coil": "冷水コイル",
     "heating_coil": "温水コイル",
     "spray_washer": "スプレーワッシャー",
+    "hot_water_washer": "温水ワッシャー",
     "steam_humidifier": "蒸気加湿器",
     "fan": "ファン",
     "custom": "カスタム機器"
@@ -699,6 +728,7 @@ const jaMessages = {
     "cooling_coil": "冷水コイルは空気を冷却・除湿します。\n・空気線図上の動き: 左下方向に変化します。\n・プロセス: 空気の状態は、入口空気点と装置露点温度(ADP)を結ぶ線に沿って変化します。バイパスファクター(BF)は、コイルを通過せずに状態が変化しない空気の割合を示します。\n・熱交換効率: このパラメータは、コイルケーシングを介して周囲の空気から冷水への熱の侵入(熱取得)を考慮します。効率が100%未満の場合、水側の熱負荷は空気側の熱負荷よりも大きくなります。",
     "heating_coil": "温水コイルは空気を加熱します。このプロセスは顕熱のみを加えます。\n・空気線図上の動き: 水平右方向に変化します(絶対湿度は一定)。\n・熱交換効率: このパラメータは、コイルケーシングから周囲の空気への熱の損失を考慮します。効率が100%未満の場合、温水は空気が得る熱負荷よりも多くの熱を放出する必要があります。",
     "spray_washer": "スプレーワッシャーは、水を噴霧して空気を断熱的に加湿・冷却します。\n・空気線図上の動き: 等エンタルピー線に沿って左上方向に変化します。\n・プロセス: このプロセスではエンタルピーがほぼ一定に保たれます。",
+    "hot_water_washer": "温水ワッシャーは、温水を噴霧して空気を加熱・加湿します。\n・空気線図上の動き: 右上方向に変化します。",
     "steam_humidifier": "蒸気加湿器は、蒸気を直接吹き込むことで空気を加湿・加熱します。\n・空気線図上の動き: 右上方向に変化します。",
     "fan": "ファンは空気を送風します。モーターと送風機の効率により、エネルギーの一部が熱に変換され、空気をわずかに加熱します。これは顕熱のみのプロセスです。\n・空気線図上の動き: 水平右方向にわずかに変化します(絶対湿度は一定)。",
     "custom": "カスタム機器では、入口と出口の空気条件をユーザーが自由に設定できます。これにより、特定の計算や、リストにない機器のシミュレーションが可能です。"
@@ -717,6 +747,7 @@ const jaMessages = {
     "hotWaterOutletTemp": "温水出口温度",
     "humidificationEfficiency": "加湿効率",
     "waterToAirRatio": "水空気比 (L/G)",
+    "makeupWaterTemp": "補給水温度",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
     "motorEfficiency": "モーター効率"
@@ -724,7 +755,7 @@ const jaMessages = {
   "results": {
     "faceVelocity": "面速",
     "treatedAirflowPerSheet": "風量/枚",
-    "heatLoad": "バーナー熱負荷",
+    "heatLoad": "熱負荷",
     "gasFlowRate": "ガス流量",
     "airSideHeatLoad": "空気側熱負荷",
     "coldWaterSideHeatLoad": "冷水側熱負荷",
@@ -733,6 +764,7 @@ const jaMessages = {
     "hotWaterSideHeatLoad": "温水側熱負荷",
     "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
+    "makeupWaterHeatingLoad_kW": "補給水加熱負荷",
     "sprayAmount_L_min": "噴霧量",
     "requiredSteamAmount": "必要蒸気量",
     "steamAbsolutePressure": "蒸気絶対圧",
@@ -1122,6 +1154,30 @@ const jaMessages = {
         }
       }
     },
+    "hot_water_washer": {
+      "heatLoad": {
+        "title": "熱負荷",
+        "si": {
+          "formula": "Q = G * (h_out - h_in)",
+          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h": "比エンタルピー (kJ/kg)" }
+        },
+        "imperial": {
+          "formula": "Q_BTUh = q * 4.5 * (h_out - h_in)",
+          "legend": { "Q_BTUh": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h": "比エンタルピー (BTU/lb)" }
+        }
+      },
+      "makeupWaterHeatingLoad": {
+        "title": "補給水加熱負荷",
+        "si": {
+          "formula": "Q_m = M * Cp * (T_hw - T_m)",
+          "legend": { "Q_m": "補給水加熱負荷 (kW)", "M": "加湿量 (kg/s)", "Cp": "水の比熱 (4.186 kJ/kg·K)", "T_hw": "温水温度 (°C)", "T_m": "補給水温度 (°C)" }
+        },
+        "imperial": {
+          "formula": "Q_m_BTUh = M_lbh * Cp * (T_hw - T_m)",
+          "legend": { "Q_m_BTUh": "補給水加熱負荷 (BTU/h)", "M_lbh": "加湿量 (lb/h)", "Cp": "水の比熱 (1.0 BTU/lb·°F)", "T_hw": "温水温度 (°F)", "T_m": "補給水温度 (°F)" }
+        }
+      }
+    },
     "steam_humidifier": {
       "outletTemp": {
         "title": "出口温度 (RHから)",
@@ -1222,7 +1278,14 @@ const getNestedValue = (obj: any, key: string) => {
 // FIX: Changed to a more explicit function component signature to correctly handle the 'children' prop, resolving the build error.
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Default to Japanese based on app's title and lang attribute in HTML
-  const [locale, setLocale] = useState('ja');
+  const [locale, setLocale] = useState(() => {
+    const saved = localStorage.getItem('hvac_app_locale');
+    return saved || 'ja';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('hvac_app_locale', locale);
+  }, [locale]);
 
   const t = useCallback((key: string) => {
     let message = getNestedValue(messages[locale], key);

@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, SprayWasherResults, FanConditions, FanResults, AirProperties } from '../types';
+import { Equipment, UnitSystem, EquipmentType, BurnerResults, CoolingCoilResults, HeatingCoilResults, SteamHumidifierResults, FilterConditions, FilterResults, SprayWasherResults, HotWaterWasherResults, FanConditions, FanResults, AirProperties } from '../types';
 import { useLanguage } from '../i18n/index.ts';
 import DisplayValueWithUnit from './DisplayValueWithUnit.tsx';
 import { convertValue, getPrecisionForUnitType, formatNumber } from '../utils/conversions.ts';
@@ -207,6 +207,50 @@ const Summary: React.FC<SummaryProps> = ({ equipmentList, totalPressureLoss, uni
                                                 <div key="efficiency" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
                                                     <span className="text-slate-600">{t('conditions.humidificationEfficiency')}:</span>
                                                     <DisplayValueWithUnit compact value={sprayRes.humidificationEfficiency} unitType="efficiency" unitSystem={unitSystem} />
+                                                </div>
+                                            );
+                                        }
+                                        break;
+                                    }
+                                    case EquipmentType.HOT_WATER_WASHER: {
+                                        const hwwRes = results as HotWaterWasherResults;
+                                        if (hwwRes.heatLoad_kW != null) {
+                                            resultsParts.push(
+                                                <div key="heatLoad" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
+                                                    <span className="text-slate-600">{t('results.heatLoad')}:</span>
+                                                    <DisplayValueWithUnit compact value={hwwRes.heatLoad_kW} unitType="heat_load" unitSystem={unitSystem} />
+                                                </div>
+                                            );
+                                        }
+                                        if (hwwRes.makeupWaterHeatingLoad_kW != null) {
+                                            resultsParts.push(
+                                                <div key="makeupLoad" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
+                                                    <span className="text-slate-600">{t('results.makeupWaterHeatingLoad_kW')}:</span>
+                                                    <DisplayValueWithUnit compact value={hwwRes.makeupWaterHeatingLoad_kW} unitType="heat_load" unitSystem={unitSystem} />
+                                                </div>
+                                            );
+                                        }
+                                        if (hwwRes.humidification_L_min != null) {
+                                            resultsParts.push(
+                                                <div key="humidification" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
+                                                    <span className="text-slate-600">{t('results.humidification_L_min')}:</span>
+                                                    <DisplayValueWithUnit compact value={hwwRes.humidification_L_min} unitType="water_flow" unitSystem={unitSystem} />
+                                                </div>
+                                            );
+                                        }
+                                        if (hwwRes.sprayAmount_L_min != null) {
+                                            resultsParts.push(
+                                                <div key="spray" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
+                                                    <span className="text-slate-600">{t('results.sprayAmount_L_min')}:</span>
+                                                    <DisplayValueWithUnit compact value={hwwRes.sprayAmount_L_min} unitType="water_flow" unitSystem={unitSystem} />
+                                                </div>
+                                            );
+                                        }
+                                        if (hwwRes.humidificationEfficiency != null) {
+                                            resultsParts.push(
+                                                <div key="efficiency" className="flex justify-between items-center gap-2 whitespace-nowrap w-full">
+                                                    <span className="text-slate-600">{t('conditions.humidificationEfficiency')}:</span>
+                                                    <DisplayValueWithUnit compact value={hwwRes.humidificationEfficiency} unitType="efficiency" unitSystem={unitSystem} />
                                                 </div>
                                             );
                                         }

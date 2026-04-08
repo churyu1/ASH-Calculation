@@ -735,6 +735,27 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     }
                     break;
                 }
+                case EquipmentType.HOT_WATER_WASHER: {
+                    const { hotWaterInletTemp = 40 } = equipment.conditions as HotWaterWasherConditions;
+                    const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                    
+                    const t1 = startPoint.temp;
+                    const x1 = startPoint.absHumidity;
+                    const t2 = hotWaterInletTemp;
+                    const x2 = maxAbsHum;
+                    
+                    if (t2 !== t1) {
+                        const slope = (x2 - x1) / (t2 - t1);
+                        const t_min = tempDomainMin;
+                        const x_min = x1 + slope * (t_min - t1);
+                        path.push({ temp: t_min, absHumidity: x_min });
+                        
+                        const t_max = tempDomainMax;
+                        const x_max = x1 + slope * (t_max - t1);
+                        path.push({ temp: t_max, absHumidity: x_max });
+                    }
+                    break;
+                }
                 case EquipmentType.STEAM_HUMIDIFIER: {
                     const steamCond = equipment.conditions as SteamHumidifierConditions;
                     const steamProps = calculateSteamProperties(steamCond.steamGaugePressure ?? 100, atmPressure);
@@ -1015,10 +1036,41 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             const h = calculateEnthalpy(newInlet.temp, newInlet.absHumidity);
                             newOutlet.absHumidity = calculateAbsoluteHumidityFromEnthalpy(newOutlet.temp, h);
                             finalNewOutletY = yScale(newOutlet.absHumidity);
+                        } else if (eq.type === EquipmentType.HOT_WATER_WASHER) {
+                            const { hotWaterInletTemp = 40 } = eq.conditions as HotWaterWasherConditions;
+                            const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                            
+                            const isOutletSnappedToGlobal = winningSnapPoint?.id === 'global-outlet';
+                            
+                            if (isOutletSnappedToGlobal) {
+                                const t_in = newInlet.temp;
+                                const t_out = newOutlet.temp;
+                                const x_out = newOutlet.absHumidity;
+                                const t_sat = hotWaterInletTemp;
+                                const x_sat = maxAbsHum;
+                                
+                                if (Math.abs(t_out - t_sat) > 0.1) {
+                                    const new_x_in = (x_sat * (t_out - t_in) - x_out * (t_sat - t_in)) / (t_out - t_sat);
+                                    const saturationInlet = calculateAbsoluteHumidity(t_in, 100, atmPressure);
+                                    if (new_x_in > 0 && new_x_in <= saturationInlet) {
+                                        newInlet.absHumidity = new_x_in;
+                                        select(this).property('__snapped_inlet_hum__', new_x_in);
+                                    } else {
+                                        select(this).property('__snapped_inlet_hum__', null);
+                                    }
+                                }
+                            } else {
+                                select(this).property('__snapped_inlet_hum__', null);
+                                if (hotWaterInletTemp !== newInlet.temp) {
+                                    const slope = (maxAbsHum - newInlet.absHumidity) / (hotWaterInletTemp - newInlet.temp);
+                                    newOutlet.absHumidity = newInlet.absHumidity + slope * (newOutlet.temp - newInlet.temp);
+                                    finalNewOutletY = yScale(newOutlet.absHumidity);
+                                }
+                            }
                         }
 
-                        inletDot.attr("cx", newInletX).attr("cy", newInletY);
-                        outletDot.attr("cx", newOutletX).attr("cy", finalNewOutletY);
+                        inletDot.attr("cx", xScale(newInlet.temp)).attr("cy", yScale(newInlet.absHumidity));
+                        outletDot.attr("cx", xScale(newOutlet.temp)).attr("cy", finalNewOutletY);
                         
                         updateProcessLines(newInlet, newOutlet);
                         
@@ -1115,6 +1167,15 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                                     case EquipmentType.SPRAY_WASHER: {
                                         const h = calculateEnthalpy(startTemp, startHum);
                                         endHum = calculateAbsoluteHumidityFromEnthalpy(endTemp, h);
+                                        break;
+                                    }
+                                    case EquipmentType.HOT_WATER_WASHER: {
+                                        const { hotWaterInletTemp = 40 } = conds as HotWaterWasherConditions;
+                                        const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                                        if (hotWaterInletTemp !== startTemp) {
+                                            const slope_data = (maxAbsHum - startHum) / (hotWaterInletTemp - startTemp);
+                                            endHum = startHum + slope_data * 10;
+                                        }
                                         break;
                                     }
                                 }
@@ -1268,6 +1329,37 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                             const fixedHum = startPoint_d.absHumidity;
                             const h = calculateEnthalpy(fixedTemp, fixedHum);
                             finalAbsHumidity = calculateAbsoluteHumidityFromEnthalpy(finalTemp, h);
+                        } else if (eq.type === EquipmentType.HOT_WATER_WASHER) {
+                            const { hotWaterInletTemp = 40 } = eq.conditions as HotWaterWasherConditions;
+                            const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                            const fixedTemp = startPoint_d.temp;
+                            const fixedHum = startPoint_d.absHumidity;
+                            
+                            const isSnappedToGlobalOutlet = winningSnap?.id === 'global-outlet';
+                            
+                            if (isSnappedToGlobalOutlet && dragMode === 'outlet') {
+                                const t_in = fixedTemp;
+                                const t_out = finalTemp;
+                                const x_out = finalAbsHumidity;
+                                const t_sat = hotWaterInletTemp;
+                                const x_sat = maxAbsHum;
+                                
+                                if (Math.abs(t_out - t_sat) > 0.1) {
+                                    const new_x_in = (x_sat * (t_out - t_in) - x_out * (t_sat - t_in)) / (t_out - t_sat);
+                                    const saturationInlet = calculateAbsoluteHumidity(t_in, 100, atmPressure);
+                                    if (new_x_in > 0 && new_x_in <= saturationInlet) {
+                                        select(this).property('__snapped_inlet_hum__', new_x_in);
+                                    } else {
+                                        select(this).property('__snapped_inlet_hum__', null);
+                                    }
+                                }
+                            } else {
+                                select(this).property('__snapped_inlet_hum__', null);
+                                if (hotWaterInletTemp !== fixedTemp) {
+                                    const slope = (maxAbsHum - fixedHum) / (hotWaterInletTemp - fixedTemp);
+                                    finalAbsHumidity = fixedHum + slope * (finalTemp - fixedTemp);
+                                }
+                            }
                         } else if (eq.type === EquipmentType.COOLING_COIL) {
                             const inletProps = { temp: startPoint_d.temp, absHumidity: startPoint_d.absHumidity } as AirProperties;
                             if (dragMode === 'outlet') {
@@ -1323,7 +1415,19 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                         
                         if (dragMode === 'outlet') {
                             outletDot.attr("cx", finalX).attr("cy", finalY);
-                            const currentInlet = { temp: xScale.invert(parseFloat(inletDot.attr("cx"))), absHumidity: yScale.invert(parseFloat(inletDot.attr("cy"))) };
+                            let currentInlet = { temp: xScale.invert(parseFloat(inletDot.attr("cx"))), absHumidity: yScale.invert(parseFloat(inletDot.attr("cy"))) };
+                            
+                            if (eq.type === EquipmentType.HOT_WATER_WASHER) {
+                                const snappedInletHum = select(this).property('__snapped_inlet_hum__');
+                                if (snappedInletHum !== null && snappedInletHum !== undefined) {
+                                    currentInlet = { temp: currentInlet.temp, absHumidity: snappedInletHum };
+                                    inletDot.attr("cx", xScale(currentInlet.temp)).attr("cy", yScale(currentInlet.absHumidity));
+                                } else {
+                                    // Reset inlet dot to original position if not snapped
+                                    inletDot.attr("cx", fixedPointX).attr("cy", fixedPointY);
+                                }
+                            }
+                            
                             updateProcessLines(currentInlet, finalPos);
                             select(this).property('__latest_drag_pos__', { outlet: finalPos });
                         } else { // inlet
@@ -1348,11 +1452,32 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     
                     if (finalPos) {
                         if (dragMode === 'line') {
-                            const finalInlet = calculateAirProperties(finalPos.inlet.temp, null, atmPressure, finalPos.inlet.absHumidity);
-                            const finalOutlet = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
-                            onUpdate(eq.id, { inlet: finalInlet, outlet: finalOutlet });
+                            let finalInletAir: AirProperties = calculateAirProperties(finalPos.inlet.temp, null, atmPressure, finalPos.inlet.absHumidity);
+                            let finalOutletAir: AirProperties = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
+                            let inletIsLocked = false;
+
+                            if (eq.type === EquipmentType.HOT_WATER_WASHER) {
+                                const snappedInletHum = select(this).property('__snapped_inlet_hum__');
+                                if (snappedInletHum !== null && snappedInletHum !== undefined) {
+                                    finalInletAir = calculateAirProperties(finalPos.inlet.temp, null, atmPressure, snappedInletHum);
+                                    inletIsLocked = true;
+                                    
+                                    // Recalculate outlet based on new inlet
+                                    const { hotWaterInletTemp = 40 } = eq.conditions as HotWaterWasherConditions;
+                                    const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                                    if (hotWaterInletTemp !== finalInletAir.temp) {
+                                        const slope = (maxAbsHum - finalInletAir.absHumidity!) / (hotWaterInletTemp - finalInletAir.temp!);
+                                        const finalAbsHumidity = finalInletAir.absHumidity! + slope * (finalPos.outlet.temp - finalInletAir.temp!);
+                                        finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalAbsHumidity);
+                                    }
+                                }
+                            }
+
+                            onUpdate(eq.id, { inlet: finalInletAir, outlet: finalOutletAir, inletIsLocked: inletIsLocked || eq.inletIsLocked });
                         } else if (dragMode === 'outlet') {
                             let finalOutletAir: AirProperties;
+                            let finalInletAir: AirProperties | undefined;
+
                             if (eq.type === EquipmentType.SPRAY_WASHER) {
                                 const inletEnthalpy = eq.inletAir.enthalpy;
                                 const finalTemp = finalPos.outlet.temp;
@@ -1362,10 +1487,35 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                                 } else {
                                     finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
                                 }
+                            } else if (eq.type === EquipmentType.HOT_WATER_WASHER) {
+                                const { hotWaterInletTemp = 40 } = eq.conditions as HotWaterWasherConditions;
+                                const maxAbsHum = calculateAbsoluteHumidity(hotWaterInletTemp, 100, atmPressure);
+                                const inletTemp = eq.inletAir.temp;
+                                const inletHum = eq.inletAir.absHumidity;
+                                const finalTemp = finalPos.outlet.temp;
+                                
+                                const snappedInletHum = select(this).property('__snapped_inlet_hum__');
+                                if (snappedInletHum !== null && snappedInletHum !== undefined) {
+                                    finalInletAir = calculateAirProperties(inletTemp, null, atmPressure, snappedInletHum);
+                                }
+
+                                if (inletTemp !== null && inletHum !== null && finalTemp !== null && hotWaterInletTemp !== inletTemp) {
+                                    const currentInletHum = finalInletAir ? finalInletAir.absHumidity! : inletHum;
+                                    const slope = (maxAbsHum - currentInletHum) / (hotWaterInletTemp - inletTemp);
+                                    const finalAbsHumidity = currentInletHum + slope * (finalTemp - inletTemp);
+                                    finalOutletAir = calculateAirProperties(finalTemp, null, atmPressure, finalAbsHumidity);
+                                } else {
+                                    finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
+                                }
                             } else {
                                 finalOutletAir = calculateAirProperties(finalPos.outlet.temp, null, atmPressure, finalPos.outlet.absHumidity);
                             }
-                            onUpdate(eq.id, { outlet: finalOutletAir });
+
+                            if (finalInletAir) {
+                                onUpdate(eq.id, { inlet: finalInletAir, outlet: finalOutletAir, inletIsLocked: true });
+                            } else {
+                                onUpdate(eq.id, { outlet: finalOutletAir });
+                            }
                         } else if (dragMode === 'inlet') {
                             const finalInletAir = calculateAirProperties(finalPos.inlet.temp, null, atmPressure, finalPos.inlet.absHumidity);
                             onUpdate(eq.id, { inlet: finalInletAir });

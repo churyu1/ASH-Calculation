@@ -311,7 +311,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     }, [type, inletAir, outletAir, conditions, results, unitSystem, t, locale]);
     
     const sprayWasherHumidificationTooltip = useMemo(() => {
-        if (type !== EquipmentType.SPRAY_WASHER || massFlowRateDA_kg_s === 0 || inletAir.absHumidity === null || outletAir.absHumidity === null) return null;
+        if ((type !== EquipmentType.SPRAY_WASHER && type !== EquipmentType.HOT_WATER_WASHER) || massFlowRateDA_kg_s === 0 || inletAir.absHumidity === null || outletAir.absHumidity === null) return null;
         const formulaPath = 'tooltips.spray_washer.humidification';
         const values = {
             'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
@@ -323,8 +323,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     }, [type, massFlowRateDA_kg_s, inletAir.absHumidity, outletAir.absHumidity, airflow, unitSystem, t, locale]);
 
     const sprayWasherSprayAmountTooltip = useMemo(() => {
-        if (type !== EquipmentType.SPRAY_WASHER || massFlowRateDA_kg_s === 0) return null;
-        const { waterToAirRatio = 0.8 } = conditions as SprayWasherConditions;
+        if ((type !== EquipmentType.SPRAY_WASHER && type !== EquipmentType.HOT_WATER_WASHER) || massFlowRateDA_kg_s === 0) return null;
+        const { waterToAirRatio = 0.8 } = conditions as (SprayWasherConditions | HotWaterWasherConditions);
         const formulaPath = 'tooltips.spray_washer.sprayAmount';
         const values = {
             'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
@@ -336,8 +336,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     }, [type, massFlowRateDA_kg_s, conditions, airflow, currentInletAirCalculated.density, unitSystem, t, locale]);
 
     const sprayWasherEfficiencyTooltip = useMemo(() => {
-        if (type !== EquipmentType.SPRAY_WASHER || inletAir.absHumidity === null || outletAir.absHumidity === null) return null;
-        const { humidificationEfficiency } = results as SprayWasherResults;
+        if ((type !== EquipmentType.SPRAY_WASHER && type !== EquipmentType.HOT_WATER_WASHER) || inletAir.absHumidity === null || outletAir.absHumidity === null) return null;
+        const { humidificationEfficiency } = results as (SprayWasherResults | HotWaterWasherResults);
         const formulaPath = 'tooltips.spray_washer.humidificationEfficiency';
         const values = {
             'x_in': { value: inletAir.absHumidity, unit: t('units.si.abs_humidity') },
@@ -346,6 +346,34 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
     }, [type, inletAir.absHumidity, outletAir.absHumidity, results, unitSystem, t, locale]);
+
+    const hotWaterWasherHeatLoadTooltip = useMemo(() => {
+        if (type !== EquipmentType.HOT_WATER_WASHER || massFlowRateDA_kg_s === 0 || inletAir.enthalpy === null || outletAir.enthalpy === null) return null;
+        const formulaPath = 'tooltips.hot_water_washer.heatLoad';
+        const values = {
+            'G': { value: massFlowRateDA_kg_s, unit: 'kg/s' },
+            'h_in': { value: inletAir.enthalpy, unit: t('units.si.enthalpy') },
+            'h_out': { value: outletAir.enthalpy, unit: t('units.si.enthalpy') },
+            'q': { value: airflow, unit: t('units.si.airflow') },
+        };
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
+    }, [type, massFlowRateDA_kg_s, inletAir.enthalpy, outletAir.enthalpy, airflow, unitSystem, t, locale]);
+
+    const hotWaterWasherMakeupWaterHeatingLoadTooltip = useMemo(() => {
+        if (type !== EquipmentType.HOT_WATER_WASHER) return null;
+        const { hotWaterInletTemp = 40, makeupWaterTemp = 10 } = conditions as HotWaterWasherConditions;
+        const { humidification_L_min = 0 } = results as HotWaterWasherResults;
+        const humidification_kg_s = humidification_L_min / 60;
+        
+        const formulaPath = 'tooltips.hot_water_washer.makeupWaterHeatingLoad';
+        const values = {
+            'M': { value: humidification_kg_s, unit: 'kg/s' },
+            'T_hw': { value: hotWaterInletTemp, unit: t('units.si.temperature') },
+            'T_m': { value: makeupWaterTemp, unit: t('units.si.temperature') },
+            'M_lbh': { value: convertValue(humidification_kg_s, 'water_flow', UnitSystem.SI, UnitSystem.IMPERIAL) * 60, unit: 'lb/h' }, // Assuming density of water is 1kg/L
+        };
+        return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
+    }, [type, conditions, results, unitSystem, t, locale]);
 
     const steamHumidifierRequiredSteamTooltip = useMemo(() => {
         if (type !== EquipmentType.STEAM_HUMIDIFIER || massFlowRateDA_kg_s === 0 || inletAir.absHumidity === null || outletAir.absHumidity === null) return null;
@@ -639,6 +667,13 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                         <NumberInputWithControls value={(conditions as SprayWasherConditions).waterToAirRatio ?? null} onChange={(val) => handleConditionChange('waterToAirRatio', val)} unitType="water_to_air_ratio" unitSystem={unitSystem} step={0.1}/>
                                      </div>
                                 )}
+                                {type === EquipmentType.HOT_WATER_WASHER && (
+                                    <>
+                                        <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.hotWaterInletTemp')}</label><NumberInputWithControls value={(conditions as HotWaterWasherConditions).hotWaterInletTemp ?? null} onChange={(val) => handleConditionChange('hotWaterInletTemp', val)} unitType="temperature" unitSystem={unitSystem} /></div>
+                                        <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.makeupWaterTemp')}</label><NumberInputWithControls value={(conditions as HotWaterWasherConditions).makeupWaterTemp ?? null} onChange={(val) => handleConditionChange('makeupWaterTemp', val)} unitType="temperature" unitSystem={unitSystem} /></div>
+                                        <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.waterToAirRatio')}</label><NumberInputWithControls value={(conditions as HotWaterWasherConditions).waterToAirRatio ?? null} onChange={(val) => handleConditionChange('waterToAirRatio', val)} unitType="water_to_air_ratio" unitSystem={unitSystem} step={0.1}/></div>
+                                    </>
+                                )}
                                 {type === EquipmentType.STEAM_HUMIDIFIER && (
                                     <div className="flex flex-col gap-1">
                                         <label className="text-sm text-slate-700 block">{t('conditions.steamGaugePressure')}</label>
@@ -710,6 +745,13 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('results.humidification_L_min')}</span><DisplayValueWithUnit value={(results as SprayWasherResults).humidification_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={sprayWasherHumidificationTooltip} /></div>
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('results.sprayAmount_L_min')}</span><DisplayValueWithUnit value={(results as SprayWasherResults).sprayAmount_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={sprayWasherSprayAmountTooltip} /></div>
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('conditions.humidificationEfficiency')}</span><DisplayValueWithUnit value={(results as SprayWasherResults).humidificationEfficiency} unitType="efficiency" unitSystem={unitSystem} tooltipContent={sprayWasherEfficiencyTooltip} /></div>
+                                </>)}
+                                {type === EquipmentType.HOT_WATER_WASHER && (<>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('results.heatLoad')}</span><DisplayValueWithUnit value={(results as HotWaterWasherResults).heatLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={hotWaterWasherHeatLoadTooltip} /></div>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('results.makeupWaterHeatingLoad_kW')}</span><DisplayValueWithUnit value={(results as HotWaterWasherResults).makeupWaterHeatingLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={hotWaterWasherMakeupWaterHeatingLoadTooltip} /></div>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('results.humidification_L_min')}</span><DisplayValueWithUnit value={(results as HotWaterWasherResults).humidification_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={sprayWasherHumidificationTooltip} /></div>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('results.sprayAmount_L_min')}</span><DisplayValueWithUnit value={(results as HotWaterWasherResults).sprayAmount_L_min} unitType="water_flow" unitSystem={unitSystem} tooltipContent={sprayWasherSprayAmountTooltip} /></div>
+                                    <div className="flex justify-between items-center"><span className="text-sm">{t('conditions.humidificationEfficiency')}</span><DisplayValueWithUnit value={(results as HotWaterWasherResults).humidificationEfficiency} unitType="efficiency" unitSystem={unitSystem} tooltipContent={sprayWasherEfficiencyTooltip} /></div>
                                 </>)}
                                 {type === EquipmentType.STEAM_HUMIDIFIER && (<>
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('results.requiredSteamAmount')}</span><DisplayValueWithUnit value={(results as SteamHumidifierResults).requiredSteamAmount} unitType="steam_flow" unitSystem={unitSystem} tooltipContent={steamHumidifierRequiredSteamTooltip} /></div>

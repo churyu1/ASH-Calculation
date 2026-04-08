@@ -11,6 +11,7 @@ export enum EquipmentType {
     COOLING_COIL = 'cooling_coil',
     HEATING_COIL = 'heating_coil',
     SPRAY_WASHER = 'spray_washer',
+    HOT_WATER_WASHER = 'hot_water_washer',
     STEAM_HUMIDIFIER = 'steam_humidifier',
     FAN = 'fan',
     CUSTOM = 'custom',
@@ -67,6 +68,12 @@ export interface SprayWasherConditions extends BaseConditions {
     waterToAirRatio?: number;
 }
 
+export interface HotWaterWasherConditions extends BaseConditions {
+    hotWaterInletTemp?: number;
+    waterToAirRatio?: number;
+    makeupWaterTemp?: number;
+}
+
 export interface SteamHumidifierConditions extends BaseConditions {
     steamGaugePressure?: number; // Always stored in kPaG
     steamGaugePressureUnit?: SteamPressureUnit;
@@ -79,7 +86,7 @@ export interface FanConditions extends BaseConditions {
 
 export interface CustomConditions extends BaseConditions {}
 
-export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | SprayWasherConditions | SteamHumidifierConditions | FanConditions | CustomConditions;
+export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingCoilConditions | HeatingCoilConditions | SprayWasherConditions | HotWaterWasherConditions | SteamHumidifierConditions | FanConditions | CustomConditions;
 
 // Specific result interfaces
 export interface FilterResults extends BaseResults {
@@ -114,6 +121,14 @@ export interface SprayWasherResults extends BaseResults {
     humidificationEfficiency?: number;
 }
 
+export interface HotWaterWasherResults extends BaseResults {
+    humidification_L_min?: number;
+    sprayAmount_L_min?: number;
+    humidificationEfficiency?: number;
+    heatLoad_kW?: number;
+    makeupWaterHeatingLoad_kW?: number;
+}
+
 export interface SteamHumidifierResults extends BaseResults {
     steamAbsolutePressure?: number;
     steamTemperature?: number;
@@ -130,7 +145,7 @@ export interface CustomResults extends BaseResults {
     pressureLoss?: number;
 }
 
-export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | SprayWasherResults | SteamHumidifierResults | FanResults | CustomResults;
+export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | SprayWasherResults | HotWaterWasherResults | SteamHumidifierResults | FanResults | CustomResults;
 
 // Main Equipment interface
 export interface Equipment {
