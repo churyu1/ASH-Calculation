@@ -834,7 +834,19 @@ const App: React.FC = () => {
     const triggerFileSelect = () => fileInputRef.current?.click();
     
     const handleAddProject = () => {
-        const newProject = createNewProject(`proj-${Date.now()}`, `ASH ${projects.length + 1}`);
+        const newProjectId = `proj-${Date.now()}`;
+        const newProjectBase = createNewProject(newProjectId, `ASH ${projects.length + 1}`);
+        
+        const atmPressure = calculateAtmosphericPressure(newProjectBase.altitude);
+        const acInletAir = calculateAirProperties(newProjectBase.acInletAir.temp, newProjectBase.acInletAir.rh, atmPressure);
+        const acOutletAir = calculateAirProperties(newProjectBase.acOutletAir.temp, newProjectBase.acOutletAir.rh, atmPressure);
+        
+        const newProject: Project = {
+            ...newProjectBase,
+            acInletAir,
+            acOutletAir
+        };
+
         setState(prev => ({
             ...prev,
             projects: [...prev.projects, newProject],
@@ -1091,9 +1103,15 @@ const App: React.FC = () => {
         </button>
     ));
 
+    const acInletCalculated = useMemo(() => {
+        if (!activeProject) return { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
+        const atmPressure = calculateAtmosphericPressure(activeProject.altitude);
+        return calculateAirProperties(activeProject.acInletAir.temp, activeProject.acInletAir.rh, atmPressure);
+    }, [activeProject]);
+
     const acInletAbsHumidityTooltip = useMemo(() => {
-        if (!activeProject || activeProject.acInletAir.temp === null || activeProject.acInletAir.rh === null) return null;
-        const { temp, rh } = activeProject.acInletAir;
+        if (!activeProject || acInletCalculated.temp === null || acInletCalculated.rh === null) return null;
+        const { temp, rh } = acInletCalculated;
         const formulaPath = 'tooltips.airProperties.absHumidityFromTRh';
         const P_sat = calculatePsat(temp), P_v = P_sat * (rh / 100); 
         const values = unitSystem === UnitSystem.IMPERIAL ? {
@@ -1107,21 +1125,21 @@ const App: React.FC = () => {
             'P_v': { value: P_v, unit: 'Pa' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
-    }, [activeProject?.acInletAir, locale, unitSystem, t]);
+    }, [acInletCalculated, locale, unitSystem, t]);
 
     const acInletEnthalpyTooltip = useMemo(() => {
         if (!activeProject) return null;
         const formulaPath = 'tooltips.airProperties.enthalpyFromTX';
         const values = unitSystem === UnitSystem.IMPERIAL ? {
-            't': { value: convertValue(activeProject.acInletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
-            'x': { value: convertValue(activeProject.acInletAir.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
+            't': { value: convertValue(acInletCalculated.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
+            'x': { value: convertValue(acInletCalculated.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
         } : {
-            't': { value: activeProject.acInletAir.temp, unit: '°C' },
-            'x': { value: activeProject.acInletAir.absHumidity, unit: 'g/kg(DA)' }
+            't': { value: acInletCalculated.temp, unit: '°C' },
+            'x': { value: acInletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
-    }, [activeProject?.acInletAir, locale, unitSystem, t]);
-    
+    }, [acInletCalculated, locale, unitSystem, t]);
+
     const acOutletCalculated = useMemo(() => {
         if (!activeProject) return { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
         const atmPressure = calculateAtmosphericPressure(activeProject.altitude);
@@ -1129,8 +1147,8 @@ const App: React.FC = () => {
     }, [activeProject]);
 
     const acOutletAbsHumidityTooltip = useMemo(() => {
-        if (!activeProject || activeProject.acOutletAir.temp === null || activeProject.acOutletAir.rh === null) return null;
-        const { temp, rh } = activeProject.acOutletAir;
+        if (!activeProject || acOutletCalculated.temp === null || acOutletCalculated.rh === null) return null;
+        const { temp, rh } = acOutletCalculated;
         const formulaPath = 'tooltips.airProperties.absHumidityFromTRh';
         const P_sat = calculatePsat(temp), P_v = P_sat * (rh / 100);
         const values = unitSystem === UnitSystem.IMPERIAL ? {
@@ -1144,20 +1162,20 @@ const App: React.FC = () => {
             'P_v': { value: P_v, unit: 'Pa' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
-    }, [activeProject?.acOutletAir, locale, unitSystem, t]);
+    }, [acOutletCalculated, locale, unitSystem, t]);
 
     const acOutletEnthalpyTooltip = useMemo(() => {
         if (!activeProject) return null;
         const formulaPath = 'tooltips.airProperties.enthalpyFromTX';
         const values = unitSystem === UnitSystem.IMPERIAL ? {
-            't': { value: convertValue(activeProject.acOutletAir.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
+            't': { value: convertValue(acOutletCalculated.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
             'x': { value: convertValue(acOutletCalculated.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
         } : {
-            't': { value: activeProject.acOutletAir.temp, unit: '°C' },
+            't': { value: acOutletCalculated.temp, unit: '°C' },
             'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
-    }, [activeProject?.acOutletAir, acOutletCalculated.absHumidity, locale, unitSystem, t]);
+    }, [acOutletCalculated, locale, unitSystem, t]);
 
     const selectedEquipment = useMemo(() => activeProject?.equipmentList.find(eq => eq.id === selectedEquipmentId), [activeProject, selectedEquipmentId]);
 
@@ -1166,7 +1184,7 @@ const App: React.FC = () => {
             <h2 className="text-xl font-semibold mb-4">{t('app.psychrometricChart')}</h2>
             <PsychrometricChart 
                 airConditionsData={equipmentForChart} 
-                globalInletAir={activeProject.acInletAir}
+                globalInletAir={acInletCalculated}
                 globalOutletAir={acOutletCalculated}
                 unitSystem={unitSystem}
                 isSplitViewActive={isTwoColumnLayout}
@@ -1279,8 +1297,8 @@ const App: React.FC = () => {
                                                     <NumberInputWithControls value={activeProject.acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                                                 </div>
                                                 <hr className="my-2 border-slate-300" />
-                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={activeProject.acInletAir.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} /></div>
-                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={activeProject.acInletAir.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acInletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} /></div>
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acInletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
                                             </div>
                                         </div>
                                         <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
