@@ -92,6 +92,7 @@ export type EquipmentConditions = FilterConditions | BurnerConditions | CoolingC
 export interface FilterResults extends BaseResults {
     faceVelocity?: number;
     treatedAirflowPerSheet?: number;
+    heatLoad_kW?: number;
 }
 
 export interface BurnerResults extends BaseResults {
@@ -119,6 +120,7 @@ export interface SprayWasherResults extends BaseResults {
     humidification_L_min?: number;
     sprayAmount_L_min?: number;
     humidificationEfficiency?: number;
+    heatLoad_kW?: number;
 }
 
 export interface HotWaterWasherResults extends BaseResults {
@@ -134,15 +136,18 @@ export interface SteamHumidifierResults extends BaseResults {
     steamTemperature?: number;
     steamEnthalpy?: number;
     requiredSteamAmount?: number;
+    heatLoad_kW?: number;
 }
 
 export interface FanResults extends BaseResults {
     heatGeneration_kW?: number;
     tempRise_deltaT_celsius?: number;
+    heatLoad_kW?: number;
 }
 
 export interface CustomResults extends BaseResults {
     pressureLoss?: number;
+    heatLoad_kW?: number;
 }
 
 export type EquipmentResults = FilterResults | BurnerResults | CoolingCoilResults | HeatingCoilResults | SprayWasherResults | HotWaterWasherResults | SteamHumidifierResults | FanResults | CustomResults;

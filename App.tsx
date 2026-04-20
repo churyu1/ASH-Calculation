@@ -333,6 +333,10 @@ const runFullCalculation = (
 ): Equipment[] => {
     const atmPressure = calculateAtmosphericPressure(altitude);
     const initialInlet = calculateAirProperties(acInletAir.temp, acInletAir.rh, atmPressure);
+    
+    // Calculate global mass flow rate DA once, using the density of the initial inlet air.
+    // This mass flow rate represents the physical constraint of mass conservation.
+    const systemMassFlowRateDA_kg_s = (airflow !== null && initialInlet.density !== null) ? (airflow / 60) * initialInlet.density : 0;
 
     const calculationResult = originalList.reduce(
         (acc, eq) => {
@@ -344,8 +348,8 @@ const runFullCalculation = (
             const effectiveInlet = currentEq.inletIsLocked ? currentEq.inletAir : previousOutlet;
             currentEq.inletAir = calculateAirProperties(effectiveInlet.temp, effectiveInlet.rh, atmPressure);
 
-            // Step 2: Perform the calculation for the current equipment
-            const massFlowRateDA_kg_s = (airflow !== null && currentEq.inletAir.density !== null) ? (airflow / 60) * currentEq.inletAir.density : 0;
+            // Step 2: Set the previously calculated system mass flow rate
+            const massFlowRateDA_kg_s = systemMassFlowRateDA_kg_s;
             
             let newOutletAir: AirProperties = { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
             let newResults: Equipment['results'] = {};
@@ -362,7 +366,8 @@ const runFullCalculation = (
                         const total_area_m2 = area_m2_per_sheet * sheets;
                         const faceVelocity = total_area_m2 > 0 && airflow ? (airflow / 60) / total_area_m2 : 0;
                         const airflowPerSheet = sheets > 0 && airflow ? airflow / sheets : 0;
-                        newResults = { faceVelocity, treatedAirflowPerSheet: airflowPerSheet } as FilterResults;
+                        const heatLoad_kW_filter = (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null && inletEnthalpy !== null) ? massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy) : 0;
+                        newResults = { faceVelocity, treatedAirflowPerSheet: airflowPerSheet, heatLoad_kW: heatLoad_kW_filter } as FilterResults;
                         break;
                     case EquipmentType.BURNER: {
                         const { shf = 1.0, lowerHeatingValue } = currentEq.conditions as BurnerConditions;
@@ -430,8 +435,8 @@ const runFullCalculation = (
                             }
                             
                             if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
-                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * (inletEnthalpy - newOutletAir.enthalpy);
-                                const coldWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
+                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
+                                const coldWaterSideHeatLoad_kW = (coilEfficiency > 0) ? Math.abs(airSideHeatLoad_kW) / (coilEfficiency / 100) : 0;
                                 const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - newOutletAir.absHumidity) / 1000;
                                 
                                 const waterTempDiff = chilledWaterOutletTemp - chilledWaterInletTemp;
@@ -465,7 +470,7 @@ const runFullCalculation = (
                             newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, inletAbsHum);
                             if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null) {
                                 const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
-                                const hotWaterSideHeatLoad_kW = (coilEfficiency > 0) ? airSideHeatLoad_kW / (coilEfficiency / 100) : 0;
+                                const hotWaterSideHeatLoad_kW = (coilEfficiency > 0) ? Math.abs(airSideHeatLoad_kW) / (coilEfficiency / 100) : 0;
                                 const waterTempDiff = hotWaterInletTemp - hotWaterOutletTemp;
                                 const hotWaterFlow_L_min = waterTempDiff > 0 ? (hotWaterSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
                                 newResults = { airSideHeatLoad_kW, hotWaterSideHeatLoad_kW, hotWaterFlow_L_min } as HeatingCoilResults;
@@ -500,12 +505,14 @@ const runFullCalculation = (
                                 }
                             }
                             
-                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null) {
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null && newOutletAir.enthalpy !== null && inletEnthalpy !== null) {
                                 const humidification_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
+                                const heatLoad_kW_spray = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
                                 newResults = {
                                     humidification_L_min: humidification_kg_s > 0 ? humidification_kg_s * 60 : 0,
                                     sprayAmount_L_min: massFlowRateDA_kg_s * waterToAirRatio * 60,
                                     humidificationEfficiency: Math.max(0, Math.min(100, humidificationEfficiency)),
+                                    heatLoad_kW: heatLoad_kW_spray,
                                 } as SprayWasherResults;
                             } else {
                                 newResults = {
@@ -584,8 +591,10 @@ const runFullCalculation = (
                             }
 
                             let steamAmount_kg_s = 0;
-                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null) {
+                            let heatLoad_kW_steam = 0;
+                            if (massFlowRateDA_kg_s > 0 && newOutletAir.absHumidity !== null && newOutletAir.enthalpy !== null && inletEnthalpy !== null) {
                                 steamAmount_kg_s = massFlowRateDA_kg_s * (newOutletAir.absHumidity - inletAbsHum) / 1000;
+                                heatLoad_kW_steam = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
                             }
 
                             newResults = {
@@ -593,6 +602,7 @@ const runFullCalculation = (
                                 steamTemperature: steamProps.temp,
                                 steamEnthalpy: steamProps.enthalpy * 0.239006,
                                 requiredSteamAmount: steamAmount_kg_s > 0 ? steamAmount_kg_s * 3600 : 0,
+                                heatLoad_kW: heatLoad_kW_steam,
                             } as SteamHumidifierResults;
                         }
                         break;
@@ -647,14 +657,17 @@ const runFullCalculation = (
                         }
                 
                         const finalTempRise = (newOutletAir.temp ?? 0) - (currentEq.inletAir.temp ?? 0);
-                        newResults = { heatGeneration_kW, tempRise_deltaT_celsius: finalTempRise } as FanResults;
+                        const heatLoad_kW_fan = (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null && inletEnthalpy !== null) ? massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy) : 0;
+                        newResults = { heatGeneration_kW, tempRise_deltaT_celsius: finalTempRise, heatLoad_kW: heatLoad_kW_fan } as FanResults;
                         newPressureLoss = 0;
                         break;
                     }
-                    case EquipmentType.CUSTOM:
+                    case EquipmentType.CUSTOM: {
                         newOutletAir = calculateAirProperties(currentEq.outletAir.temp, currentEq.outletAir.rh, atmPressure);
-                        newResults = {} as CustomResults;
+                        const heatLoad_kW_custom = (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null && inletEnthalpy !== null) ? massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy) : 0;
+                        newResults = { heatLoad_kW: heatLoad_kW_custom } as CustomResults;
                         break;
+                    }
                 }
             }
             
