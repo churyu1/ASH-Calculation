@@ -570,13 +570,13 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
 
 
     const renderAirProperties = (airProps: AirProperties, calculatedProps: AirProperties, title: string, isOutlet = false) => (
-        <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
-            <h3 className="font-semibold mb-2">{title}</h3>
+        <div className="p-4 bg-white/40 rounded-2xl shadow-inner border border-white/50">
+            <h3 className="font-semibold mb-2 text-slate-700">{title}</h3>
             <div className="space-y-3">
                 {isOutlet ? (
                      <>
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
+                            <label className="text-sm text-slate-600 block">{t('airProperties.temperature')}</label>
                             {type === EquipmentType.STEAM_HUMIDIFIER ? (
                                 <div className="flex justify-end"><DisplayValueWithUnit value={airProps.temp} unitType="temperature" unitSystem={unitSystem} /></div>
                             ) : (
@@ -584,7 +584,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                             )}
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-slate-700 block">{t('airProperties.rh')}</label>
+                            <label className="text-sm text-slate-600 block">{t('airProperties.rh')}</label>
                             {type === EquipmentType.STEAM_HUMIDIFIER || type === EquipmentType.CUSTOM || type === EquipmentType.FAN ? (
                                 <NumberInputWithControls value={airProps.rh} onChange={(val) => handleOutletChange('rh', val)} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                             ) : (
@@ -595,22 +595,22 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                 ) : (
                      <>
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
+                            <label className="text-sm text-slate-600 block">{t('airProperties.temperature')}</label>
                             <NumberInputWithControls value={airProps.temp} onChange={(val) => handleInletChange('temp', val)} unitType="temperature" unitSystem={unitSystem} />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-slate-700 block">{t('airProperties.rh')}</label>
+                            <label className="text-sm text-slate-600 block">{t('airProperties.rh')}</label>
                             <NumberInputWithControls value={airProps.rh} onChange={(val) => handleInletChange('rh', val)} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                         </div>
                     </>
                 )}
-                 <hr className="my-2 border-slate-300" />
+                 <hr className="my-2 border-blue-100/30" />
                 <div className="flex justify-between items-center">
-                    <span className="text-sm">{t('airProperties.abs_humidity')}</span>
+                    <span className="text-sm text-slate-600">{t('airProperties.abs_humidity')}</span>
                     <DisplayValueWithUnit value={calculatedProps.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={isOutlet ? outletAbsHumidityTooltip : inletAbsHumidityTooltip} />
                 </div>
                 <div className="flex justify-between items-center">
-                    <span className="text-sm">{t('airProperties.enthalpy')}</span>
+                    <span className="text-sm text-slate-600">{t('airProperties.enthalpy')}</span>
                     <DisplayValueWithUnit value={calculatedProps.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={isOutlet ? outletEnthalpyTooltip : inletEnthalpyTooltip} />
                 </div>
             </div>
@@ -618,8 +618,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
     );
     
     return (
-        <div id={`equipment-${id}`} className={`p-4 rounded-lg shadow-md border-2 ${bgColor} ${color}`}>
-             <div className="flex justify-between items-start mb-4">
+        <div id={`equipment-${id}`} className={`p-6 rounded-2xl shadow-sm border-2 ${bgColor} ${color} border-opacity-30`}>
+             <div className="flex justify-between items-start mb-6">
                 <h2 className="text-xl font-semibold">{index + 1}. {equipment.name || t(`equipmentNames.${type}`)}</h2>
                 <div className="flex items-center gap-2">
                      <button
@@ -645,8 +645,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             <>
                 {type === EquipmentType.FILTER ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
-                        <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 p-4 bg-white rounded-lg shadow-inner border border-slate-200">
-                            <h3 className="font-semibold mb-2">{t('equipment.airConditions')}</h3>
+                        <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 p-4 bg-white/40 rounded-2xl shadow-inner border border-white/50">
+                            <h3 className="font-semibold mb-2 text-slate-700">{t('equipment.airConditions')}</h3>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center py-1">
                                     <span className="text-sm">{t('airProperties.temperature')}</span>
@@ -669,8 +669,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                 </div>
                             </div>
                         </div>
-                         <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
-                            <h3 className="font-semibold mb-2">{t('equipment.conditions')}</h3>
+                         <div className="p-4 bg-white/40 rounded-2xl shadow-inner border border-white/50">
+                            <h3 className="font-semibold mb-2 text-slate-700">{t('equipment.conditions')}</h3>
                             <div className="space-y-3">
                                 <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.width')}</label><NumberInputWithControls value={(conditions as FilterConditions).width ?? null} onChange={(val) => handleConditionChange('width', val)} unitType="length" unitSystem={unitSystem} /></div>
                                 <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('conditions.height')}</label><NumberInputWithControls value={(conditions as FilterConditions).height ?? null} onChange={(val) => handleConditionChange('height', val)} unitType="length" unitSystem={unitSystem} /></div>
@@ -679,8 +679,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                 <div className="flex flex-col gap-1"><label className="text-sm text-slate-700 block">{t('equipment.pressureLoss')}</label><NumberInputWithControls value={pressureLoss} onChange={handlePressureLossChange} unitType="pressure" unitSystem={unitSystem} /></div>
                             </div>
                         </div>
-                        <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
-                            <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
+                        <div className="p-4 bg-white/40 rounded-2xl shadow-inner border border-white/50">
+                            <h3 className="font-semibold mb-2 text-slate-700">{t('equipment.results')}</h3>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center"><span className="text-sm">{t('results.faceVelocity')}</span><DisplayValueWithUnit value={(results as FilterResults).faceVelocity} unitType="velocity" unitSystem={unitSystem} tooltipContent={filterFaceVelocityTooltip} /></div>
                                 <div className="flex justify-between items-center"><span className="text-sm">{t('results.treatedAirflowPerSheet')}</span><DisplayValueWithUnit value={(results as FilterResults).treatedAirflowPerSheet} unitType="airflow_per_sheet" unitSystem={unitSystem} tooltipContent={filterAirflowPerSheetTooltip} /></div>
@@ -691,8 +691,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
                         {renderAirProperties(inletAir, currentInletAirCalculated, t('equipment.inletAir'))}
                         {renderAirProperties(outletAir, outletAir, t('equipment.outletAir'), true)}
-                         <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
-                            <h3 className="font-semibold mb-2">{t('equipment.conditions')}</h3>
+                         <div className="p-4 bg-white/40 rounded-2xl shadow-inner border border-white/50">
+                            <h3 className="font-semibold mb-2 text-slate-700">{t('equipment.conditions')}</h3>
                             <div className="space-y-3">
                                 {type === EquipmentType.BURNER && (
                                     <>
@@ -786,8 +786,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                 )}
                             </div>
                         </div>
-                        <div className="p-4 bg-white rounded-lg shadow-inner border border-slate-200">
-                            <h3 className="font-semibold mb-2">{t('equipment.results')}</h3>
+                        <div className="p-4 bg-white/40 rounded-2xl shadow-inner border border-white/50">
+                            <h3 className="font-semibold mb-2 text-slate-700">{t('equipment.results')}</h3>
                             <div className="space-y-2">
                                 {type === EquipmentType.BURNER && (<>
                                     <div className="flex justify-between items-center"><span className="text-sm">{t('results.heatLoad')}</span><DisplayValueWithUnit value={(results as BurnerResults).heatLoad_kW} unitType="heat_load" unitSystem={unitSystem} tooltipContent={burnerHeatLoadTooltip} /></div>
