@@ -18,6 +18,7 @@
     "collapseAll": "すべてたたむ",
     "toggleExpand": "展開/折りたたみを切り替え",
     "summary": "サマリー",
+    "calculationDetails": "計算詳細",
     "configuration": "設定",
     "noEquipmentAdded": "機器が追加されていません。",
     "pressureLoss": "圧力損失",
@@ -506,14 +507,25 @@
     },
     "hot_water_washer": {
       "heatLoad": {
-        "title": "熱負荷",
+        "title": "空気側熱負荷",
         "si": {
-          "formula": "Q = G * (h_out - h_in)",
-          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h": "比エンタルピー (kJ/kg)" }
+          "formula": "Q_air = G * (h_out - h_in)",
+          "legend": { "Q_air": "空気側熱負荷 (kW)", "G": "質量流量 (kg/s)", "h": "比エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = q * 4.5 * (h_out - h_in)",
-          "legend": { "Q_BTUh": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h": "比エンタルピー (BTU/lb)" }
+          "formula": "Q_air = q * 4.5 * (h_out - h_in)",
+          "legend": { "Q_air": "空気側熱負荷 (BTU/h)", "q": "風量 (CFM)", "h": "比エンタルピー (BTU/lb)" }
+        }
+      },
+      "makeupWaterHeatingLoad": {
+        "title": "補給水加熱負荷",
+        "si": {
+          "formula": "Q_water = M * Cp * (T_hw - T_m)",
+          "legend": { "Q_water": "水側加熱負荷 (kW)", "M": "加湿量 (kg/s)", "Cp": "水の比熱 (4.186 kJ/kgK)", "T_hw": "温水入口温度 (°C)", "T_m": "補給水温度 (°C)" }
+        },
+        "imperial": {
+          "formula": "Q_water = M_lbh * 1.0 * (T_hw - T_m)",
+          "legend": { "Q_water": "水側加熱負荷 (BTU/h)", "M_lbh": "加湿量 (lb/h)", "Cp": "水の比熱 (1.0 BTU/lb°F)", "T_hw": "温水入口温度 (°F)", "T_m": "補給水温度 (°F)" }
         }
       }
     },

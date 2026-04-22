@@ -3,7 +3,7 @@ import React from 'react';
 import { UnitSystem, UnitType } from '../types';
 import { convertValue, formatNumber } from '../utils/conversions.ts';
 import { useLanguage } from '../i18n/index.ts';
-import Tooltip from './Tooltip.tsx';
+import FormulaModalTrigger from './FormulaModalTrigger.tsx';
 
 interface DisplayValueWithUnitProps {
     value: number | null | undefined;
@@ -38,7 +38,11 @@ const DisplayValueWithUnit: React.FC<DisplayValueWithUnitProps> = ({ value, unit
 
     return (
         <div className="flex flex-col items-end gap-0">
-            {tooltipContent ? <Tooltip content={tooltipContent}>{mainDisplay}</Tooltip> : mainDisplay}
+            {tooltipContent ? (
+                <FormulaModalTrigger content={tooltipContent}>
+                    {mainDisplay}
+                </FormulaModalTrigger>
+            ) : mainDisplay}
             {needsConversion && !compact && secondaryDisplayValue !== null && !isNaN(secondaryDisplayValue) && (
                 <div className="text-xs text-slate-500 text-right pt-0.5">
                     {unitType === 'pressure' && mmAqValue !== null ? (

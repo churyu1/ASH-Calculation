@@ -435,7 +435,7 @@ const runFullCalculation = (
                             }
                             
                             if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null && newOutletAir.absHumidity !== null) {
-                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
+                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * Math.abs(newOutletAir.enthalpy - inletEnthalpy);
                                 const coldWaterSideHeatLoad_kW = (coilEfficiency > 0) ? Math.abs(airSideHeatLoad_kW) / (coilEfficiency / 100) : 0;
                                 const dehumidification_kg_s = massFlowRateDA_kg_s * (inletAbsHum - newOutletAir.absHumidity) / 1000;
                                 
@@ -469,7 +469,7 @@ const runFullCalculation = (
                             const clampedOutletTemp = Math.max(inletTemp, userOutletTemp);
                             newOutletAir = calculateAirProperties(clampedOutletTemp, null, atmPressure, inletAbsHum);
                             if (massFlowRateDA_kg_s > 0 && newOutletAir.enthalpy !== null) {
-                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * (newOutletAir.enthalpy - inletEnthalpy);
+                                const airSideHeatLoad_kW = massFlowRateDA_kg_s * Math.abs(newOutletAir.enthalpy - inletEnthalpy);
                                 const hotWaterSideHeatLoad_kW = (coilEfficiency > 0) ? Math.abs(airSideHeatLoad_kW) / (coilEfficiency / 100) : 0;
                                 const waterTempDiff = hotWaterInletTemp - hotWaterOutletTemp;
                                 const hotWaterFlow_L_min = waterTempDiff > 0 ? (hotWaterSideHeatLoad_kW / (4.186 * waterTempDiff)) * 60 : 0;
@@ -513,6 +513,7 @@ const runFullCalculation = (
                                     sprayAmount_L_min: massFlowRateDA_kg_s * waterToAirRatio * 60,
                                     humidificationEfficiency: Math.max(0, Math.min(100, humidificationEfficiency)),
                                     heatLoad_kW: heatLoad_kW_spray,
+                                    x_sat_g_kg: finalWSat,
                                 } as SprayWasherResults;
                             } else {
                                 newResults = {
@@ -562,7 +563,8 @@ const runFullCalculation = (
                                     sprayAmount_L_min: massFlowRateDA_kg_s * waterToAirRatio * 60,
                                     humidificationEfficiency: efficiency,
                                     heatLoad_kW: heatLoad_kW,
-                                    makeupWaterHeatingLoad_kW: makeupWaterHeatingLoad_kW
+                                    makeupWaterHeatingLoad_kW: makeupWaterHeatingLoad_kW,
+                                    x_sat_g_kg: maxAbsHum,
                                 } as HotWaterWasherResults;
                             }
                         }
@@ -1122,6 +1124,11 @@ const App: React.FC = () => {
         return calculateAirProperties(activeProject.acInletAir.temp, activeProject.acInletAir.rh, atmPressure);
     }, [activeProject]);
 
+    const systemMassFlowRateDA_kg_s = useMemo(() => {
+        if (!activeProject || activeProject.airflow === null || acInletCalculated.density === null) return 0;
+        return (activeProject.airflow / 60) * acInletCalculated.density;
+    }, [activeProject?.airflow, acInletCalculated.density]);
+
     const acInletAbsHumidityTooltip = useMemo(() => {
         if (!activeProject || acInletCalculated.temp === null || acInletCalculated.rh === null) return null;
         const { temp, rh } = acInletCalculated;
@@ -1130,12 +1137,14 @@ const App: React.FC = () => {
         const values = unitSystem === UnitSystem.IMPERIAL ? {
             't_f': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
             'rh': { value: rh, unit: '%' },
-            'P_v': { value: P_v, unit: 'Pa' } 
+            'P_v': { value: P_v, unit: 'Pa' },
+            'x': { value: convertValue(acInletCalculated.absHumidity ?? null, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
         } : {
             't': { value: temp, unit: '°C' },
             'rh': { value: rh, unit: '%' },
             'P_sat': { value: P_sat, unit: 'Pa' },
-            'P_v': { value: P_v, unit: 'Pa' }
+            'P_v': { value: P_v, unit: 'Pa' },
+            'x': { value: acInletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [acInletCalculated, locale, unitSystem, t]);
@@ -1145,10 +1154,12 @@ const App: React.FC = () => {
         const formulaPath = 'tooltips.airProperties.enthalpyFromTX';
         const values = unitSystem === UnitSystem.IMPERIAL ? {
             't': { value: convertValue(acInletCalculated.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
-            'x': { value: convertValue(acInletCalculated.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
+            'x': { value: convertValue(acInletCalculated.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+            'h': { value: convertValue(acInletCalculated.enthalpy ?? null, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' }
         } : {
             't': { value: acInletCalculated.temp, unit: '°C' },
-            'x': { value: acInletCalculated.absHumidity, unit: 'g/kg(DA)' }
+            'x': { value: acInletCalculated.absHumidity, unit: 'g/kg(DA)' },
+            'h': { value: acInletCalculated.enthalpy, unit: 'kJ/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [acInletCalculated, locale, unitSystem, t]);
@@ -1167,12 +1178,14 @@ const App: React.FC = () => {
         const values = unitSystem === UnitSystem.IMPERIAL ? {
             't_f': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
             'rh': { value: rh, unit: '%' },
-            'P_v': { value: P_v, unit: 'Pa' }
+            'P_v': { value: P_v, unit: 'Pa' },
+            'x': { value: convertValue(acOutletCalculated.absHumidity ?? null, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
         } : {
             't': { value: temp, unit: '°C' },
             'rh': { value: rh, unit: '%' },
             'P_sat': { value: P_sat, unit: 'Pa' },
-            'P_v': { value: P_v, unit: 'Pa' }
+            'P_v': { value: P_v, unit: 'Pa' },
+            'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [acOutletCalculated, locale, unitSystem, t]);
@@ -1182,10 +1195,12 @@ const App: React.FC = () => {
         const formulaPath = 'tooltips.airProperties.enthalpyFromTX';
         const values = unitSystem === UnitSystem.IMPERIAL ? {
             't': { value: convertValue(acOutletCalculated.temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
-            'x': { value: convertValue(acOutletCalculated.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
+            'x': { value: convertValue(acOutletCalculated.absHumidity, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' },
+            'h': { value: convertValue(acOutletCalculated.enthalpy ?? null, 'enthalpy', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'BTU/lb' }
         } : {
             't': { value: acOutletCalculated.temp, unit: '°C' },
-            'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' }
+            'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' },
+            'h': { value: acOutletCalculated.enthalpy, unit: 'kJ/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
     }, [acOutletCalculated, locale, unitSystem, t]);
@@ -1363,6 +1378,7 @@ const App: React.FC = () => {
                                                 index={activeProject.equipmentList.findIndex(e => e.id === selectedEquipment.id)}
                                                 totalEquipment={activeProject.equipmentList.length}
                                                 airflow={activeProject.airflow}
+                                                systemMassFlowRateDA_kg_s={systemMassFlowRateDA_kg_s}
                                                 altitude={activeProject.altitude}
                                                 onUpdate={updateEquipment}
                                                 onDelete={deleteEquipment}

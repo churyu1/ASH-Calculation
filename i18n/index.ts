@@ -21,6 +21,7 @@ const enMessages = {
     "collapseAll": "Collapse All",
     "toggleExpand": "Toggle expand/collapse",
     "summary": "Summary",
+    "calculationDetails": "Calculation Details",
     "configuration": "Configuration",
     "noEquipmentAdded": "No equipment added.",
     "pressureLoss": "Pressure Loss",
@@ -482,11 +483,11 @@ const enMessages = {
         "title": "Humidification Efficiency",
         "si": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
-          "legend": { "η": "Efficiency (%)", "x": "Abs. Hum. (g/kg)", "x_sat": "Sat. Abs. Hum. (g/kg)" }
+          "legend": { "η": "Efficiency (%)", "x_in": "Inlet Abs. Hum. (g/kg)", "x_out": "Outlet Abs. Hum. (g/kg)", "x_sat": "Sat. Abs. Hum. (g/kg)" }
         },
         "imperial": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
-          "legend": { "η": "Efficiency (%)", "x": "Abs. Hum. (gr/lb)", "x_sat": "Sat. Abs. Hum. (gr/lb)" }
+          "legend": { "η": "Efficiency (%)", "x_in": "Inlet Abs. Hum. (gr/lb)", "x_out": "Outlet Abs. Hum. (gr/lb)", "x_sat": "Sat. Abs. Hum. (gr/lb)" }
         }
       },
       "outletTemp": {
@@ -666,6 +667,7 @@ const jaMessages = {
     "collapseAll": "すべてたたむ",
     "toggleExpand": "展開/折りたたみを切り替え",
     "summary": "サマリー",
+    "calculationDetails": "計算詳細",
     "configuration": "設定",
     "noEquipmentAdded": "機器が追加されていません。",
     "pressureLoss": "圧力損失",
@@ -1127,11 +1129,11 @@ const jaMessages = {
         "title": "加湿効率",
         "si": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
-          "legend": { "η": "効率 (%)", "x": "絶対湿度 (g/kg)", "x_sat": "飽和絶対湿度 (g/kg)" }
+          "legend": { "η": "効率 (%)", "x_in": "入口絶対湿度 (g/kg)", "x_out": "出口絶対湿度 (g/kg)", "x_sat": "飽和絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
-          "legend": { "η": "効率 (%)", "x": "絶対湿度 (gr/lb)", "x_sat": "飽和絶対湿度 (gr/lb)" }
+          "legend": { "η": "効率 (%)", "x_in": "入口絶対湿度 (gr/lb)", "x_out": "出口絶対湿度 (gr/lb)", "x_sat": "飽和絶対湿度 (gr/lb)" }
         }
       },
       "outletTemp": {

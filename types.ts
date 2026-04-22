@@ -121,6 +121,7 @@ export interface SprayWasherResults extends BaseResults {
     sprayAmount_L_min?: number;
     humidificationEfficiency?: number;
     heatLoad_kW?: number;
+    x_sat_g_kg?: number;
 }
 
 export interface HotWaterWasherResults extends BaseResults {
@@ -129,6 +130,7 @@ export interface HotWaterWasherResults extends BaseResults {
     humidificationEfficiency?: number;
     heatLoad_kW?: number;
     makeupWaterHeatingLoad_kW?: number;
+    x_sat_g_kg?: number;
 }
 
 export interface SteamHumidifierResults extends BaseResults {
