@@ -7,6 +7,7 @@ import {
     Project, BurnerResults, CoolingCoilResults, FilterResults, HeatingCoilResults,
     SprayWasherResults, SteamHumidifierResults, FanResults, CustomResults
 } from './types';
+import { CloudUpload, Save } from 'lucide-react';
 import { EQUIPMENT_COLORS } from './constants.ts';
 import { calculateAirProperties, calculatePsat, calculateAbsoluteHumidity, calculateEnthalpy, calculateDewPoint, calculateAbsoluteHumidityFromEnthalpy, calculateRelativeHumidity, calculateDryAirDensity, PSYCH_CONSTANTS, calculateSteamProperties, calculateTempFromRhAndAbsHumidity, calculateAtmosphericPressure } from './services/psychrometrics.ts';
 import { useLanguage } from './i18n/index.ts';
@@ -1208,7 +1209,7 @@ const App: React.FC = () => {
     const selectedEquipment = useMemo(() => activeProject?.equipmentList.find(eq => eq.id === selectedEquipmentId), [activeProject, selectedEquipmentId]);
 
     const psychrometricChartSection = activeProject && (
-        <div id="psychrometric-chart" className="p-4 bg-white/70 rounded-2xl shadow-sm border border-white backdrop-blur-sm">
+        <div id="psychrometric-chart" className="p-4 bg-white rounded-lg shadow-md">
             <h2 className="text-xl font-semibold mb-4">{t('app.psychrometricChart')}</h2>
             <PsychrometricChart 
                 airConditionsData={equipmentForChart} 
@@ -1225,8 +1226,8 @@ const App: React.FC = () => {
     const disclaimerContent = t('app.disclaimerContent');
 
     return (
-        <div className="min-h-screen p-4 font-sans text-slate-800 bg-gradient-to-br from-blue-50 via-white to-blue-50">
-            <div className="max-w-screen-2xl mx-auto p-6 rounded-3xl shadow-xl bg-white/80 backdrop-blur-sm border border-white/50">
+        <div className="min-h-screen p-4 font-sans text-slate-800 bg-slate-100">
+            <div className="max-w-screen-2xl mx-auto p-6 rounded-lg shadow-xl bg-slate-50">
                 <header className="mb-6">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h1 className="text-3xl font-bold text-slate-900">{t('app.title')}</h1>
@@ -1255,15 +1256,11 @@ const App: React.FC = () => {
                                 {unitSystem === UnitSystem.SI ? 'SI' : 'IP'}
                             </button>
                             <button onClick={triggerFileSelect} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg shadow-sm hover:bg-slate-100 transition-colors text-sm font-medium flex items-center justify-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
+                                <CloudUpload className="h-5 w-5 text-slate-500" />
                                 {t('app.importConfig')}
                             </button>
                             <button onClick={handleExport} className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg shadow-sm hover:bg-slate-100 transition-colors text-sm font-medium flex items-center justify-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
+                                <Save className="h-5 w-5 text-slate-500" />
                                 {t('app.exportConfig')}
                             </button>
                             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="application/json" />
@@ -1298,57 +1295,57 @@ const App: React.FC = () => {
                         <div className={`grid gap-6 items-start ${isTwoColumnLayout ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
                             {/* Left Column: Settings and Equipment Details */}
                             <div className="space-y-6">
-                                <div id="global-settings" className="p-4 bg-white/60 rounded-2xl shadow-sm border border-white">
-                                    <h2 className="text-xl font-semibold mb-4 text-slate-800">{t('app.configuration')}</h2>
+                                <div id="global-settings" className="p-4 bg-white rounded-lg shadow-md">
+                                    <h2 className="text-xl font-semibold mb-4">{t('app.configuration')}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="p-4 bg-blue-50/40 rounded-2xl shadow-inner border border-blue-100/50 md:col-span-2">
+                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200 md:col-span-2">
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                                                 <div>
-                                                    <h3 className="font-semibold mb-2 text-slate-700">{t('app.systemAirflow')}</h3>
+                                                    <h3 className="font-semibold mb-2">{t('app.systemAirflow')}</h3>
                                                     <NumberInputWithControls value={activeProject.airflow} onChange={handleAirflowChange} unitType="airflow" unitSystem={unitSystem} step={10} min={0} />
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-semibold mb-2 text-slate-700">{t('app.altitude')}</h3>
+                                                    <h3 className="font-semibold mb-2">{t('app.altitude')}</h3>
                                                     <NumberInputWithControls value={activeProject.altitude} onChange={handleAltitudeChange} unitType="altitude" unitSystem={unitSystem} step={100} min={0} />
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-blue-50/40 rounded-2xl shadow-inner border border-blue-100/50">
-                                            <h3 className="font-semibold mb-2 text-slate-700">{t('app.acInletConditions')}</h3>
+                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
+                                            <h3 className="font-semibold mb-2">{t('app.acInletConditions')}</h3>
                                             <div className="space-y-3">
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-sm text-slate-600 block">{t('airProperties.temperature')}</label>
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
                                                     <NumberInputWithControls value={activeProject.acInletAir.temp} onChange={handleAcInletTempChange} unitType="temperature" unitSystem={unitSystem} />
                                                 </div>
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-sm text-slate-600 block">{t('airProperties.rh')}</label>
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.rh')}</label>
                                                     <NumberInputWithControls value={activeProject.acInletAir.rh} onChange={handleAcInletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                                                 </div>
-                                                <hr className="my-2 border-blue-100/50" />
-                                                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acInletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} /></div>
-                                                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acInletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
+                                                <hr className="my-2 border-slate-300" />
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acInletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acInletAbsHumidityTooltip} /></div>
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acInletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-blue-50/40 rounded-2xl shadow-inner border border-blue-100/50">
-                                            <h3 className="font-semibold mb-2 text-slate-700">{t('app.acOutletConditions')}</h3>
+                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
+                                            <h3 className="font-semibold mb-2">{t('app.acOutletConditions')}</h3>
                                             <div className="space-y-3">
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-sm text-slate-600 block">{t('airProperties.temperature')}</label>
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
                                                     <NumberInputWithControls value={activeProject.acOutletAir.temp} onChange={handleAcOutletTempChange} unitType="temperature" unitSystem={unitSystem} />
                                                 </div>
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-sm text-slate-600 block">{t('airProperties.rh')}</label>
+                                                    <label className="text-sm text-slate-700 block">{t('airProperties.rh')}</label>
                                                     <NumberInputWithControls value={activeProject.acOutletAir.rh} onChange={handleAcOutletRHChange} unitType="rh" unitSystem={unitSystem} min={0} max={100} />
                                                 </div>
-                                                <hr className="my-2 border-blue-100/50" />
-                                                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/></div>
-                                                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip}/></div>
+                                                <hr className="my-2 border-slate-300" />
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.abs_humidity')}</span><DisplayValueWithUnit value={acOutletCalculated.absHumidity} unitType="abs_humidity" unitSystem={unitSystem} tooltipContent={acOutletAbsHumidityTooltip}/></div>
+                                                <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acOutletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acOutletEnthalpyTooltip}/></div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div id="add-equipment" className="p-4 bg-white/60 rounded-2xl shadow-sm border border-white">
-                                    <h2 className="text-xl font-semibold mb-4 text-slate-800">{t('app.addEquipment')}</h2>
+                                <div id="add-equipment" className="p-4 bg-white rounded-lg shadow-md">
+                                    <h2 className="text-xl font-semibold mb-4">{t('app.addEquipment')}</h2>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                         {equipmentButtons}
                                     </div>
@@ -1386,7 +1383,7 @@ const App: React.FC = () => {
                                             />
                                         </>
                                     ) : (
-                                        <div className="text-center py-10 text-slate-400 bg-white/40 rounded-2xl border border-white/50">
+                                        <div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-md">
                                             {activeProject.equipmentList.length > 0 ? t('app.selectEquipment') : t('app.noEquipmentAdded')}
                                         </div>
                                     )}
