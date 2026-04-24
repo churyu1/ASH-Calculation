@@ -30,8 +30,8 @@ const DisplayValueWithUnit: React.FC<DisplayValueWithUnitProps> = ({ value, unit
         : null;
 
     const mainDisplay = (
-        <div className={`flex items-center justify-end ${compact ? 'gap-0.5' : 'gap-1'}`}>
-            <span className={`${valueClassName} ${compact ? 'text-xs' : 'font-bold'}`}>{formatNumber(displayValue)}</span>
+        <div className={`flex items-center justify-end ${compact ? 'gap-0.5' : 'gap-1'} ${tooltipContent ? 'cursor-pointer p-0.5 -m-0.5 rounded transition-all hover:bg-slate-100/80 hover:shadow-sm' : ''}`}>
+            <span className={`${valueClassName} ${compact ? 'text-xs' : 'font-bold'} ${tooltipContent ? 'border-b border-dashed border-slate-400' : ''}`}>{formatNumber(displayValue)}</span>
             <span className={`${compact ? 'text-[10px] w-auto' : 'text-sm w-auto'} text-left pl-1`}>{displayUnit}</span>
         </div>
     );

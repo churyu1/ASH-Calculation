@@ -38,6 +38,12 @@ const FormulaTooltipContent: React.FC<FormulaTooltipContentProps> = ({ title, fo
         const formattedVal = formatNumber(data.value);
         if (regex.test(substituted)) {
           substituted = substituted.replace(regex, formattedVal);
+          
+          // Special case: if we just replaced P_sat with a value, and it's followed by (something), remove the (something)
+          if (symbol === 'P_sat') {
+            substituted = substituted.replace(new RegExp(`${formattedVal}\\([^)]*\\)`, 'g'), formattedVal);
+          }
+          
           hasReplaced = true;
         }
       }

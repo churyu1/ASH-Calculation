@@ -730,7 +730,7 @@ const jaMessages = {
     "cooling_coil": "冷水コイルは空気を冷却・除湿します。\n・空気線図上の動き: 左下方向に変化します。\n・プロセス: 空気の状態は、入口空気点と装置露点温度(ADP)を結ぶ線に沿って変化します。バイパスファクター(BF)は、コイルを通過せずに状態が変化しない空気の割合を示します。\n・熱交換効率: このパラメータは、コイルケーシングを介して周囲の空気から冷水への熱の侵入(熱取得)を考慮します。効率が100%未満の場合、水側の熱負荷は空気側の熱負荷よりも大きくなります。",
     "heating_coil": "温水コイルは空気を加熱します。このプロセスは顕熱のみを加えます。\n・空気線図上の動き: 水平右方向に変化します(絶対湿度は一定)。\n・熱交換効率: このパラメータは、コイルケーシングから周囲の空気への熱の損失を考慮します。効率が100%未満の場合、温水は空気が得る熱負荷よりも多くの熱を放出する必要があります。",
     "spray_washer": "スプレーワッシャーは、水を噴霧して空気を断熱的に加湿・冷却します。\n・空気線図上の動き: 等エンタルピー線に沿って左上方向に変化します。\n・プロセス: このプロセスではエンタルピーがほぼ一定に保たれます。",
-    "hot_water_washer": "温水ワッシャーは、温水を噴霧して空気を加熱・加湿します。\n・空気線図上の動き: 右上方向に変化します。",
+    "hot_water_washer": "温水ワッシャーは、温水を噴霧して空気を加熱・加湿します。\n・空気線図上の動き: 右上方向に変化します。\n・プロセス: 温水との接触により、空気は温水温度における飽和状態に向かって変化します。",
     "steam_humidifier": "蒸気加湿器は、蒸気を直接吹き込むことで空気を加湿・加熱します。\n・空気線図上の動き: 右上方向に変化します。",
     "fan": "ファンは空気を送風します。モーターと送風機の効率により、エネルギーの一部が熱に変換され、空気をわずかに加熱します。これは顕熱のみのプロセスです。\n・空気線図上の動き: 水平右方向にわずかに変化します(絶対湿度は一定)。",
     "custom": "カスタム機器では、入口と出口の空気条件をユーザーが自由に設定できます。これにより、特定の計算や、リストにない機器のシミュレーションが可能です。"
@@ -749,7 +749,6 @@ const jaMessages = {
     "hotWaterOutletTemp": "温水出口温度",
     "humidificationEfficiency": "加湿効率",
     "waterToAirRatio": "水空気比 (L/G)",
-    "makeupWaterTemp": "補給水温度",
     "steamGaugePressure": "蒸気ゲージ圧",
     "motorOutput": "モーター出力",
     "motorEfficiency": "モーター効率"
@@ -766,7 +765,6 @@ const jaMessages = {
     "hotWaterSideHeatLoad": "温水側熱負荷",
     "hotWaterFlow_L_min": "温水流量",
     "humidification_L_min": "加湿量",
-    "makeupWaterHeatingLoad_kW": "補給水加熱負荷",
     "sprayAmount_L_min": "噴霧量",
     "requiredSteamAmount": "必要蒸気量",
     "steamAbsolutePressure": "蒸気絶対圧",
@@ -964,8 +962,8 @@ const jaMessages = {
           "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
-          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "formula": "Q_BTUh = G * (h_out - h_in)",
+          "legend": { "Q_BTUh": "熱負荷 (BTU/h)", "G": "質量流量 (lb/h)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
       "gasFlowRate": {
@@ -1007,8 +1005,8 @@ const jaMessages = {
           "legend": { "Q": "熱量 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 4.5 * q * |h_in - h_out|",
-          "legend": { "Q": "熱量 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "formula": "Q_BTUh = G * |h_in - h_out|",
+          "legend": { "Q_BTUh": "熱量 (BTU/h)", "G": "質量流量 (lb/h)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
       "waterSideHeatLoad_heating": {
@@ -1051,8 +1049,11 @@ const jaMessages = {
           "legend": { "D": "除湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
-          "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
-          "legend": { "D_gpm": "除湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "formula": [
+            "W_lbh = G * |x_in - x_out| / 7000",
+            "D_gpm = W_lbh / (60 * 8.34)"
+          ],
+          "legend": { "D_gpm": "除湿量 (GPM)", "W_lbh": "除湿量 (lb/h)", "G": "質量流量 (lb/h)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "bypassFactor": {
@@ -1110,8 +1111,11 @@ const jaMessages = {
           "legend": { "M": "加湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
-          "formula": "M_gpm = (q*4.5*(x_out-x_in))/(7000*8.34)",
-          "legend": { "M_gpm": "加湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "formula": [
+            "W_lbh = G * (x_out - x_in) / 7000",
+            "M_gpm = W_lbh / (60 * 8.34)"
+          ],
+          "legend": { "M_gpm": "加湿量 (GPM)", "W_lbh": "加湿量 (lb/h)", "G": "質量流量 (lb/h)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "sprayAmount": {
@@ -1121,19 +1125,19 @@ const jaMessages = {
           "legend": { "S": "噴霧量 (L/min)", "G": "質量流量 (kg/s)", "L/G": "水空気比" }
         },
         "imperial": {
-          "formula": "S_gpm = (q * ρ * (L/G)) / 8.34",
-          "legend": { "S_gpm": "噴霧量 (GPM)", "q": "風量 (CFM)", "ρ": "空気密度 (~0.075 lb/ft³)", "L/G": "水空気比" }
+          "formula": "S_gpm = (G * (L/G)) / (60 * 8.34)",
+          "legend": { "S_gpm": "噴霧量 (GPM)", "G": "質量流量 (lb/h)", "L/G": "水空気比" }
         }
       },
       "humidificationEfficiency": {
         "title": "加湿効率",
         "si": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
-          "legend": { "η": "効率 (%)", "x_in": "入口絶対湿度 (g/kg)", "x_out": "出口絶対湿度 (g/kg)", "x_sat": "飽和絶対湿度 (g/kg)" }
+          "legend": { "η": "効率 (%)", "x": "絶対湿度 (g/kg)", "x_sat": "飽和絶対湿度 (g/kg)" }
         },
         "imperial": {
           "formula": "η = (x_out-x_in)/(x_sat-x_in)*100",
-          "legend": { "η": "効率 (%)", "x_in": "入口絶対湿度 (gr/lb)", "x_out": "出口絶対湿度 (gr/lb)", "x_sat": "飽和絶対湿度 (gr/lb)" }
+          "legend": { "η": "効率 (%)", "x": "絶対湿度 (gr/lb)", "x_sat": "飽和絶対湿度 (gr/lb)" }
         }
       },
       "outletTemp": {
@@ -1158,25 +1162,25 @@ const jaMessages = {
     },
     "hot_water_washer": {
       "heatLoad": {
-        "title": "熱負荷",
+        "title": "空気側熱負荷",
         "si": {
-          "formula": "Q = G * (h_out - h_in)",
-          "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h": "比エンタルピー (kJ/kg)" }
+          "formula": "Q_air = G * (h_out - h_in)",
+          "legend": { "Q_air": "空気側熱負荷 (kW)", "G": "質量流量 (kg/s)", "h": "比エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = q * 4.5 * (h_out - h_in)",
-          "legend": { "Q_BTUh": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h": "比エンタルピー (BTU/lb)" }
+          "formula": "Q_air = G * (h_out - h_in)",
+          "legend": { "Q_air": "空気側熱負荷 (BTU/h)", "G": "質量流量 (lb/h)", "h": "比エンタルピー (BTU/lb)" }
         }
       },
       "makeupWaterHeatingLoad": {
         "title": "補給水加熱負荷",
         "si": {
-          "formula": "Q_m = M * Cp * (T_hw - T_m)",
-          "legend": { "Q_m": "補給水加熱負荷 (kW)", "M": "加湿量 (kg/s)", "Cp": "水の比熱 (4.186 kJ/kg·K)", "T_hw": "温水温度 (°C)", "T_m": "補給水温度 (°C)" }
+          "formula": "Q_water = M * Cp * (T_hw - T_m)",
+          "legend": { "Q_water": "水側加熱負荷 (kW)", "M": "加湿量 (kg/s)", "Cp": "水の比熱 (4.186 kJ/kgK)", "T_hw": "温水入口温度 (°C)", "T_m": "補給水温度 (°C)" }
         },
         "imperial": {
-          "formula": "Q_m_BTUh = M_lbh * Cp * (T_hw - T_m)",
-          "legend": { "Q_m_BTUh": "補給水加熱負荷 (BTU/h)", "M_lbh": "加湿量 (lb/h)", "Cp": "水の比熱 (1.0 BTU/lb·°F)", "T_hw": "温水温度 (°F)", "T_m": "補給水温度 (°F)" }
+          "formula": "Q_water = M_lbh * 1.0 * (T_hw - T_m)",
+          "legend": { "Q_water": "水側加熱負荷 (BTU/h)", "M_lbh": "加湿量 (lb/h)", "Cp": "水の比熱 (1.0 BTU/lb°F)", "T_hw": "温水入口温度 (°F)", "T_m": "補給水温度 (°F)" }
         }
       }
     },
@@ -1205,8 +1209,8 @@ const jaMessages = {
           "legend": { "M": "蒸気量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
-          "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
-          "legend": { "M_lbh": "蒸気量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "formula": "M_lbh = G * (x_out - x_in) / 7000",
+          "legend": { "M_lbh": "蒸気量 (lb/h)", "G": "質量流量 (lb/h)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "steamAbsolutePressure": {
@@ -1251,8 +1255,8 @@ const jaMessages = {
                 "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "発熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気比熱 (~1.02 kJ/kg·K)" }
             },
             "imperial": {
-                "formula": "Δt = Q_BTUh / (1.08 * q)",
-                "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "発熱量 (BTU/h)", "q": "風量 (CFM)" }
+                "formula": "Δt = Q_BTUh / (G * Cpa_moist)",
+                "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "発熱量 (BTU/h)", "G": "質量流量 (lb/h)", "Cpa_moist": "湿り空気比熱 (~0.24 BTU/lb·°F)" }
             }
         }
     }

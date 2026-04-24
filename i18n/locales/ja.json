@@ -218,7 +218,7 @@
             "x = 7000 * (0.622*P_v) / (P_atm - P_v)"
           ],
           "legend": {
-            "x": "絶対湿度 (gr/lb)", "t_f": "温度 (°F)", "rh": "相対湿度 (%)",
+            "x": "絶対湿度 (gr/lb)", "t_f": "温度 (°F)", "t_c": "温度 (°C)", "rh": "相対湿度 (%)",
             "P_sat": "飽和水蒸気圧 (Pa)", "P_v": "水蒸気分圧 (Pa)", "P_atm": "大気圧 (101325 Pa)"
           }
         }
@@ -313,8 +313,8 @@
           "legend": { "Q": "熱負荷 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
-          "legend": { "Q": "熱負荷 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "formula": "Q_BTUh = G * (h_out - h_in)",
+          "legend": { "Q_BTUh": "熱負荷 (BTU/h)", "G": "質量流量 (lb/h)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
       "gasFlowRate": {
@@ -356,8 +356,8 @@
           "legend": { "Q": "熱量 (kW)", "G": "質量流量 (kg/s)", "h_in": "入口エンタルピー (kJ/kg)", "h_out": "出口エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 4.5 * q * |h_in - h_out|",
-          "legend": { "Q": "熱量 (BTU/h)", "q": "風量 (CFM)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
+          "formula": "Q_BTUh = G * |h_in - h_out|",
+          "legend": { "Q_BTUh": "熱量 (BTU/h)", "G": "質量流量 (lb/h)", "h_in": "入口エンタルピー (BTU/lb)", "h_out": "出口エンタルピー (BTU/lb)" }
         }
       },
       "waterSideHeatLoad_heating": {
@@ -400,8 +400,11 @@
           "legend": { "D": "除湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
-          "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
-          "legend": { "D_gpm": "除湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "formula": [
+            "W_lbh = G * |x_in - x_out| / 7000",
+            "D_gpm = W_lbh / (60 * 8.34)"
+          ],
+          "legend": { "D_gpm": "除湿量 (GPM)", "W_lbh": "除湿量 (lb/h)", "G": "質量流量 (lb/h)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "bypassFactor": {
@@ -459,8 +462,11 @@
           "legend": { "M": "加湿量 (L/min)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
-          "formula": "M_gpm = (q*4.5*(x_out-x_in))/(7000*8.34)",
-          "legend": { "M_gpm": "加湿量 (GPM)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "formula": [
+            "W_lbh = G * (x_out - x_in) / 7000",
+            "M_gpm = W_lbh / (60 * 8.34)"
+          ],
+          "legend": { "M_gpm": "加湿量 (GPM)", "W_lbh": "加湿量 (lb/h)", "G": "質量流量 (lb/h)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "sprayAmount": {
@@ -470,8 +476,8 @@
           "legend": { "S": "噴霧量 (L/min)", "G": "質量流量 (kg/s)", "L/G": "水空気比" }
         },
         "imperial": {
-          "formula": "S_gpm = (q * ρ * (L/G)) / 8.34",
-          "legend": { "S_gpm": "噴霧量 (GPM)", "q": "風量 (CFM)", "ρ": "空気密度 (~0.075 lb/ft³)", "L/G": "水空気比" }
+          "formula": "S_gpm = (G * (L/G)) / (60 * 8.34)",
+          "legend": { "S_gpm": "噴霧量 (GPM)", "G": "質量流量 (lb/h)", "L/G": "水空気比" }
         }
       },
       "humidificationEfficiency": {
@@ -513,8 +519,8 @@
           "legend": { "Q_air": "空気側熱負荷 (kW)", "G": "質量流量 (kg/s)", "h": "比エンタルピー (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_air = q * 4.5 * (h_out - h_in)",
-          "legend": { "Q_air": "空気側熱負荷 (BTU/h)", "q": "風量 (CFM)", "h": "比エンタルピー (BTU/lb)" }
+          "formula": "Q_air = G * (h_out - h_in)",
+          "legend": { "Q_air": "空気側熱負荷 (BTU/h)", "G": "質量流量 (lb/h)", "h": "比エンタルピー (BTU/lb)" }
         }
       },
       "makeupWaterHeatingLoad": {
@@ -554,8 +560,8 @@
           "legend": { "M": "蒸気量 (kg/h)", "G": "質量流量 (kg/s)", "x": "絶対湿度 (g/kg)" }
         },
         "imperial": {
-          "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
-          "legend": { "M_lbh": "蒸気量 (lb/h)", "q": "風量 (CFM)", "x": "絶対湿度 (gr/lb)" }
+          "formula": "M_lbh = G * (x_out - x_in) / 7000",
+          "legend": { "M_lbh": "蒸気量 (lb/h)", "G": "質量流量 (lb/h)", "x": "絶対湿度 (gr/lb)" }
         }
       },
       "steamAbsolutePressure": {
@@ -600,8 +606,8 @@
                 "legend": { "Δt": "温度上昇 (°C)", "Q_kW": "発熱量 (kW)", "G": "質量流量 (kg/s)", "Cpa_moist": "湿り空気比熱 (~1.02 kJ/kg·K)" }
             },
             "imperial": {
-                "formula": "Δt = Q_BTUh / (1.08 * q)",
-                "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "発熱量 (BTU/h)", "q": "風量 (CFM)" }
+                "formula": "Δt = Q_BTUh / (G * Cpa_moist)",
+                "legend": { "Δt": "温度上昇 (°F)", "Q_BTUh": "発熱量 (BTU/h)", "G": "質量流量 (lb/h)", "Cpa_moist": "湿り空気比熱 (~0.24 BTU/lb·°F)" }
             }
         }
     }

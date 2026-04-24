@@ -1119,11 +1119,15 @@ const App: React.FC = () => {
         </button>
     ));
 
+    const atmPressure = useMemo(() => {
+        if (!activeProject) return 101325;
+        return calculateAtmosphericPressure(activeProject.altitude);
+    }, [activeProject?.altitude]);
+
     const acInletCalculated = useMemo(() => {
         if (!activeProject) return { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
-        const atmPressure = calculateAtmosphericPressure(activeProject.altitude);
         return calculateAirProperties(activeProject.acInletAir.temp, activeProject.acInletAir.rh, atmPressure);
-    }, [activeProject]);
+    }, [activeProject, atmPressure]);
 
     const systemMassFlowRateDA_kg_s = useMemo(() => {
         if (!activeProject || activeProject.airflow === null || acInletCalculated.density === null) return 0;
@@ -1137,18 +1141,22 @@ const App: React.FC = () => {
         const P_sat = calculatePsat(temp), P_v = P_sat * (rh / 100); 
         const values = unitSystem === UnitSystem.IMPERIAL ? {
             't_f': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
+            't_c': { value: temp, unit: '°C' },
             'rh': { value: rh, unit: '%' },
+            'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: convertValue(acInletCalculated.absHumidity ?? null, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
         } : {
             't': { value: temp, unit: '°C' },
             'rh': { value: rh, unit: '%' },
             'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: acInletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
-    }, [acInletCalculated, locale, unitSystem, t]);
+    }, [acInletCalculated, locale, unitSystem, t, atmPressure]);
 
     const acInletEnthalpyTooltip = useMemo(() => {
         if (!activeProject) return null;
@@ -1167,9 +1175,8 @@ const App: React.FC = () => {
 
     const acOutletCalculated = useMemo(() => {
         if (!activeProject) return { temp: null, rh: null, absHumidity: null, enthalpy: null, density: null };
-        const atmPressure = calculateAtmosphericPressure(activeProject.altitude);
         return calculateAirProperties(activeProject.acOutletAir.temp, activeProject.acOutletAir.rh, atmPressure);
-    }, [activeProject]);
+    }, [activeProject, atmPressure]);
 
     const acOutletAbsHumidityTooltip = useMemo(() => {
         if (!activeProject || acOutletCalculated.temp === null || acOutletCalculated.rh === null) return null;
@@ -1178,18 +1185,22 @@ const App: React.FC = () => {
         const P_sat = calculatePsat(temp), P_v = P_sat * (rh / 100);
         const values = unitSystem === UnitSystem.IMPERIAL ? {
             't_f': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: '°F' },
+            't_c': { value: temp, unit: '°C' },
             'rh': { value: rh, unit: '%' },
+            'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: convertValue(acOutletCalculated.absHumidity ?? null, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: 'gr/lb' }
         } : {
             't': { value: temp, unit: '°C' },
             'rh': { value: rh, unit: '%' },
             'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: acOutletCalculated.absHumidity, unit: 'g/kg(DA)' }
         };
         return <FormulaTooltipContent title={t(formulaPath + '.title')} formula={t(formulaPath + '.' + unitSystem + '.formula')} legend={t(formulaPath + '.' + unitSystem + '.legend')} values={values} />;
-    }, [acOutletCalculated, locale, unitSystem, t]);
+    }, [acOutletCalculated, locale, unitSystem, t, atmPressure]);
 
     const acOutletEnthalpyTooltip = useMemo(() => {
         if (!activeProject) return null;

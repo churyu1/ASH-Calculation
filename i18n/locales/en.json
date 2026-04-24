@@ -218,7 +218,7 @@
             "x = 7000 * (0.622*P_v) / (P_atm - P_v)"
           ],
           "legend": {
-            "x": "Abs. Humidity (gr/lb)", "t_f": "Temp (°F)", "rh": "Rel. Humidity (%)",
+            "x": "Abs. Humidity (gr/lb)", "t_f": "Temp (°F)", "t_c": "Temp (°C)", "rh": "Rel. Humidity (%)",
             "P_sat": "Sat. Vapor Pressure (Pa)", "P_v": "Vapor Pressure (Pa)", "P_atm": "Atm. Pressure (101325 Pa)"
           }
         }
@@ -313,8 +313,8 @@
           "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "h_in": "Inlet Enthalpy (kJ/kg)", "h_out": "Outlet Enthalpy (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 4.5 * q * (h_out - h_in)",
-          "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
+          "formula": "Q_BTUh = G * (h_out - h_in)",
+          "legend": { "Q_BTUh": "Heat Load (BTU/h)", "G": "Mass Flow (lb/h)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
         }
       },
       "gasFlowRate": {
@@ -356,8 +356,8 @@
           "legend": { "Q": "Heat Load (kW)", "G": "Mass Flow (kg/s)", "h_in": "Inlet Enthalpy (kJ/kg)", "h_out": "Outlet Enthalpy (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_BTUh = 4.5 * q * |h_in - h_out|",
-          "legend": { "Q": "Heat Load (BTU/h)", "q": "Airflow (CFM)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
+          "formula": "Q_BTUh = G * |h_in - h_out|",
+          "legend": { "Q_BTUh": "Heat Load (BTU/h)", "G": "Mass Flow (lb/h)", "h_in": "Inlet Enthalpy (BTU/lb)", "h_out": "Outlet Enthalpy (BTU/lb)" }
         }
       },
       "waterSideHeatLoad_heating": {
@@ -400,8 +400,11 @@
           "legend": { "D": "Rate (L/min)", "G": "Mass Flow (kg/s)", "x": "Abs. Hum. (g/kg)" }
         },
         "imperial": {
-          "formula": "D_gpm = (q*4.5*|x_in-x_out|)/(7000*8.34)",
-          "legend": { "D_gpm": "Rate (GPM)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+          "formula": [
+            "W_lbh = G * |x_in - x_out| / 7000",
+            "D_gpm = W_lbh / (60 * 8.34)"
+          ],
+          "legend": { "D_gpm": "Rate (GPM)", "W_lbh": "Rate (lb/h)", "G": "Mass Flow (lb/h)", "x": "Abs. Hum. (gr/lb)" }
         }
       },
       "bypassFactor": {
@@ -459,8 +462,11 @@
           "legend": { "M": "Rate (L/min)", "G": "Mass Flow (kg/s)", "x": "Abs. Hum. (g/kg)" }
         },
         "imperial": {
-          "formula": "M_gpm = (q*4.5*(x_out-x_in))/(7000*8.34)",
-          "legend": { "M_gpm": "Rate (GPM)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+          "formula": [
+            "W_lbh = G * (x_out - x_in) / 7000",
+            "M_gpm = W_lbh / (60 * 8.34)"
+          ],
+          "legend": { "M_gpm": "Rate (GPM)", "W_lbh": "Rate (lb/h)", "G": "Mass Flow (lb/h)", "x": "Abs. Hum. (gr/lb)" }
         }
       },
       "sprayAmount": {
@@ -470,8 +476,8 @@
           "legend": { "S": "Amount (L/min)", "G": "Mass Flow (kg/s)", "L/G": "Water-Air Ratio" }
         },
         "imperial": {
-          "formula": "S_gpm = (q * ρ * (L/G)) / 8.34",
-          "legend": { "S_gpm": "Amount (GPM)", "q": "Airflow (CFM)", "ρ": "Air Density (~0.075 lb/ft³)", "L/G": "Water-Air Ratio" }
+          "formula": "S_gpm = (G * (L/G)) / (60 * 8.34)",
+          "legend": { "S_gpm": "Amount (GPM)", "G": "Mass Flow (lb/h)", "L/G": "Water-Air Ratio" }
         }
       },
       "humidificationEfficiency": {
@@ -513,8 +519,8 @@
           "legend": { "Q_air": "Air Side Heat Load (kW)", "G": "Mass Flow Rate (kg/s)", "h": "Specific Enthalpy (kJ/kg)" }
         },
         "imperial": {
-          "formula": "Q_air = q * 4.5 * (h_out - h_in)",
-          "legend": { "Q_air": "Air Side Heat Load (BTU/h)", "q": "Airflow (CFM)", "h": "Specific Enthalpy (BTU/lb)" }
+          "formula": "Q_air = G * (h_out - h_in)",
+          "legend": { "Q_air": "Air Side Heat Load (BTU/h)", "G": "Mass Flow (lb/h)", "h": "Specific Enthalpy (BTU/lb)" }
         }
       },
       "makeupWaterHeatingLoad": {
@@ -554,8 +560,8 @@
           "legend": { "M": "Rate (kg/h)", "G": "Mass Flow (kg/s)", "x": "Abs. Hum. (g/kg)" }
         },
         "imperial": {
-          "formula": "M_lbh = (q*4.5*(x_out-x_in))/7000",
-          "legend": { "M_lbh": "Rate (lb/h)", "q": "Airflow (CFM)", "x": "Abs. Hum. (gr/lb)" }
+          "formula": "M_lbh = G * (x_out - x_in) / 7000",
+          "legend": { "M_lbh": "Rate (lb/h)", "G": "Mass Flow (lb/h)", "x": "Abs. Hum. (gr/lb)" }
         }
       },
       "steamAbsolutePressure": {
@@ -600,8 +606,8 @@
           "legend": { "Δt": "Temp Rise (°C)", "Q_kW": "Heat (kW)", "G": "Mass Flow (kg/s)", "Cpa_moist": "Specific heat of moist air" }
         },
         "imperial": {
-          "formula": "Δt = Q_BTUh / (1.08 * q)",
-          "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "q": "Airflow (CFM)" }
+          "formula": "Δt = Q_BTUh / (G * Cpa_moist)",
+          "legend": { "Δt": "Temp Rise (°F)", "Q_BTUh": "Heat (BTU/h)", "G": "Mass Flow (lb/h)", "Cpa_moist": "Specific heat of moist air (~0.24 BTU/lb·°F)" }
         }
       },
       "outletTemp": {

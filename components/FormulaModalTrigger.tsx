@@ -18,8 +18,11 @@ const FormulaModalTrigger: React.FC<FormulaModalTriggerProps> = ({ content, chil
   return (
     <>
       <div
-        onClick={() => setIsOpen(true)}
-        className="cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
+        className="cursor-pointer"
       >
         {children}
       </div>

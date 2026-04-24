@@ -184,7 +184,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.burner.heatLoad';
         const heatLoad_kW = (results as BurnerResults).heatLoad_kW;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'h_in': { value: unitSystem === UnitSystem.SI ? inletAir.enthalpy : convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.enthalpy`) },
             'h_out': { value: unitSystem === UnitSystem.SI ? outletAir.enthalpy : convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.enthalpy`) },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
@@ -217,7 +217,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.coil.airSideHeatLoad';
         const airSideHeatLoad_kW = type === EquipmentType.COOLING_COIL ? (results as CoolingCoilResults).airSideHeatLoad_kW : (results as HeatingCoilResults).airSideHeatLoad_kW;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'h_in': { value: unitSystem === UnitSystem.SI ? inletAir.enthalpy : convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.enthalpy`) },
             'h_out': { value: unitSystem === UnitSystem.SI ? outletAir.enthalpy : convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.enthalpy`) },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
@@ -286,11 +286,12 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.coil.dehumidification';
         const dehumid_L_min = (results as CoolingCoilResults).dehumidification_L_min;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'x_in': { value: unitSystem === UnitSystem.SI ? inletAir.absHumidity : convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.abs_humidity`) },
             'x_out': { value: unitSystem === UnitSystem.SI ? outletAir.absHumidity : convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.abs_humidity`) },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
             'D': { value: dehumid_L_min, unit: 'L/min' },
+            'W_lbh': { value: convertValue(dehumid_L_min ?? null, 'water_flow', UnitSystem.SI, UnitSystem.IMPERIAL)! * 60 * 8.34, unit: 'lb/h' },
             'D_gpm': { value: unitSystem === UnitSystem.SI ? dehumid_L_min : convertValue(dehumid_L_min ?? null, 'water_flow', UnitSystem.SI, unitSystem), unit: unitSystem === UnitSystem.SI ? 'L/min' : 'GPM' },
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
@@ -343,11 +344,12 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.spray_washer.humidification';
         const humid_L_min = type === EquipmentType.SPRAY_WASHER ? (results as SprayWasherResults).humidification_L_min : (results as HotWaterWasherResults).humidification_L_min;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'x_in': { value: unitSystem === UnitSystem.SI ? inletAir.absHumidity : convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.abs_humidity`) },
             'x_out': { value: unitSystem === UnitSystem.SI ? outletAir.absHumidity : convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.abs_humidity`) },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
             'M': { value: humid_L_min, unit: 'L/min' },
+            'W_lbh': { value: convertValue(humid_L_min ?? null, 'water_flow', UnitSystem.SI, UnitSystem.IMPERIAL)! * 60 * 8.34, unit: 'lb/h' },
             'M_gpm': { value: unitSystem === UnitSystem.SI ? humid_L_min : convertValue(humid_L_min ?? null, 'water_flow', UnitSystem.SI, unitSystem), unit: unitSystem === UnitSystem.SI ? 'L/min' : 'GPM' },
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
@@ -359,7 +361,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.spray_washer.sprayAmount';
         const spray_L_min = type === EquipmentType.SPRAY_WASHER ? (results as SprayWasherResults).sprayAmount_L_min : (results as HotWaterWasherResults).sprayAmount_L_min;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'L/G': { value: waterToAirRatio, unit: '' },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
             'ρ': { value: unitSystem === UnitSystem.SI ? currentInletAirCalculated.density : convertValue(currentInletAirCalculated.density ?? null, 'density', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.density`) },
@@ -389,7 +391,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.hot_water_washer.heatLoad';
         const heatLoad_kW = (results as HotWaterWasherResults).heatLoad_kW;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'h_in': { value: unitSystem === UnitSystem.SI ? inletAir.enthalpy : convertValue(inletAir.enthalpy, 'enthalpy', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.enthalpy`) },
             'h_out': { value: unitSystem === UnitSystem.SI ? outletAir.enthalpy : convertValue(outletAir.enthalpy, 'enthalpy', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.enthalpy`) },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
@@ -424,7 +426,7 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const formulaPath = 'tooltips.steam_humidifier.requiredSteam';
         const requiredSteamAmount_kg_h = (results as SteamHumidifierResults).requiredSteamAmount;
         const values = {
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
             'x_in': { value: unitSystem === UnitSystem.SI ? inletAir.absHumidity : convertValue(inletAir.absHumidity, 'abs_humidity', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.abs_humidity`) },
             'x_out': { value: unitSystem === UnitSystem.SI ? outletAir.absHumidity : convertValue(outletAir.absHumidity, 'abs_humidity', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.abs_humidity`) },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
@@ -485,8 +487,8 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
         const deltaT = (results as FanResults).tempRise_deltaT_celsius;
         const values: Record<string, { value: number | null | undefined; unit: string; }> = {
             'Q_kW': { value: heatGeneration_kW, unit: t('units.si.heat_load') },
-            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 2.20462, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/s' },
-            'Cpa_moist': { value: c_pa_moist, unit: 'kJ/kg·K' },
+            'G': { value: unitSystem === UnitSystem.SI ? massFlowRateDA_kg_s : massFlowRateDA_kg_s * 7936.632, unit: unitSystem === UnitSystem.SI ? 'kg/s' : 'lb/h' },
+            'Cpa_moist': { value: unitSystem === UnitSystem.SI ? c_pa_moist : c_pa_moist * 0.2388459, unit: unitSystem === UnitSystem.SI ? 'kJ/kg·K' : 'BTU/lb·°F' },
             'Q_BTUh': { value: convertValue(heatGeneration_kW, 'heat_load', UnitSystem.SI, unitSystem), unit: t('units.imperial.heat_load') },
             'q': { value: unitSystem === UnitSystem.SI ? airflow : convertValue(airflow, 'airflow', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.airflow`) },
             'Δt': { value: unitSystem === UnitSystem.SI ? deltaT : convertValue(deltaT ?? null, 'temperature_delta', UnitSystem.SI, unitSystem), unit: t(`units.${unitSystem}.temperature`) },
@@ -505,11 +507,15 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'rh': { value: rh, unit: t('units.si.rh') },
             'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: currentInletAirCalculated.absHumidity, unit: t('units.si.abs_humidity') },
         } : {
             't_f': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.temperature') },
+            't_c': { value: temp, unit: t('units.si.temperature') },
             'rh': { value: rh, unit: t('units.imperial.rh') },
+            'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: convertValue(currentInletAirCalculated.absHumidity ?? null, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.abs_humidity') },
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
@@ -542,11 +548,15 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
             'rh': { value: rh, unit: t('units.si.rh') },
             'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: currentOutletAirCalculated.absHumidity, unit: t('units.si.abs_humidity') },
         } : {
             't_f': { value: convertValue(temp, 'temperature', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.temperature') },
+            't_c': { value: temp, unit: t('units.si.temperature') },
             'rh': { value: rh, unit: t('units.imperial.rh') },
+            'P_sat': { value: P_sat, unit: 'Pa' },
             'P_v': { value: P_v, unit: 'Pa' },
+            'P_atm': { value: atmPressure, unit: 'Pa' },
             'x': { value: convertValue(currentOutletAirCalculated.absHumidity ?? null, 'abs_humidity', UnitSystem.SI, UnitSystem.IMPERIAL), unit: t('units.imperial.abs_humidity') },
         };
         return <FormulaTooltipContent title={t(`${formulaPath}.title`)} formula={t(`${formulaPath}.${unitSystem}.formula`)} legend={t(`${formulaPath}.${unitSystem}.legend`)} values={values} />;
@@ -701,13 +711,13 @@ const EquipmentItem: React.FC<EquipmentItemProps> = ({
                                             <NumberInputWithControls value={(conditions as BurnerConditions).shf ?? null} onChange={(val) => handleConditionChange('shf', val)} unitType="shf" unitSystem={unitSystem} min={0} max={1} step={0.01}/>
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-sm text-slate-700 block">
+                                            <div className="text-sm text-slate-700 block">
                                                 <FormulaModalTrigger content={lowerHeatingValueTooltip} title={t('tooltips.burner.heatingValueReference.title')}>
                                                     <span className="border-b border-dashed border-slate-500 cursor-help">
                                                         {t('conditions.lowerHeatingValue')}
                                                     </span>
                                                 </FormulaModalTrigger>
-                                            </label>
+                                            </div>
                                             <NumberInputWithControls value={(conditions as BurnerConditions).lowerHeatingValue ?? null} onChange={(val) => handleConditionChange('lowerHeatingValue', val)} unitType="lower_heating_value" unitSystem={unitSystem} step={0.1}/>
                                         </div>
                                     </>
