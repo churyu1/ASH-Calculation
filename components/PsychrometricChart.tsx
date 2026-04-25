@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState, useLayoutEffect, useCallback, useMe
 import { select, scaleLinear, axisBottom, axisLeft, line, Selection, pointer, drag } from 'd3';
 import { Equipment, AirProperties, UnitSystem, ChartPoint, EquipmentType, BurnerConditions, SteamHumidifierConditions, CoolingCoilConditions, HeatingCoilConditions } from '../types';
 import { convertValue, getPrecisionForUnitType } from '../utils/conversions.ts';
-import { calculateAirProperties, calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, PSYCH_CONSTANTS, calculateSteamProperties, calculateDewPoint, calculateRelativeHumidity, calculateAtmosphericPressure } from '../services/psychrometrics.ts';
+import { calculateAirProperties, calculateAbsoluteHumidity, calculateAbsoluteHumidityFromEnthalpy, calculateEnthalpy, PSYCH_CONSTANTS, calculateSteamProperties, calculateDewPoint, calculateRelativeHumidity, calculateAtmosphericPressure, calculatePsat } from '../services/psychrometrics.ts';
 import { useLanguage } from '../i18n/index.ts';
 import { EQUIPMENT_HEX_COLORS } from '../constants.ts';
 
@@ -137,7 +137,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 .map(eq => eq.type)
         ));
 
-        const fixedHorizontalMargin = { left: 60, right: 50 };
+        const fixedHorizontalMargin = { left: 100, right: 60 };
         const chartAreaWidth = containerWidth - fixedHorizontalMargin.left - fixedHorizontalMargin.right;
         
         let legendHeight = 0;
@@ -186,7 +186,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         
         const isNarrow = width < 500;
         const numTicksX = Math.max(4, Math.round(width / 80));
-        const showYAxisMeta = !isNarrow;
+        const showYAxisMeta = true; // Always show Y axis labels for better clarity
         const rhLinesToLabel = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
         const showEnthalpyLabels = width > 600;
         const enthalpyLines = width < 400 ? [20, 60, 100] : (width < 600 ? [0, 20, 40, 60, 80, 100, 120] : [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]);
@@ -311,12 +311,12 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         if (showYAxisMeta) {
              yAxis.append("text")
                 .attr("transform", "rotate(-90)")
-                .attr("y", -margin.left + 15)
+                .attr("y", -70) // Adjust text position for new larger margin
                 .attr("x", -height / 2)
                 .attr("fill", themeColors.axisLabel)
                 .attr("font-size", "14px")
                 .attr("text-anchor", "middle")
-                .text(`${t('chart.yAxisLabel')} (${absHumidityUnit})`);
+                .text(`${t('chart.yAxisLabel') || 'Absolute Humidity'} (${absHumidityUnit || 'g/kg(DA)'})`);
         }
         
         const SNAP_RADIUS = 15;
@@ -480,13 +480,47 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         
         rhLines.forEach(rh => {
             const lineData: ChartPoint[] = [];
-            for (let T = minTemp; T <= maxTemp; T += 1) {
-                const absHumidity = calculateAbsoluteHumidity(T, rh, atmPressure);
-                if (absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
+            
+            for (let T = minTemp; T <= maxTemp; T += 0.5) {
+                // Hard limit at boiling point minus safety buffer
+                if (T > 99.5) break;
+
+                const Psat = calculatePsat(T);
+                const Pv = (rh / 100) * Psat;
+                
+                // Stop when vapor pressure reaches 90% of atmospheric pressure to stay in stable math region
+                if (Pv >= 0.90 * atmPressure) break;
+                
+                let absHumidity = calculateAbsoluteHumidity(T, rh, atmPressure);
+                
+                // Absolute humidity clipping: Cut if it exceeds 2x the current visible scale
+                if (absHumidity > yScale.domain()[1] * 2) break;
+
+                // Gradient check: detect sudden spikes
+                if (lineData.length > 0) {
+                    const lastPoint = lineData[lineData.length - 1];
+                    if (absHumidity > lastPoint.absHumidity * 10 && lastPoint.absHumidity > 1) {
+                        break; 
+                    }
+                }
+
+                const saturationHumidity = calculateAbsoluteHumidity(T, 100, atmPressure);
+
+                // Clip by saturation line to prevent crossing due to formula instability near boiling
+                // For RH lines, we still want to clip if they mathematically exceed saturation due to precision
+                if (rh < 100 && absHumidity > saturationHumidity) {
+                    absHumidity = saturationHumidity;
+                }
+
+                if (absHumidity >= 0 && absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
                     lineData.push({ temp: T, absHumidity });
                 }
             }
-            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+            const lineGenerator = line<ChartPoint>()
+                .defined(d => d.absHumidity >= 0)
+                .x(d => xScale(d.temp))
+                .y(d => yScale(d.absHumidity));
+            
             svg.append("path").datum(lineData).attr("fill", "none").attr("stroke", themeColors.rhLine).attr("stroke-width", 0.5)
                .attr("stroke-dasharray", rh === 100 ? "0" : "2,2").attr("d", lineGenerator);
             
@@ -553,12 +587,19 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             const lineData: ChartPoint[] = [];
             for (let T = minTemp; T <= maxTemp; T += 1) {
                 const absHumidity = calculateAbsoluteHumidityFromEnthalpy(T, h);
-                if (!isNaN(absHumidity) && absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
-                    lineData.push({ temp: T, absHumidity });
+                
+                // Keep points that are within the valid physical domain (non-negative humidity)
+                if (!isNaN(absHumidity) && absHumidity >= 0) {
+                    if (absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
+                        lineData.push({ temp: T, absHumidity });
+                    }
                 }
             }
             const filteredLineData = lineData.filter(d => d.temp >= xScale.domain()[0] && d.temp <= xScale.domain()[1]);
-            const lineGenerator = line<ChartPoint>().x(d => xScale(d.temp)).y(d => yScale(d.absHumidity));
+            const lineGenerator = line<ChartPoint>()
+                .defined(d => !isNaN(d.absHumidity))
+                .x(d => xScale(d.temp))
+                .y(d => yScale(d.absHumidity));
             if (filteredLineData.length > 1) {
                 enthalpyGroup.append("path").datum(filteredLineData)
                    .attr("fill", "none")
@@ -731,8 +772,12 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                     const h = calculateEnthalpy(startPoint.temp, startPoint.absHumidity);
                     for (let t = tempDomainMax; t >= tempDomainMin; t -= 1) {
                         const x = calculateAbsoluteHumidityFromEnthalpy(t, h);
-                        if (x >= yScale.domain()[0] && x <= yScale.domain()[1]) {
-                           path.push({ temp: t, absHumidity: x });
+                        
+                        // Only plot points that represent valid states (non-negative humidity)
+                        if (x >= 0) {
+                            if (x >= yScale.domain()[0] && x <= yScale.domain()[1]) {
+                                path.push({ temp: t, absHumidity: x });
+                            }
                         }
                     }
                     break;
