@@ -7,7 +7,7 @@ import {
     Project, BurnerResults, CoolingCoilResults, FilterResults, HeatingCoilResults,
     SprayWasherResults, SteamHumidifierResults, FanResults, CustomResults
 } from './types';
-import { CloudUpload, Save } from 'lucide-react';
+import { CloudUpload, Save, Settings2, LineChart, LogIn, LogOut } from 'lucide-react';
 import { EQUIPMENT_COLORS } from './constants.ts';
 import { calculateAirProperties, calculatePsat, calculateAbsoluteHumidity, calculateEnthalpy, calculateDewPoint, calculateAbsoluteHumidityFromEnthalpy, calculateRelativeHumidity, calculateDryAirDensity, PSYCH_CONSTANTS, calculateSteamProperties, calculateTempFromRhAndAbsHumidity, calculateAtmosphericPressure } from './services/psychrometrics.ts';
 import { useLanguage } from './i18n/index.ts';
@@ -317,6 +317,8 @@ const createNewProject = (id: string, name: string): Project => ({
     acInletAir: { temp: 30, rh: 20, absHumidity: null, enthalpy: null, density: null },
     acOutletAir: { temp: 27, rh: 70, absHumidity: null, enthalpy: null, density: null },
     altitude: 0,
+    chartMinTemp: -20,
+    chartMaxTemp: 60,
 });
 
 const SUMMARY_TAB_ID = 'summary-tab';
@@ -1100,6 +1102,8 @@ const App: React.FC = () => {
     const handleAcOutletRHChange = (value: number | null) => { if (activeProject) handleGlobalChange({ acOutletAir: { ...activeProject.acOutletAir, rh: value } })};
     const handleAirflowChange = (value: number | null) => handleGlobalChange({ airflow: value });
     const handleAltitudeChange = (value: number | null) => handleGlobalChange({ altitude: value ?? 0 });
+    const handleChartMinTempChange = (value: number | null) => handleGlobalChange({ chartMinTemp: value ?? -20 });
+    const handleChartMaxTempChange = (value: number | null) => handleGlobalChange({ chartMaxTemp: value ?? 60 });
     
     const equipmentForChart = useMemo(() => activeProject?.equipmentList.filter(eq =>
         ![EquipmentType.FILTER].includes(eq.type) &&
@@ -1230,6 +1234,8 @@ const App: React.FC = () => {
                 isSplitViewActive={isTwoColumnLayout}
                 altitude={activeProject.altitude}
                 onUpdate={handleChartUpdate}
+                minTemp={activeProject.chartMinTemp ?? -20}
+                maxTemp={activeProject.chartMaxTemp ?? 60}
             />
         </div>
     );
@@ -1309,20 +1315,43 @@ const App: React.FC = () => {
                                 <div id="global-settings" className="p-4 bg-white rounded-lg shadow-md">
                                     <h2 className="text-xl font-semibold mb-4">{t('app.configuration')}</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200 md:col-span-2">
+                                        <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 md:col-span-2">
+                                            <div className="flex items-center gap-2 mb-4 text-slate-600">
+                                                <LineChart className="w-5 h-5" />
+                                                <h3 className="font-semibold">{t('app.graphDisplaySettings')}</h3>
+                                            </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                                                 <div>
-                                                    <h3 className="font-semibold mb-2">{t('app.systemAirflow')}</h3>
+                                                    <h4 className="text-sm font-medium mb-2 text-slate-600">{t('app.chartMinTemp')}</h4>
+                                                    <NumberInputWithControls value={activeProject.chartMinTemp ?? -20} onChange={handleChartMinTempChange} unitType="temperature" unitSystem={unitSystem} step={5} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-medium mb-2 text-slate-600">{t('app.chartMaxTemp')}</h4>
+                                                    <NumberInputWithControls value={activeProject.chartMaxTemp ?? 60} onChange={handleChartMaxTempChange} unitType="temperature" unitSystem={unitSystem} step={5} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-white rounded-lg shadow-md border border-indigo-100 md:col-span-2 ring-1 ring-indigo-50">
+                                            <div className="flex items-center gap-2 mb-4 text-indigo-700">
+                                                <Settings2 className="w-5 h-5" />
+                                                <h3 className="font-semibold">{t('app.systemDesignParameters')}</h3>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                                <div>
+                                                    <h4 className="text-sm font-medium mb-2 text-slate-600">{t('app.systemAirflow')}</h4>
                                                     <NumberInputWithControls value={activeProject.airflow} onChange={handleAirflowChange} unitType="airflow" unitSystem={unitSystem} step={10} min={0} />
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-semibold mb-2">{t('app.altitude')}</h3>
+                                                    <h4 className="text-sm font-medium mb-2 text-slate-600">{t('app.altitude')}</h4>
                                                     <NumberInputWithControls value={activeProject.altitude} onChange={handleAltitudeChange} unitType="altitude" unitSystem={unitSystem} step={100} min={0} />
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
-                                            <h3 className="font-semibold mb-2">{t('app.acInletConditions')}</h3>
+                                        <div className="p-4 bg-white rounded-lg shadow-md border border-indigo-100 ring-1 ring-indigo-50">
+                                            <div className="flex items-center gap-2 mb-4 text-indigo-700">
+                                                <LogIn className="w-5 h-5" />
+                                                <h3 className="font-semibold">{t('app.acInletConditions')}</h3>
+                                            </div>
                                             <div className="space-y-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>
@@ -1337,8 +1366,11 @@ const App: React.FC = () => {
                                                 <div className="flex justify-between items-center"><span className="text-sm">{t('airProperties.enthalpy')}</span><DisplayValueWithUnit value={acInletCalculated.enthalpy} unitType="enthalpy" unitSystem={unitSystem} tooltipContent={acInletEnthalpyTooltip} /></div>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-slate-50 rounded-lg shadow-inner border border-slate-200">
-                                            <h3 className="font-semibold mb-2">{t('app.acOutletConditions')}</h3>
+                                        <div className="p-4 bg-white rounded-lg shadow-md border border-indigo-100 ring-1 ring-indigo-50">
+                                            <div className="flex items-center gap-2 mb-4 text-indigo-700">
+                                                <LogOut className="w-5 h-5" />
+                                                <h3 className="font-semibold">{t('app.acOutletConditions')}</h3>
+                                            </div>
                                             <div className="space-y-3">
                                                 <div className="flex flex-col gap-1">
                                                     <label className="text-sm text-slate-700 block">{t('airProperties.temperature')}</label>

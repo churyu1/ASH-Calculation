@@ -24,6 +24,8 @@
     "pressureLoss": "Pressure Loss",
     "totalPressureLoss": "Total Pressure Loss:",
     "psychrometricChart": "Psychrometric Chart",
+    "chartMinTemp": "Chart Min Temp",
+    "chartMaxTemp": "Chart Max Temp",
     "dataManagement": "Data Management",
     "importConfig": "Import Config",
     "exportConfig": "Export Config",

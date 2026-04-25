@@ -189,4 +189,6 @@ export interface Project {
     acInletAir: AirProperties;
     acOutletAir: AirProperties;
     altitude: number;
+    chartMinTemp?: number;
+    chartMaxTemp?: number;
 }

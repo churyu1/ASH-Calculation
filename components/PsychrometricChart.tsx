@@ -15,9 +15,11 @@ interface PsychrometricChartProps {
     isSplitViewActive: boolean;
     altitude: number;
     onUpdate: (id: number, updates: { inlet?: AirProperties, outlet?: AirProperties }) => void;
+    minTemp: number;
+    maxTemp: number;
 }
 
-export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, altitude, onUpdate }) => {
+export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, altitude, onUpdate, minTemp, maxTemp }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const { t } = useLanguage();
@@ -187,7 +189,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         const showYAxisMeta = !isNarrow;
         const rhLinesToLabel = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
         const showEnthalpyLabels = width > 600;
-        const enthalpyLines = width < 400 ? [20, 60, 100] : (width < 600 ? [0, 20, 40, 60, 80, 100, 120] : [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]);
+        const enthalpyLines = width < 400 ? [20, 60, 100] : (width < 600 ? [0, 20, 40, 60, 80, 100, 120] : [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]);
 
 
         const themeColors = {
@@ -278,7 +280,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
             });
         }
 
-        const xScale = scaleLinear().domain([-20, 60]).range([0, width]);
+        const xScale = scaleLinear().domain([minTemp, maxTemp]).range([0, width]);
         const yScale = scaleLinear().domain([0, 30]).range([height, 0]);
 
         const xAxis = svg.append("g")
@@ -478,7 +480,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         
         rhLines.forEach(rh => {
             const lineData: ChartPoint[] = [];
-            for (let T = -20; T <= 60; T += 1) {
+            for (let T = minTemp; T <= maxTemp; T += 1) {
                 const absHumidity = calculateAbsoluteHumidity(T, rh, atmPressure);
                 if (absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
                     lineData.push({ temp: T, absHumidity });
@@ -538,18 +540,18 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
         const enthalpyGroup = svg.append("g");
         
         const hForAngle = 60;
-        const p1_temp_angle = -20;
+        const p1_temp_angle = minTemp;
         const p1_hum_angle = calculateAbsoluteHumidityFromEnthalpy(p1_temp_angle, hForAngle);
         const p2_hum_angle = 0;
         const p2_temp_angle = hForAngle / PSYCH_CONSTANTS.SPECIFIC_HEAT_DRY_AIR;
-        const p1_screen = { x: xScale(p1_temp_angle), y: yScale(p1_hum_angle) };
+        const p1_screen = { x: xScale(p1_temp_angle), y: xScale(p1_temp_angle) > xScale(p2_temp_angle) ? yScale(0) : yScale(p1_hum_angle) }; // Safety check for angle
         const p2_screen = { x: xScale(p2_temp_angle), y: yScale(p2_hum_angle) };
         const angleRad = Math.atan2(p2_screen.y - p1_screen.y, p2_screen.x - p1_screen.x);
         const angleDeg = angleRad * 180 / Math.PI;
 
         enthalpyLines.forEach(h => {
             const lineData: ChartPoint[] = [];
-            for (let T = -20; T <= 60; T += 1) {
+            for (let T = minTemp; T <= maxTemp; T += 1) {
                 const absHumidity = calculateAbsoluteHumidityFromEnthalpy(T, h);
                 if (!isNaN(absHumidity) && absHumidity >= yScale.domain()[0] && absHumidity <= yScale.domain()[1]) {
                     lineData.push({ temp: T, absHumidity });
@@ -1624,7 +1626,7 @@ export const PsychrometricChart: React.FC<PsychrometricChartProps> = ({ airCondi
                 })
                 .call(processDrag);
         });
-    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, dimensions, t, atmPressure]);
+    }, [airConditionsData, globalInletAir, globalOutletAir, unitSystem, isSplitViewActive, onUpdate, dimensions, t, atmPressure, minTemp, maxTemp]);
     
     // Use dynamic height classes based on isSplitViewActive to ensure optimal aspect ratio
     const containerClasses = isSplitViewActive
